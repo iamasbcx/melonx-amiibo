@@ -1,0 +1,23 @@
+workflows:
+  ios-unsigned:
+    name: MeloNX · 离线 Amiibo · 未签名 IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      xcode: "26.2"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+      cancel_previous_builds: true
+    scripts:
+      - name: 重编 NativeAOT 核心、构建应用并校验交付
+        script: bash scripts/build-ios-unsigned.sh
+    artifacts:
+      - build/artifacts/*.ipa
+      - build/artifacts/*.json
+      - build/artifacts/SHA256SUMS
+      - build/logs/*.log
