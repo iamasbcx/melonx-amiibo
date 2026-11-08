@@ -194,125 +194,9 @@ struct SettingsView: View {
                     }
                     .padding(.horizontal, 16)
                     
-                    let infoColumns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+                    deviceInfoGrid
                     
-                    LazyVGrid(columns: infoColumns, spacing: 6) {
-                        Label(UIDevice.modelName, systemImage: deviceIcon)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity)
-                            .background(Color(.tertiarySystemGroupedBackground),
-                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.15)) { showOSIcon.toggle() }
-                        } label: {
-                            Group {
-                                if isPortrait {
-                                    if showOSIcon {
-                                        Label(osVersionString, systemImage: "applelogo")
-                                            .font(.caption)
-                                    } else {
-                                        Text(systemVersionString)
-                                            .font(.system(size: 9))
-                                    }
-                                } else {
-                                    Label(systemVersionString, systemImage: "applelogo")
-                                        .font(.caption)
-                                }
-                            }
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity)
-                            .background(Color(.tertiarySystemGroupedBackground),
-                                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        
-                        if !ProcessInfo.processInfo.isiOSAppOnMac {
-                            let memoryLimit = checkAppEntitlement("com.apple.developer.kernel.increased-memory-limit")
-                            let extendedVirtualAddressing = checkAppEntitlement("com.apple.developer.kernel.extended-virtual-addressing")
-                            Menu {
-                                Text(memoryText)
-                                
-                                Button {
-                                    if !memoryLimit {
-                                        UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
-                                    }
-                                } label: {
-                                    Text("Increased Memory Limit: \(memoryLimit ? "Enabled" : "Disabled")")
-                                }
-                                if needsExtendedVirtualAddressing || extendedVirtualAddressing {
-                                    Button {
-                                        if !extendedVirtualAddressing {
-                                            UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
-                                        }
-                                    } label: {
-                                        Text("Extended Virtual Addressing: \(memoryLimit ? "Enabled" : "Disabled")")
-                                    }
-                                }
-                            } label: {
-                                Label(title: {
-                                    if memoryLimit && extendedVirtualAddressing {
-                                        Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(.green)
-                                    } else if memoryLimit {
-                                        Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(needsExtendedVirtualAddressing ? .orange : .green)
-                                    } else {
-                                        Text(memoryText)
-                                    }
-                                }, icon: {
-                                    Image(systemName: "memorychip.fill")
-                                })
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .frame(maxWidth: .infinity)
-                                .background(Color(.tertiarySystemGroupedBackground),
-                                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    
-                    let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
-                    LazyVGrid(columns: cols, spacing: 8) {
-                        ForEach(SettingsCategory.allCases) { category in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.18)) {
-                                    selectedCategory = category
-                                }
-                            } label: {
-                                VStack(spacing: 4) {
-                                    Image(systemName: category.icon)
-                                        .font(.system(size: 15, weight: .medium))
-                                    Text(LocalizedStringKey(category.rawValue))
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.7)
-                                }
-                                .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
-                                .background(
-                                    selectedCategory == category
-                                    ? theme.accent.secondary
-                                    : Color(.tertiarySystemGroupedBackground),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                )
-                                .foregroundStyle(
-                                    selectedCategory == category ? Color.white : Color.primary
-                                )
-                                .animation(.easeInOut(duration: 0.18), value: selectedCategory)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 16)
+                    categorySelector
                 }
                 .padding(.vertical, 10)
                 .background(Color(.secondarySystemGroupedBackground))
@@ -333,6 +217,133 @@ struct SettingsView: View {
         }
     }
     
+    // 将设备信息网格与导航容器分开求值；权限检测和点击动作沿用原有行为。
+    private var deviceInfoGrid: some View {
+        let infoColumns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
+
+        return LazyVGrid(columns: infoColumns, spacing: 6) {
+            Label(UIDevice.modelName, systemImage: deviceIcon)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity)
+                .background(Color(.tertiarySystemGroupedBackground),
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+
+            Button {
+                withAnimation(.easeInOut(duration: 0.15)) { showOSIcon.toggle() }
+            } label: {
+                Group {
+                    if isPortrait {
+                        if showOSIcon {
+                            Label(osVersionString, systemImage: "applelogo")
+                                .font(.caption)
+                        } else {
+                            Text(systemVersionString)
+                                .font(.system(size: 9))
+                        }
+                    } else {
+                        Label(systemVersionString, systemImage: "applelogo")
+                            .font(.caption)
+                    }
+                }
+                .foregroundColor(.secondary)
+                .lineLimit(1)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity)
+                .background(Color(.tertiarySystemGroupedBackground),
+                            in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            .buttonStyle(.plain)
+
+            if !ProcessInfo.processInfo.isiOSAppOnMac {
+                let memoryLimit = checkAppEntitlement("com.apple.developer.kernel.increased-memory-limit")
+                let extendedVirtualAddressing = checkAppEntitlement("com.apple.developer.kernel.extended-virtual-addressing")
+                Menu {
+                    Text(memoryText)
+
+                    Button {
+                        if !memoryLimit {
+                            UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
+                        }
+                    } label: {
+                        Text("Increased Memory Limit: \(memoryLimit ? "Enabled" : "Disabled")")
+                    }
+                    if needsExtendedVirtualAddressing || extendedVirtualAddressing {
+                        Button {
+                            if !extendedVirtualAddressing {
+                                UIApplication.shared.open(URL(string: "https://git.ryujinx.app/projects/MeloNX#entitlements")!)
+                            }
+                        } label: {
+                            Text("Extended Virtual Addressing: \(memoryLimit ? "Enabled" : "Disabled")")
+                        }
+                    }
+                } label: {
+                    Label(title: {
+                        if memoryLimit && extendedVirtualAddressing {
+                            Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(.green)
+                        } else if memoryLimit {
+                            Text(memoryText + "  ") + Text(Image(systemName: "checkmark.circle.fill")).foregroundColor(needsExtendedVirtualAddressing ? .orange : .green)
+                        } else {
+                            Text(memoryText)
+                        }
+                    }, icon: {
+                        Image(systemName: "memorychip.fill")
+                    })
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity)
+                    .background(Color(.tertiarySystemGroupedBackground),
+                                in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
+    // 分类栏单独求值，避免整个导航视图承担同一个泛型表达式的类型推断。
+    // rawValue 已经是本地化键，选择动作和枚举标识保持不变。
+    private var categorySelector: some View {
+        let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
+        return LazyVGrid(columns: cols, spacing: 8) {
+            ForEach(SettingsCategory.allCases) { category in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        selectedCategory = category
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: category.icon)
+                            .font(.system(size: 15, weight: .medium))
+                        Text(category.rawValue)
+                            .font(.system(size: 10, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
+                    .background(
+                        selectedCategory == category
+                        ? theme.accent.secondary
+                        : Color(.tertiarySystemGroupedBackground),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
+                    .foregroundStyle(
+                        selectedCategory == category ? Color.white : Color.primary
+                    )
+                    .animation(.easeInOut(duration: 0.18), value: selectedCategory)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
     var selectedCategoryOp: Binding<SettingsCategory?> {
         .init {
             selectedCategory
@@ -359,7 +370,7 @@ struct SettingsView: View {
                                 selectedCategory = category
                             }
                         } label: {
-                        Label(LocalizedStringKey(category.rawValue), systemImage: category.icon)
+                            Label(category.rawValue, systemImage: category.icon)
                                 .font(.subheadline.weight(.medium))
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
@@ -377,7 +388,7 @@ struct SettingsView: View {
             .navigationTitle("Settings")
             
             selectedCategory.formView(for: self)
-                .navigationTitle(Text(LocalizedStringKey(selectedCategory.rawValue)))
+                .navigationTitle(Text(selectedCategory.rawValue))
                 .modifier(HiddenScrollBackground())
                 .themedBackground()
         }

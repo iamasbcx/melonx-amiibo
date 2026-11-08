@@ -83,7 +83,13 @@ struct ContinueButton: View {
     
     var body: some View {
         Button(action: doAction) {
-            Text(LocalizedStringKey(success && showCheckmark ? "✓" : text))
+            Group {
+                if success && showCheckmark {
+                    Text("✓")
+                } else {
+                    Text(text)
+                }
+            }
                 .padding()
                 .padding(.horizontal, 24)
                 .foregroundStyle(textColour)

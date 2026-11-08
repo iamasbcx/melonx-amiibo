@@ -11,12 +11,16 @@ import Combine
 
 struct EmulationView: View {
     var game: GameInfo
+
+    /// 从游戏信息创建游戏内视图；其余状态由 SwiftUI 属性包装器初始化。
+    init(game: GameInfo) {
+        self.game = game
+    }
     @EnvironmentObject var ryujinxController: RyujinxController
     @ObservedObject var menuViewHandler: InGameConfigView_MenuView = .shared
     @StateObject var controllerManager: ControllerManager = .shared
     @StateObject var statisticsHandler: StatisticsHandler = .init()
     @StateObject private var nativeSettingsManager: NativeSettingsManager = .shared
-    private var air = Air.shared
     
     @State var isConnected = false
     

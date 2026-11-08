@@ -151,38 +151,7 @@ struct PerGameSettingsView: View {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
                     
-                    let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
-                    LazyVGrid(columns: cols, spacing: 8) {
-                        ForEach(SettingsCategory.allCases) { category in
-                            Button {
-                                withAnimation(.easeInOut(duration: 0.18)) {
-                                    selectedCategory = category
-                                }
-                            } label: {
-                                VStack(spacing: 4) {
-                                    Image(systemName: category.icon)
-                                        .font(.system(size: 15, weight: .medium))
-                                    Text(LocalizedStringKey(category.rawValue))
-                                        .font(.system(size: 10, weight: .semibold))
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.7)
-                                }
-                                .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
-                                .background(
-                                    selectedCategory == category
-                                    ? Color.accentColor
-                                    : Color(.tertiarySystemGroupedBackground),
-                                    in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                )
-                                .foregroundStyle(
-                                    selectedCategory == category ? Color.white : Color.primary
-                                )
-                                .animation(.easeInOut(duration: 0.18), value: selectedCategory)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.horizontal, 16)
+                    categorySelector
                 }
                 .padding(.vertical, 10)
                 .background(Color(.secondarySystemGroupedBackground))
@@ -218,6 +187,43 @@ struct PerGameSettingsView: View {
         }
     }
     
+    // 分类栏单独求值，避免整个导航视图承担同一个泛型表达式的类型推断。
+    // rawValue 已经是本地化键，选择动作和枚举标识保持不变。
+    private var categorySelector: some View {
+        let cols = Array(repeating: GridItem(.flexible(), spacing: 8), count: 5)
+        return LazyVGrid(columns: cols, spacing: 8) {
+            ForEach(SettingsCategory.allCases) { category in
+                Button {
+                    withAnimation(.easeInOut(duration: 0.18)) {
+                        selectedCategory = category
+                    }
+                } label: {
+                    VStack(spacing: 4) {
+                        Image(systemName: category.icon)
+                            .font(.system(size: 15, weight: .medium))
+                        Text(category.rawValue)
+                            .font(.system(size: 10, weight: .semibold))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 48, maxHeight: 48)
+                    .background(
+                        selectedCategory == category
+                        ? Color.accentColor
+                        : Color(.tertiarySystemGroupedBackground),
+                        in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    )
+                    .foregroundStyle(
+                        selectedCategory == category ? Color.white : Color.primary
+                    )
+                    .animation(.easeInOut(duration: 0.18), value: selectedCategory)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 16)
+    }
+
     var selectedCategoryOp: Binding<SettingsCategory?> {
         .init {
             selectedCategory

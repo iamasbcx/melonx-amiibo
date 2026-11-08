@@ -103,7 +103,8 @@ struct NoJITView: View {
             EnableJIT.enableJIT(nativeSettingsManager.jitProvider(JITProvider.disabled).value)
             
             Task.detached {
-                while !jitEnabled() {
+                // 检测会访问主 actor 上的模拟器状态，后台轮询必须等待隔离调用完成。
+                while !(await jitEnabled()) {
                     try? await Task.sleep(nanoseconds: 200_000_000)
                 }
                 

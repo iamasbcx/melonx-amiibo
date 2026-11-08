@@ -141,8 +141,6 @@ class MainSceneDelegate: UIResponder, UIWindowSceneDelegate {
 
 
 class MainViewController: GCEventViewController {
-    private var displayRegistration: AnyObject?
-
     private let host = UIHostingController<AnyView>(rootView: AnyView(
         AppRootView()
             .environmentObject(RyujinxController.shared)
@@ -176,13 +174,8 @@ class MainViewController: GCEventViewController {
         view.addSubview(host.view)
         host.didMove(toParent: self)
 
-        if #available(iOS 27.0, *) {
-            let configuration = UISceneConfiguration()
-            configuration.delegateClass = ExternalDisplaySceneDelegate.self
-            displayRegistration = registerSceneAccessory(
-                .externalNonInteractive(sceneConfiguration: configuration)
-            )
-        }
+        // 外接显示器由 Info.plist 的场景配置注册，连接时进入 ExternalDisplaySceneDelegate。
+        // 构建固定使用 Xcode 26.2，不引用该 SDK 尚未提供的场景附件 API。
     }
 }
 
