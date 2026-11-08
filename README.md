@@ -39,7 +39,7 @@ MELONX_AMIIBO_CATALOG 1
 
 自定义输入的是身份 ID，不是金手指或任意游戏存档。普通身份注入与游戏奖励需要逐游戏实测；应用区存档、狼林克心数、成长数据等不能从 ID 推算，当前不承诺完整效果。
 
-需要 JIT、内存权限和正常 MeloNX 运行环境。当前 Windows 已通过固定 .NET 10.0.100 的 managed build、虚拟 amiibo HLE 15 项并发/生命周期检查和 ABI 布局检查；Codemagic 的 Xcode/NativeAOT/IPA 门禁尚未在本机执行，IPA 和游戏实机效果不能提前宣称通过。
+需要 JIT、内存权限和正常 MeloNX 运行环境。当前 Windows 已通过固定 .NET 10.0.100 的 managed build、虚拟 amiibo HLE 15 项并发/生命周期检查和 ABI 布局检查；用户提供的 Codemagic 日志已显示 Xcode 编译成功。随后发现并修复了打包脚本错误要求外置 ICU 数据的问题，完整 IPA 交付仍需重跑确认，游戏实机效果尚未验证。
 
 
 ## Codemagic 编译

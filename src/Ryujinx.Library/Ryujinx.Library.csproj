@@ -18,6 +18,12 @@
     <OptimizationPreference>Speed</OptimizationPreference>
   </PropertyGroup>
 
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' == 'ios-arm64'">
+    <!-- .NET 10 的 iOS 全球化使用系统 ICU 与 Foundation，不携带独立 ICU 数据文件。 -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <StaticICULinking>false</StaticICULinking>
+  </PropertyGroup>
+
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.GC.ConserveMemory" Value="9" />
   </ItemGroup>
@@ -42,17 +48,9 @@
   <Target Name="PrepareBeforeIlcCompile"
           BeforeTargets="IlcCompile">
 
-    <Copy
-      SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt_hybrid.dat"
-      DestinationFolder="$(PublishDir)"
-      Condition="Exists('%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt_hybrid.dat')" />
-
-    <Copy
-      SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt.dat"
-      DestinationFolder="$(PublishDir)"
-      Condition="Exists('%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt.dat')" />
-
-
+    <!-- 在发布调用方覆盖属性时明确失败；不能以关闭全球化或改用静态 ICU 绕过打包契约。 -->
+    <Error Condition="'$(RuntimeIdentifier)' == 'ios-arm64' and ('$(HybridGlobalization)' != 'true' or '$(InvariantGlobalization)' != 'false' or '$(StaticICULinking)' != 'false')"
+           Text="iOS NativeAOT requires HybridGlobalization=true, InvariantGlobalization=false and StaticICULinking=false." />
 
     <!-- We need to find the path to Xcode so we can set manual linker args to the correct SDKs
         Once https://github.com/dotnet/runtime/issues/88737 is released, we can take this out

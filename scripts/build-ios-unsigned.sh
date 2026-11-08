@@ -25,7 +25,7 @@ exec > >(tee "${LOG_DIR}/build.log") 2>&1
 if [[ -f "${ARTIFACT_DIR}/MeloNXAmiibo.ipa" ]]; then
   OLD_ARTIFACT_DIR="${BUILD_DIR}/backups/artifacts-$(date -u +%Y%m%dT%H%M%SZ)"
   mkdir -p "${OLD_ARTIFACT_DIR}"
-  for old_file in MeloNXAmiibo.ipa SHA256SUMS ipa-verification.json build-inputs.json; do
+  for old_file in MeloNXAmiibo.ipa SHA256SUMS ipa-verification.json core-verification.json build-inputs.json; do
     if [[ -e "${ARTIFACT_DIR}/${old_file}" ]]; then
       mv "${ARTIFACT_DIR}/${old_file}" "${OLD_ARTIFACT_DIR}/${old_file}"
     fi
@@ -96,7 +96,7 @@ xcodebuild -resolvePackageDependencies \
   2>&1 | tee "${LOG_DIR}/spm-resolve.log"
 test "${SPM_HASH}" = "$(shasum -a 256 "${SPM_LOCK}" | awk '{print $1}')"
 
-# 原发布目录整体归档，防止增量输出或 ICU 残留被当作本次发布结果。
+# 原发布目录整体归档，防止增量输出被当作本次发布结果。
 CORE_RUNTIME_DIR="${PROJECT_ROOT}/src/Ryujinx.Library/bin/Release/net10.0/ios-arm64"
 if [[ -d "${CORE_RUNTIME_DIR}" ]]; then
   CORE_BACKUP="${BUILD_DIR}/backups/$(date -u +%Y%m%dT%H%M%SZ)"
@@ -125,6 +125,24 @@ cp "${CORE_DYLIB}" "${CORE_NORMALIZED}"
 if codesign --display "${CORE_NORMALIZED}" >/dev/null 2>&1; then
   codesign --remove-signature "${CORE_NORMALIZED}"
 fi
+# .NET 10 iOS 使用系统 ICU 与 Foundation；在 Xcode 前检查本次核心的实际加载依赖。
+# 与最终 IPA 共用同一验证函数，缺依赖、ABI 或目标平台错误均立即失败。
+xcrun otool -L "${CORE_NORMALIZED}" | tee "${LOG_DIR}/core-dependencies.log"
+python3 - "${SCRIPT_DIR}" "${CORE_NORMALIZED}" "${ARTIFACT_DIR}/core-verification.json" <<'PY'
+import json, pathlib, sys
+sys.path.insert(0, sys.argv[1])
+from verify_ipa import sha256, validate_system_icu, verify_core
+data = pathlib.Path(sys.argv[2]).read_bytes()
+core = verify_core(data)
+report = {
+    "core_sha256": sha256(data),
+    "dependencies": list(core.dependencies),
+    "globalization": {"mode": "apple-system-icu", "dependency": validate_system_icu(core)},
+    "scope": "NativeAOT 核心的平台、导出与依赖结构；未完成真机运行验证",
+}
+pathlib.Path(sys.argv[3]).write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+print(json.dumps(report, ensure_ascii=False, indent=2))
+PY
 # Xcode 仍会执行上游 Legacy 依赖；它只能复核同一核心，不能再次发布使摘要漂移。
 export MLX_FIXED_DOTNET="${DOTNET}"
 export MLX_PREBUILT_CORE_SHA256="$(shasum -a 256 "${CORE_DYLIB}" | awk '{print $1}')"
@@ -153,17 +171,6 @@ trap 'rm -rf "${PACKAGE_DIR}"' EXIT
 mkdir -p "${PACKAGE_DIR}/Payload"
 ditto "${APP_PATH}" "${PACKAGE_DIR}/Payload/MeloNX.app"
 STAGED_APP="${PACKAGE_DIR}/Payload/MeloNX.app"
-
-# ICU 数据是当前 HybridGlobalization 核心的运行输入，必须从本次 publish 输出复制。
-ICU_FOUND=0
-while IFS= read -r -d '' icu_file; do
-  ditto "${icu_file}" "${STAGED_APP}/$(basename "${icu_file}")"
-  ICU_FOUND=1
-done < <(find "${CORE_RUNTIME_DIR}" -type f -name 'icudt*.dat' -print0)
-if [[ "${ICU_FOUND}" != 1 ]]; then
-  echo "本次 NativeAOT 发布缺少 icudt*.dat，不能交付无法验证的全球化运行输入。" >&2
-  exit 1
-fi
 
 # 嵌入依赖可携带上游签名；只在打包副本中移除，不改第三方原始文件。
 while IFS= read -r -d '' item; do

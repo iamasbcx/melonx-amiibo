@@ -19,6 +19,14 @@ from zipfile import ZipFile
 ARM64 = 0x0100000C
 DYLIB_COMMANDS = {0x0C, 0x80000018, 0x8000001F, 0x20, 0x80000023}
 SYMBOLS = {"_mlx_amiibo_get_abi", "_mlx_amiibo_get_state", "_mlx_amiibo_scan"}
+# Apple 平台由系统 ICU 与 Foundation 提供全球化和基础运行时能力。
+SYSTEM_ICU_DEPENDENCIES = frozenset({
+    "/usr/lib/libicucore.A.dylib",
+    "/usr/lib/libicucore.dylib",
+})
+SYSTEM_FOUNDATION_DEPENDENCIES = frozenset({
+    "/System/Library/Frameworks/Foundation.framework/Foundation",
+})
 APP_PREFIX = "Payload/MeloNX.app/"
 
 
@@ -221,11 +229,37 @@ def parse_macho(data: bytes) -> MachO:
     return MachO(cpu, filetype, signed, tuple(platforms), tuple(dependencies), frozenset(exports))
 
 
+def validate_system_icu(macho: MachO) -> str:
+    """确认核心直接依赖 Apple 系统 ICU；数据文件不能替代该依赖。"""
+    for dependency in macho.dependencies:
+        if dependency in SYSTEM_ICU_DEPENDENCIES:
+            return dependency
+    raise ValueError("NativeAOT 核心缺少 Apple 系统 ICU 依赖（/usr/lib/libicucore*.dylib）")
+
+
+def _validate_system_foundation(macho: MachO) -> str:
+    """确认核心直接依赖 Foundation 系统框架。"""
+    for dependency in macho.dependencies:
+        if dependency in SYSTEM_FOUNDATION_DEPENDENCIES:
+            return dependency
+    raise ValueError("NativeAOT 核心缺少 Foundation 系统框架依赖")
+
+
+def verify_core(data: bytes) -> MachO:
+    """校验本次 NativeAOT 核心，并返回解析结果供 IPA 核心复核。"""
+    macho = parse_macho(data)
+    if macho.filetype != 6 or macho.signed or not SYMBOLS <= macho.exports:
+        raise ValueError("本次核心应为未签名 iOS dylib，且必须导出 3 个 Amiibo ABI 函数")
+    validate_system_icu(macho)
+    _validate_system_foundation(macho)
+    return macho
+
+
 def verify(path: Path, expected_core: Path) -> dict:
     expected_core_bytes = expected_core.read_bytes()
-    expected_info = parse_macho(expected_core_bytes)
-    if expected_info.filetype != 6 or expected_info.signed or not SYMBOLS <= expected_info.exports:
-        raise ValueError("本次核心应为未签名 iOS dylib，且必须导出 3 个 Amiibo ABI 函数")
+    expected_info = verify_core(expected_core_bytes)
+    globalization_dependency = validate_system_icu(expected_info)
+    foundation_dependency = _validate_system_foundation(expected_info)
     with ZipFile(path) as archive:
         names = archive.namelist()
         if len(set(names)) != len(names):
@@ -258,6 +292,11 @@ def verify(path: Path, expected_core: Path) -> dict:
         core = archive.read(core_path)
         if sha256(core) != sha256(expected_core_bytes):
             raise ValueError("IPA 核心与本次重编的 NativeAOT 核心不一致")
+        embedded_core_info = verify_core(core)
+        embedded_globalization_dependency = validate_system_icu(embedded_core_info)
+        embedded_foundation_dependency = _validate_system_foundation(embedded_core_info)
+        if embedded_globalization_dependency != globalization_dependency or embedded_foundation_dependency != foundation_dependency:
+            raise ValueError("IPA 核心与本次 NativeAOT 核心的系统依赖不一致")
         required = {
             APP_PREFIX + "MeloNX",
             extension_prefix + "MeloNXRamDonor",
@@ -271,8 +310,6 @@ def verify(path: Path, expected_core: Path) -> dict:
         missing = sorted(required - files)
         if missing:
             raise ValueError("IPA 缺少运行输入：" + ", ".join(missing))
-        if not any(PurePosixPath(name).parent.as_posix() == APP_PREFIX.rstrip("/") and PurePosixPath(name).match("icudt*.dat") for name in files):
-            raise ValueError("IPA 缺少 NativeAOT 全球化 ICU 数据")
         macho_files: dict[str, MachO] = {}
         for name in sorted(files):
             with archive.open(name) as source:
@@ -318,6 +355,12 @@ def verify(path: Path, expected_core: Path) -> dict:
         "amiibo_symbols": sorted(SYMBOLS),
         "extension": extension_info["CFBundleIdentifier"],
         "macho_files_checked": len(macho_files),
+        "globalization": {
+            "mode": "apple-system-icu",
+            "dependency": globalization_dependency,
+            "foundation_dependency": foundation_dependency,
+            "scope": "native dependency structure only",
+        },
         "scope": "包结构、动态依赖闭合与本次核心一致性；未完成真机运行验证",
     }
 

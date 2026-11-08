@@ -44,7 +44,7 @@ class IpaVerificationTests(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory(prefix="melonx-ipa-verifier-")
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.core = make_macho(symbols=tuple(sorted(SYMBOLS)))
+        self.core = make_macho(dependencies=("/usr/lib/libicucore.A.dylib", "/System/Library/Frameworks/Foundation.framework/Foundation"), symbols=tuple(sorted(SYMBOLS)))
         self.core_path = self.root / "core.dylib"
         self.core_path.write_bytes(self.core)
         app_info = {
@@ -63,7 +63,6 @@ class IpaVerificationTests(unittest.TestCase):
             APP_PREFIX + "PlugIns/MeloNXRamDonor.appex/Info.plist": plistlib.dumps(extension_info),
             APP_PREFIX + "PlugIns/MeloNXRamDonor.appex/MeloNXRamDonor": make_macho(2),
             APP_PREFIX + "Frameworks/Ryujinx.Library.dylib": self.core,
-            APP_PREFIX + "icudt_hybrid.dat": b"test-only",
         }
         for name in ("SDL3.framework/SDL3", "BreakpointJIT.framework/BreakpointJIT",
                      "libMoltenVK.dylib", "libavcodec.dylib", "libavutil.dylib"):
@@ -80,6 +79,40 @@ class IpaVerificationTests(unittest.TestCase):
         report = self.check(self.entries)
         self.assertEqual(report["macho_files_checked"], 8)
         self.assertEqual(report["amiibo_symbols"], sorted(SYMBOLS))
+
+    def test_valid_package_without_icu_dat(self) -> None:
+        report = self.check(self.entries)
+        self.assertEqual(report["globalization"]["mode"], "apple-system-icu")
+        self.assertEqual(report["globalization"]["dependency"], "/usr/lib/libicucore.A.dylib")
+
+    def test_missing_system_icu(self) -> None:
+        self.core = make_macho(dependencies=("/System/Library/Frameworks/Foundation.framework/Foundation",), symbols=tuple(sorted(SYMBOLS)))
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        with self.assertRaisesRegex(ValueError, "系统 ICU"):
+            self.check(self.entries)
+
+    def test_rpath_icu_does_not_satisfy_system_dependency(self) -> None:
+        self.core = make_macho(dependencies=("@rpath/libicucore.A.dylib", "/System/Library/Frameworks/Foundation.framework/Foundation"), symbols=tuple(sorted(SYMBOLS)))
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        with self.assertRaisesRegex(ValueError, "系统 ICU"):
+            self.check(self.entries)
+
+    def test_icu_dat_does_not_satisfy_dependency(self) -> None:
+        self.core = make_macho(dependencies=("/System/Library/Frameworks/Foundation.framework/Foundation",), symbols=tuple(sorted(SYMBOLS)))
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        self.entries[APP_PREFIX + "icudt_hybrid.dat"] = b"test-only"
+        with self.assertRaisesRegex(ValueError, "系统 ICU"):
+            self.check(self.entries)
+
+    def test_missing_foundation(self) -> None:
+        self.core = make_macho(dependencies=("/usr/lib/libicucore.A.dylib",), symbols=tuple(sorted(SYMBOLS)))
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        with self.assertRaisesRegex(ValueError, "Foundation"):
+            self.check(self.entries)
 
     def test_stale_core(self) -> None:
         self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = make_macho()
