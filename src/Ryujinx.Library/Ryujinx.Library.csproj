@@ -52,6 +52,17 @@
     <Error Condition="'$(RuntimeIdentifier)' == 'ios-arm64' and ('$(HybridGlobalization)' != 'true' or '$(InvariantGlobalization)' != 'false' or '$(StaticICULinking)' != 'false')"
            Text="iOS NativeAOT requires HybridGlobalization=true, InvariantGlobalization=false and StaticICULinking=false." />
 
+    <!-- 本次契约针对 ios-arm64；其他目标保留上游按实际 runtime pack 文件复制的行为。 -->
+    <Copy
+      SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt_hybrid.dat"
+      DestinationFolder="$(PublishDir)"
+      Condition="'$(RuntimeIdentifier)' != 'ios-arm64' and Exists('%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt_hybrid.dat')" />
+
+    <Copy
+      SourceFiles="%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt.dat"
+      DestinationFolder="$(PublishDir)"
+      Condition="'$(RuntimeIdentifier)' != 'ios-arm64' and Exists('%(ResolvedRuntimePack.PackageDirectory)/runtimes/$(RuntimeIdentifier)/native/icudt.dat')" />
+
     <!-- We need to find the path to Xcode so we can set manual linker args to the correct SDKs
         Once https://github.com/dotnet/runtime/issues/88737 is released, we can take this out
     -->

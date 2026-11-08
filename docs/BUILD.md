@@ -85,7 +85,7 @@ Windows 已完成源码差异审查、字符串资源参数检查及外接显示
 
 ## 系统 ICU 打包契约修复（2026-11-08）
 
-第二次日志在 Xcode 成功后，被脚本中“缺少 `icudt*.dat`”的错误检查拦截。.NET 10 iOS 使用系统 ICU 与 Foundation；旧的条件复制以及脚本、IPA 校验器要求外置数据文件的规则均已删除。
+第二次日志在 Xcode 成功后，被脚本中“缺少 `icudt*.dat`”的错误检查拦截。.NET 10 iOS 使用系统 ICU 与 Foundation；`ios-arm64` 不再执行旧的条件复制，脚本和 IPA 校验器也不再要求外置数据文件。其他目标保留上游按实际 runtime pack 文件复制的行为。
 
 依据固定 [runtime v10.0.0 的 NativeAOT 链接规则](https://github.com/dotnet/runtime/blob/v10.0.0/src/coreclr/nativeaot/BuildIntegration/Microsoft.NETCore.Native.Unix.targets#L202)、[iOS 全球化模式](https://github.com/dotnet/runtime/blob/v10.0.0/src/libraries/System.Private.CoreLib/src/System/Globalization/GlobalizationMode.cs#L16) 和 [ICU 数据加载器的平台条件](https://github.com/dotnet/runtime/blob/v10.0.0/src/native/libs/System.Globalization.Native/pal_icushim_static.c#L24)，当前契约为：
 
