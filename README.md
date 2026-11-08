@@ -40,3 +40,12 @@ MELONX_AMIIBO_CATALOG 1
 自定义输入的是身份 ID，不是金手指或任意游戏存档。普通身份注入与游戏奖励需要逐游戏实测；应用区存档、狼林克心数、成长数据等不能从 ID 推算，当前不承诺完整效果。
 
 需要 JIT、内存权限和正常 MeloNX 运行环境。当前 Windows 已通过固定 .NET 10.0.100 的 managed build、虚拟 amiibo HLE 15 项并发/生命周期检查和 ABI 布局检查；Codemagic 的 Xcode/NativeAOT/IPA 门禁尚未在本机执行，IPA 和游戏实机效果不能提前宣称通过。
+
+
+## Codemagic 编译
+
+连接私有仓库 `iamasbcx/melonx-amiibo`，选择 `main` 分支和 `ios-unsigned` 工作流，点击 **Start new build**。成功后在 Artifacts 下载 `MeloNXAmiibo.ipa`。该包未签名，使用原有 MeloNX 侧载与 JIT 流程安装；首次安装前备份现有存档和配置。
+
+构建依赖为 Apple Silicon macOS、Xcode 26.2 和固定 .NET SDK 10.0.100。完整说明见 [docs/BUILD.md](docs/BUILD.md)，目录契约见 [docs/VIRTUAL_AMIIBO.md](docs/VIRTUAL_AMIIBO.md)，汉化范围见 [docs/LOCALIZATION.md](docs/LOCALIZATION.md)。
+
+源码基线为官方 [MeloNX 2.7](https://starforgejo.dev/projects/MeloNX/releases/tag/2.7)，上游提交 `13700519f3abc4e6d7ed8a065b118b2cc59bcd67`；保留 GPLv3 与第三方许可。原始项目说明保存在 [docs/UPSTREAM-README.md](docs/UPSTREAM-README.md)。
