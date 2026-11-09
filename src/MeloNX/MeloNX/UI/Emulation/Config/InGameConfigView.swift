@@ -85,6 +85,10 @@ struct InGameConfigView: View {
 
         // 目录只提供虚拟身份；打开菜单时继续运行游戏，避免阻塞来宾读取请求。
         Button {
+            if case .started(let game, _) = ryujinxController.isRunning {
+                AmiiboService.shared.start(titleId: game.titleId)
+                AmiiboService.shared.refreshCatalog()
+            }
             showAmiiboSelection = true
         } label: {
             Label(LocalizedStringKey("虚拟 amiibo"), systemImage: "person.crop.circle.badge.checkmark")

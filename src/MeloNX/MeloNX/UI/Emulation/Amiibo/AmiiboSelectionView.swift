@@ -11,6 +11,7 @@ import UniformTypeIdentifiers
 
 struct AmiiboSelectionView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var ryujinxController: RyujinxController
     @ObservedObject private var service = AmiiboService.shared
     @State private var searchText = ""
     @State private var showImporter = false
@@ -135,6 +136,13 @@ struct AmiiboSelectionView: View {
                 .background(.regularMaterial)
             }
             .onAppear {
+                // 选择菜单可能早于 EmulationView 的 onAppear；从当前运行状态补齐 Title ID，
+                // 确保 Documents/Amiibo/<TitleID>/amiibo.txt 能在首次打开时读取。
+                if case .started(let game, _) = ryujinxController.isRunning {
+                    service.start(titleId: game.titleId)
+                }
+                // 文件可能在游戏启动后才通过 Files/USB 拷入；首次打开菜单时重新读取一次。
+                service.refreshCatalog()
                 service.setSelectionMenuVisible(true)
             }
             .onDisappear { service.setSelectionMenuVisible(false) }

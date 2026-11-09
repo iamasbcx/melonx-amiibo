@@ -89,7 +89,7 @@ public final class AmiiboService: ObservableObject {
 
     /// 开始一个游戏会话。每次调用都会使旧轮询和旧提交结果失效。
     public func start(titleId: String) {
-        let normalized = titleId.uppercased()
+        let normalized = Self.normalizeTitleId(titleId)
         if AmiiboCatalogParser.validId(normalized), activeTitleId == normalized, pollTask != nil {
             return
         }
@@ -134,6 +134,15 @@ public final class AmiiboService: ObservableObject {
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
         }
+    }
+
+    /// 统一游戏 Title ID 的输入形式；只接受最终 16 位十六进制 ID。
+    nonisolated private static func normalizeTitleId(_ raw: String) -> String {
+        var value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if value.lowercased().hasPrefix("0x") {
+            value = String(value.dropFirst(2))
+        }
+        return value.uppercased()
     }
 
     /// 结束游戏会话并清理内存中的选择、检测轮次和异步任务；按游戏偏好仍保存在 UserDefaults。

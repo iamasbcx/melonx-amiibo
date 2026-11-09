@@ -4,7 +4,7 @@
 
 ## 使用数据目录
 
-数据放在 MeloNX 的 Documents 目录，按当前游戏 Title ID 分开：
+在 iPhone“文件”App 中，进入“我的 iPhone”→“MeloNX”→`Amiibo`，按当前游戏 Title ID 分开：
 
 ```text
 MeloNX/
@@ -31,7 +31,7 @@ MELONX_AMIIBO_CATALOG 1
 
 ## 游戏内操作
 
-运行游戏后点击屏幕齿轮，打开“虚拟 amiibo”。菜单按当前游戏 Title ID 读取 `Documents/Amiibo/<TitleID>/amiibo.txt`，支持刷新目录、导入 TXT 和添加自定义身份。把新 TXT 通过 USB 或 iOS 文件共享拷入对应目录后点“刷新目录”，不用重新编译或重装。
+运行游戏后点击屏幕齿轮，打开“虚拟 amiibo”。菜单按当前游戏 Title ID 读取 `MeloNX/Amiibo/<TitleID>/amiibo.txt`，支持刷新目录、导入 TXT 和添加自定义身份。把新 TXT 通过 USB 或 iOS 文件共享拷入对应目录后点“刷新目录”，不用重新编译或重装。
 
 先在游戏内开启 amiibo 能力并进入等待读取状态，再选择角色并点“使用”。程序不会自动暂停游戏，也不需要 NFC 或实体卡。提交成功只表示虚拟身份交给了 NFP 核心，实际奖励由游戏决定。
 

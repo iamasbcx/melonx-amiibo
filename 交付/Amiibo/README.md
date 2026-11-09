@@ -1,6 +1,6 @@
 # 塞尔达系列：按游戏分类的虚拟 amiibo 目录
 
-将本目录整体放入 MeloNX 的 `Documents/Amiibo/`。每个 16 位 Title ID 文件夹只对应一款 Switch 游戏；应用只读取当前游戏文件夹里的 `amiibo.txt` 与 `custom.txt`。
+将本目录整体放入 MeloNX 的 `Amiibo/`。每个 16 位 Title ID 文件夹只对应一款 Switch 游戏；应用只读取当前游戏文件夹里的 `amiibo.txt` 与 `custom.txt`。
 
 | 游戏 | Title ID | 条目 |
 | --- | --- | ---: |

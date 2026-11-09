@@ -1,6 +1,6 @@
 # 虚拟 amiibo 设计与数据契约
 
-- 默认目录为空，数据由用户按游戏 Title ID 放入 `Documents/Amiibo/<TitleID>/amiibo.txt`；IPA 不打包任何预置角色目录。
+- 默认目录为空，数据由用户在“文件”App 的 `MeloNX/Amiibo/<TitleID>/amiibo.txt` 放入；IPA 不打包任何预置角色目录。
 - TXT 头固定为 `MELONX_AMIIBO_CATALOG 1`；每个条目由 `[名称]` 与下一行 16 位 ASCII 十六进制 ID 组成。
 - iOS 目录解析、导入、动态刷新和自定义身份均在 Swift 完成；NativeAOT 核心只验证 ID 长度/字符并执行当前 NFP 会话注入。
 - 用户数据不在 Git 仓库提供，不在 IPA 打包；示例只存在于 `docs/amiibo-catalog-example.txt`。
