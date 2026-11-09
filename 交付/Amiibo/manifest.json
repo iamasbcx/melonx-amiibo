@@ -1,0 +1,3901 @@
+{
+  "format": "MELONX_AMIIBO_CATALOG 1",
+  "generated_at_utc": "2026-11-08T16:06:16.318297+00:00",
+  "selection_rule": "仅 gamesSwitch 中明确包含当前游戏 Title ID 的记录；不推测未记录的支持关系。",
+  "source_repository": "https://github.com/N3evin/AmiiboAPI",
+  "source_revision": "6115745c56ff762ce212ced6fbad9ea195d659b3",
+  "source_files": [
+    {
+      "url": "https://raw.githubusercontent.com/N3evin/AmiiboAPI/6115745c56ff762ce212ced6fbad9ea195d659b3/database/amiibo.json",
+      "file": "database-amiibo.json",
+      "sha256": "f93df97ba62dff6caec01860ddc2bde7bf448c0b2bdaab8c8c8ddbd14fb087f2",
+      "bytes": 180938
+    },
+    {
+      "url": "https://raw.githubusercontent.com/N3evin/AmiiboAPI/6115745c56ff762ce212ced6fbad9ea195d659b3/database/games_info.json",
+      "file": "database-games_info.json",
+      "sha256": "a75aca0154565f51bd378fce67f5993b38033c5f317bdb84bf4e2de3145ca8e2",
+      "bytes": 2565290
+    },
+    {
+      "url": "https://raw.githubusercontent.com/N3evin/AmiiboAPI/6115745c56ff762ce212ced6fbad9ea195d659b3/last-updated.json",
+      "file": "last-updated.json",
+      "sha256": "fe5649dd71c19f6c1410fdf0aadd5f357106be8e4e6282c3d5d837eabca083ac",
+      "bytes": 164
+    },
+    {
+      "url": "https://raw.githubusercontent.com/N3evin/AmiiboAPI/6115745c56ff762ce212ced6fbad9ea195d659b3/LICENSE",
+      "file": "LICENSE",
+      "sha256": "9b56b63c5868ea07cc41314159b614cf689474e5b92bde94f3f32821ff9e05d3",
+      "bytes": 1065
+    }
+  ],
+  "additional_sources": [
+    {
+      "url": "https://amiibo.life/games/switch/the-legend-of-zelda-breath-of-the-wild",
+      "file": "amiibo-life-botw.html",
+      "sha256": "17d05448e39d1ec7a9bb1721e929120eafcbbd04b28083b27c3a2c50c0390f6e"
+    },
+    {
+      "url": "https://amiibo.life/amiibo/the-legend-of-zelda/young-link-ocarina-of-time",
+      "file": "amiibo-life-young-link-ocarina-of-time.html",
+      "sha256": "f2000781d470bbca6a3d03b55041ee36be2a56ef6b1f3abe6ce94761fa322952"
+    },
+    {
+      "url": "https://amiibo.life/amiibo/the-legend-of-zelda/young-zelda-ocarina-of-time",
+      "file": "amiibo-life-young-zelda-ocarina-of-time.html",
+      "sha256": "acbf76f8166fe104120c1a5ffb0768b071238bf4950b139bb1cd9e677d4608af"
+    }
+  ],
+  "games": [
+    {
+      "title_id": "01007EF00011E000",
+      "name_zh": "塞尔达传说 旷野之息（荒野之息）",
+      "source_name": "The Legend of Zelda: Breath of the Wild",
+      "catalog_file": "01007EF00011E000/amiibo.txt",
+      "entries": 27,
+      "identities": [
+        {
+          "id": "0100000000040002",
+          "name": "林克（任天堂明星大乱斗）",
+          "source_name": "Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Bring Epona into the game as a rideable horse",
+                  "write": false
+                },
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034B0902",
+          "name": "林克（时之笛）",
+          "source_name": "Link - Ocarina of Time",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034C0902",
+          "name": "林克（梅祖拉的假面）",
+          "source_name": "Link - Majora's Mask",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034D0902",
+          "name": "林克（黄昏公主）",
+          "source_name": "Link - Twilight Princess",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Bring Epona into the game as a rideable horse",
+                  "write": false
+                },
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034E0902",
+          "name": "林克（御天之剑）",
+          "source_name": "Link - Skyward Sword",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034F0902",
+          "name": "林克（初代8位像素）",
+          "source_name": "8-Bit Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003530902",
+          "name": "林克（弓箭手·旷野之息）",
+          "source_name": "Link - Archer",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003540902",
+          "name": "林克（骑乘·旷野之息）",
+          "source_name": "Link - Rider",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000037C0002",
+          "name": "幼年林克（任天堂明星大乱斗）",
+          "source_name": "Young Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003990902",
+          "name": "林克（织梦岛）",
+          "source_name": "Link - Link's Awakening",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000004180902",
+          "name": "林克（王国之泪）",
+          "source_name": "Link - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010000160002",
+          "name": "卡通林克（任天堂明星大乱斗）",
+          "source_name": "Toon Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010003500902",
+          "name": "卡通林克（风之杖）",
+          "source_name": "Toon Link - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01010000000E0002",
+          "name": "塞尔达（任天堂明星大乱斗）",
+          "source_name": "Zelda",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003520902",
+          "name": "塞尔达（风之杖）",
+          "source_name": "Toon Zelda - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003560902",
+          "name": "塞尔达（旷野之息）",
+          "source_name": "Zelda",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000004190902",
+          "name": "塞尔达（王国之泪）",
+          "source_name": "Zelda - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101010000170002",
+          "name": "希克（任天堂明星大乱斗）",
+          "source_name": "Sheik",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100001B0002",
+          "name": "盖侬多夫（任天堂明星大乱斗）",
+          "source_name": "Ganondorf",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100041A0902",
+          "name": "盖侬多夫（王国之泪）",
+          "source_name": "Ganondorf - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01030000024F0902",
+          "name": "狼林克与米多娜（黄昏公主）",
+          "source_name": "Midna & Wolf Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Bring Wolf Link into the game as a partner character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0105000003580902",
+          "name": "达尔克尔（旷野之息）",
+          "source_name": "Daruk",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0106000003590902",
+          "name": "乌尔波扎（旷野之息）",
+          "source_name": "Urbosa",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01070000035A0902",
+          "name": "米法（旷野之息）",
+          "source_name": "Mipha",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01080000035B0902",
+          "name": "力巴尔（旷野之息）",
+          "source_name": "Revali",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0140000003550902",
+          "name": "守护者（旷野之息）",
+          "source_name": "Guardian",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01410000035C0902",
+          "name": "波克布林（旷野之息）",
+          "source_name": "Bokoblin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Breath of the Wild",
+              "gameID": [
+                "01007EF00011E000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a rare or exclusive item",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title_id": "0100F2C0115B6000",
+      "name_zh": "塞尔达传说 王国之泪",
+      "source_name": "The Legend of Zelda: Tears of the Kingdom",
+      "catalog_file": "0100F2C0115B6000/amiibo.txt",
+      "entries": 32,
+      "identities": [
+        {
+          "id": "0100000000040002",
+          "name": "林克（任天堂明星大乱斗）",
+          "source_name": "Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Bring Epona into the game as a rideable horse",
+                  "write": false
+                },
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034B0902",
+          "name": "林克（时之笛）",
+          "source_name": "Link - Ocarina of Time",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034C0902",
+          "name": "林克（梅祖拉的假面）",
+          "source_name": "Link - Majora's Mask",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034D0902",
+          "name": "林克（黄昏公主）",
+          "source_name": "Link - Twilight Princess",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Bring Epona into the game as a rideable horse",
+                  "write": false
+                },
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034E0902",
+          "name": "林克（御天之剑）",
+          "source_name": "Link - Skyward Sword",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034F0902",
+          "name": "林克（初代8位像素）",
+          "source_name": "8-Bit Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003530902",
+          "name": "林克（弓箭手·旷野之息）",
+          "source_name": "Link - Archer",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003540902",
+          "name": "林克（骑乘·旷野之息）",
+          "source_name": "Link - Rider",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000037C0002",
+          "name": "幼年林克（任天堂明星大乱斗）",
+          "source_name": "Young Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003990902",
+          "name": "林克（织梦岛）",
+          "source_name": "Link - Link's Awakening",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000004180902",
+          "name": "林克（王国之泪）",
+          "source_name": "Link - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010000160002",
+          "name": "卡通林克（任天堂明星大乱斗）",
+          "source_name": "Toon Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010003500902",
+          "name": "卡通林克（风之杖）",
+          "source_name": "Toon Link - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01010000000E0002",
+          "name": "塞尔达（任天堂明星大乱斗）",
+          "source_name": "Zelda",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003520902",
+          "name": "塞尔达（风之杖）",
+          "source_name": "Toon Zelda - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003560902",
+          "name": "塞尔达（旷野之息）",
+          "source_name": "Zelda",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000004190902",
+          "name": "塞尔达（王国之泪）",
+          "source_name": "Zelda - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101010000170002",
+          "name": "希克（任天堂明星大乱斗）",
+          "source_name": "Sheik",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101030004140902",
+          "name": "塞尔达与洛夫特鸟（御天之剑）",
+          "source_name": "Zelda & Loftwing",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100001B0002",
+          "name": "盖侬多夫（任天堂明星大乱斗）",
+          "source_name": "Ganondorf",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100041A0902",
+          "name": "盖侬多夫（王国之泪）",
+          "source_name": "Ganondorf - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01030000024F0902",
+          "name": "狼林克与米多娜（黄昏公主）",
+          "source_name": "Midna & Wolf Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0105000003580902",
+          "name": "达尔克尔（旷野之息）",
+          "source_name": "Daruk",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0106000003590902",
+          "name": "乌尔波扎（旷野之息）",
+          "source_name": "Urbosa",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01070000035A0902",
+          "name": "米法（旷野之息）",
+          "source_name": "Mipha",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01080000035B0902",
+          "name": "力巴尔（旷野之息）",
+          "source_name": "Revali",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0109000004A30902",
+          "name": "露珠（王国之泪）",
+          "source_name": "Riju",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "010A000004A40902",
+          "name": "希多（王国之泪）",
+          "source_name": "Sidon",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "010B000004A50902",
+          "name": "丘栗（王国之泪）",
+          "source_name": "Tulin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "010C000004A60902",
+          "name": "阿沅（王国之泪）",
+          "source_name": "Yunobo",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0140000003550902",
+          "name": "守护者（旷野之息）",
+          "source_name": "Guardian",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01410000035C0902",
+          "name": "波克布林（旷野之息）",
+          "source_name": "Bokoblin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Tears of the Kingdom",
+              "gameID": [
+                "0100F2C0115B6000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive materials and a weapon or rare item",
+                  "write": false
+                },
+                {
+                  "Usage": "Unlock an amiibo-exclusive character-specific paraglider fabric",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title_id": "01006BB00C6F0000",
+      "name_zh": "塞尔达传说 织梦岛",
+      "source_name": "The Legend of Zelda: Link's Awakening",
+      "catalog_file": "01006BB00C6F0000/amiibo.txt",
+      "entries": 32,
+      "identities": [
+        {
+          "id": "0100000000040002",
+          "name": "林克（任天堂明星大乱斗）",
+          "source_name": "Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034B0902",
+          "name": "林克（时之笛）",
+          "source_name": "Link - Ocarina of Time",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034C0902",
+          "name": "林克（梅祖拉的假面）",
+          "source_name": "Link - Majora's Mask",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034D0902",
+          "name": "林克（黄昏公主）",
+          "source_name": "Link - Twilight Princess",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034E0902",
+          "name": "林克（御天之剑）",
+          "source_name": "Link - Skyward Sword",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034F0902",
+          "name": "林克（初代8位像素）",
+          "source_name": "8-Bit Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003530902",
+          "name": "林克（弓箭手·旷野之息）",
+          "source_name": "Link - Archer",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003540902",
+          "name": "林克（骑乘·旷野之息）",
+          "source_name": "Link - Rider",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000037C0002",
+          "name": "幼年林克（任天堂明星大乱斗）",
+          "source_name": "Young Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003990902",
+          "name": "林克（织梦岛）",
+          "source_name": "Link - Link's Awakening",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock the Shadow Link Plus Effect for Chamber Dungeons",
+                  "write": false
+                }
+              ]
+            },
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000004180902",
+          "name": "林克（王国之泪）",
+          "source_name": "Link - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010000160002",
+          "name": "卡通林克（任天堂明星大乱斗）",
+          "source_name": "Toon Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010003500902",
+          "name": "卡通林克（风之杖）",
+          "source_name": "Toon Link - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01010000000E0002",
+          "name": "塞尔达（任天堂明星大乱斗）",
+          "source_name": "Zelda",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003520902",
+          "name": "塞尔达（风之杖）",
+          "source_name": "Toon Zelda - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003560902",
+          "name": "塞尔达（旷野之息）",
+          "source_name": "Zelda",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000004190902",
+          "name": "塞尔达（王国之泪）",
+          "source_name": "Zelda - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101010000170002",
+          "name": "希克（任天堂明星大乱斗）",
+          "source_name": "Sheik",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101030004140902",
+          "name": "塞尔达与洛夫特鸟（御天之剑）",
+          "source_name": "Zelda & Loftwing",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100001B0002",
+          "name": "盖侬多夫（任天堂明星大乱斗）",
+          "source_name": "Ganondorf",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100041A0902",
+          "name": "盖侬多夫（王国之泪）",
+          "source_name": "Ganondorf - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01030000024F0902",
+          "name": "狼林克与米多娜（黄昏公主）",
+          "source_name": "Midna & Wolf Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0105000003580902",
+          "name": "达尔克尔（旷野之息）",
+          "source_name": "Daruk",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0106000003590902",
+          "name": "乌尔波扎（旷野之息）",
+          "source_name": "Urbosa",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01070000035A0902",
+          "name": "米法（旷野之息）",
+          "source_name": "Mipha",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01080000035B0902",
+          "name": "力巴尔（旷野之息）",
+          "source_name": "Revali",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0109000004A30902",
+          "name": "露珠（王国之泪）",
+          "source_name": "Riju",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "010A000004A40902",
+          "name": "希多（王国之泪）",
+          "source_name": "Sidon",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "010B000004A50902",
+          "name": "丘栗（王国之泪）",
+          "source_name": "Tulin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "010C000004A60902",
+          "name": "阿沅（王国之泪）",
+          "source_name": "Yunobo",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0140000003550902",
+          "name": "守护者（旷野之息）",
+          "source_name": "Guardian",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01410000035C0902",
+          "name": "波克布林（旷野之息）",
+          "source_name": "Bokoblin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Link's Awakening",
+              "gameID": [
+                "01006BB00C6F0000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Save your Chamber Dungeon to the amiibo to share with friends",
+                  "write": true
+                },
+                {
+                  "Usage": "Unlock one of five amiibo-exclusive Chamber Dungeon chambers",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title_id": "01002DA013484000",
+      "name_zh": "塞尔达传说 御天之剑 HD",
+      "source_name": "The Legend of Zelda: Skyward Sword HD",
+      "catalog_file": "01002DA013484000/amiibo.txt",
+      "entries": 1,
+      "identities": [
+        {
+          "id": "0101030004140902",
+          "name": "塞尔达与洛夫特鸟（御天之剑）",
+          "source_name": "Zelda & Loftwing",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Skyward Sword HD",
+              "gameID": [
+                "01002DA013484000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Quickly travel between the surface and the sky",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title_id": "01008CF01BAAC000",
+      "name_zh": "塞尔达传说 智慧的再现",
+      "source_name": "The Legend of Zelda: Echoes of Wisdom",
+      "catalog_file": "01008CF01BAAC000/amiibo.txt",
+      "entries": 28,
+      "identities": [
+        {
+          "id": "0100000000040002",
+          "name": "林克（任天堂明星大乱斗）",
+          "source_name": "Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034B0902",
+          "name": "林克（时之笛）",
+          "source_name": "Link - Ocarina of Time",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034C0902",
+          "name": "林克（梅祖拉的假面）",
+          "source_name": "Link - Majora's Mask",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034D0902",
+          "name": "林克（黄昏公主）",
+          "source_name": "Link - Twilight Princess",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034E0902",
+          "name": "林克（御天之剑）",
+          "source_name": "Link - Skyward Sword",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034F0902",
+          "name": "林克（初代8位像素）",
+          "source_name": "8-Bit Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003530902",
+          "name": "林克（弓箭手·旷野之息）",
+          "source_name": "Link - Archer",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003540902",
+          "name": "林克（骑乘·旷野之息）",
+          "source_name": "Link - Rider",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000037C0002",
+          "name": "幼年林克（任天堂明星大乱斗）",
+          "source_name": "Young Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003990902",
+          "name": "林克（织梦岛）",
+          "source_name": "Link - Link's Awakening",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000004180902",
+          "name": "林克（王国之泪）",
+          "source_name": "Link - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010000160002",
+          "name": "卡通林克（任天堂明星大乱斗）",
+          "source_name": "Toon Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010003500902",
+          "name": "卡通林克（风之杖）",
+          "source_name": "Toon Link - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01010000000E0002",
+          "name": "塞尔达（任天堂明星大乱斗）",
+          "source_name": "Zelda",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003520902",
+          "name": "塞尔达（风之杖）",
+          "source_name": "Toon Zelda - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003560902",
+          "name": "塞尔达（旷野之息）",
+          "source_name": "Zelda",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000004190902",
+          "name": "塞尔达（王国之泪）",
+          "source_name": "Zelda - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101010000170002",
+          "name": "希克（任天堂明星大乱斗）",
+          "source_name": "Sheik",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101030004140902",
+          "name": "塞尔达与洛夫特鸟（御天之剑）",
+          "source_name": "Zelda & Loftwing",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100001B0002",
+          "name": "盖侬多夫（任天堂明星大乱斗）",
+          "source_name": "Ganondorf",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100041A0902",
+          "name": "盖侬多夫（王国之泪）",
+          "source_name": "Ganondorf - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01030000024F0902",
+          "name": "狼林克与米多娜（黄昏公主）",
+          "source_name": "Midna & Wolf Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0105000003580902",
+          "name": "达尔克尔（旷野之息）",
+          "source_name": "Daruk",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0106000003590902",
+          "name": "乌尔波扎（旷野之息）",
+          "source_name": "Urbosa",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01070000035A0902",
+          "name": "米法（旷野之息）",
+          "source_name": "Mipha",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01080000035B0902",
+          "name": "力巴尔（旷野之息）",
+          "source_name": "Revali",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0140000003550902",
+          "name": "守护者（旷野之息）",
+          "source_name": "Guardian",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01410000035C0902",
+          "name": "波克布林（旷野之息）",
+          "source_name": "Bokoblin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "The Legend of Zelda: Echoes of Wisdom",
+              "gameID": [
+                "01008CF01BAAC000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Unlock an amiibo-exclusive outfit / Receive smoothie ingredients",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title_id": "01002B00111A2000",
+      "name_zh": "塞尔达无双 灾厄启示录",
+      "source_name": "Hyrule Warriors: Age of Calamity",
+      "catalog_file": "01002B00111A2000/amiibo.txt",
+      "entries": 28,
+      "identities": [
+        {
+          "id": "0100000000040002",
+          "name": "林克（任天堂明星大乱斗）",
+          "source_name": "Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034B0902",
+          "name": "林克（时之笛）",
+          "source_name": "Link - Ocarina of Time",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034C0902",
+          "name": "林克（梅祖拉的假面）",
+          "source_name": "Link - Majora's Mask",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034D0902",
+          "name": "林克（黄昏公主）",
+          "source_name": "Link - Twilight Princess",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034E0902",
+          "name": "林克（御天之剑）",
+          "source_name": "Link - Skyward Sword",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034F0902",
+          "name": "林克（初代8位像素）",
+          "source_name": "8-Bit Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003530902",
+          "name": "林克（弓箭手·旷野之息）",
+          "source_name": "Link - Archer",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003540902",
+          "name": "林克（骑乘·旷野之息）",
+          "source_name": "Link - Rider",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000037C0002",
+          "name": "幼年林克（任天堂明星大乱斗）",
+          "source_name": "Young Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003990902",
+          "name": "林克（织梦岛）",
+          "source_name": "Link - Link's Awakening",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000004180902",
+          "name": "林克（王国之泪）",
+          "source_name": "Link - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010000160002",
+          "name": "卡通林克（任天堂明星大乱斗）",
+          "source_name": "Toon Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010003500902",
+          "name": "卡通林克（风之杖）",
+          "source_name": "Toon Link - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01010000000E0002",
+          "name": "塞尔达（任天堂明星大乱斗）",
+          "source_name": "Zelda",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003520902",
+          "name": "塞尔达（风之杖）",
+          "source_name": "Toon Zelda - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003560902",
+          "name": "塞尔达（旷野之息）",
+          "source_name": "Zelda",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000004190902",
+          "name": "塞尔达（王国之泪）",
+          "source_name": "Zelda - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101010000170002",
+          "name": "希克（任天堂明星大乱斗）",
+          "source_name": "Sheik",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101030004140902",
+          "name": "塞尔达与洛夫特鸟（御天之剑）",
+          "source_name": "Zelda & Loftwing",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100001B0002",
+          "name": "盖侬多夫（任天堂明星大乱斗）",
+          "source_name": "Ganondorf",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100041A0902",
+          "name": "盖侬多夫（王国之泪）",
+          "source_name": "Ganondorf - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01030000024F0902",
+          "name": "狼林克与米多娜（黄昏公主）",
+          "source_name": "Midna & Wolf Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0105000003580902",
+          "name": "达尔克尔（旷野之息）",
+          "source_name": "Daruk",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0106000003590902",
+          "name": "乌尔波扎（旷野之息）",
+          "source_name": "Urbosa",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01070000035A0902",
+          "name": "米法（旷野之息）",
+          "source_name": "Mipha",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01080000035B0902",
+          "name": "力巴尔（旷野之息）",
+          "source_name": "Revali",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0140000003550902",
+          "name": "守护者（旷野之息）",
+          "source_name": "Guardian",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01410000035C0902",
+          "name": "波克布林（旷野之息）",
+          "source_name": "Bokoblin",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Age of Calamity",
+              "gameID": [
+                "01002B00111A2000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive specific crafting materials or a weapon for the character",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title_id": "0100AE00096EA000",
+      "name_zh": "塞尔达无双 海拉鲁全明星豪华版",
+      "source_name": "Hyrule Warriors: Definitive Edition",
+      "catalog_file": "0100AE00096EA000/amiibo.txt",
+      "entries": 22,
+      "identities": [
+        {
+          "id": "0100000000040002",
+          "name": "林克（任天堂明星大乱斗）",
+          "source_name": "Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034B0902",
+          "name": "林克（时之笛）",
+          "source_name": "Link - Ocarina of Time",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034C0902",
+          "name": "林克（梅祖拉的假面）",
+          "source_name": "Link - Majora's Mask",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034D0902",
+          "name": "林克（黄昏公主）",
+          "source_name": "Link - Twilight Princess",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034E0902",
+          "name": "林克（御天之剑）",
+          "source_name": "Link - Skyward Sword",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000034F0902",
+          "name": "林克（初代8位像素）",
+          "source_name": "8-Bit Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003530902",
+          "name": "林克（弓箭手·旷野之息）",
+          "source_name": "Link - Archer",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003540902",
+          "name": "林克（骑乘·旷野之息）",
+          "source_name": "Link - Rider",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01000000037C0002",
+          "name": "幼年林克（任天堂明星大乱斗）",
+          "source_name": "Young Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000003990902",
+          "name": "林克（织梦岛）",
+          "source_name": "Link - Link's Awakening",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100000004180902",
+          "name": "林克（王国之泪）",
+          "source_name": "Link - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010000160002",
+          "name": "卡通林克（任天堂明星大乱斗）",
+          "source_name": "Toon Link",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0100010003500902",
+          "name": "卡通林克（风之杖）",
+          "source_name": "Toon Link - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01010000000E0002",
+          "name": "塞尔达（任天堂明星大乱斗）",
+          "source_name": "Zelda",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003520902",
+          "name": "塞尔达（风之杖）",
+          "source_name": "Toon Zelda - The Wind Waker",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000003560902",
+          "name": "塞尔达（旷野之息）",
+          "source_name": "Zelda",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101000004190902",
+          "name": "塞尔达（王国之泪）",
+          "source_name": "Zelda - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101010000170002",
+          "name": "希克（任天堂明星大乱斗）",
+          "source_name": "Sheik",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "0101030004140902",
+          "name": "塞尔达与洛夫特鸟（御天之剑）",
+          "source_name": "Zelda & Loftwing",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100001B0002",
+          "name": "盖侬多夫（任天堂明星大乱斗）",
+          "source_name": "Ganondorf",
+          "amiibo_series": "Super Smash Bros.",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01020100041A0902",
+          "name": "盖侬多夫（王国之泪）",
+          "source_name": "Ganondorf - Tears of the Kingdom",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "01030000024F0902",
+          "name": "狼林克与米多娜（黄昏公主）",
+          "source_name": "Midna & Wolf Link",
+          "amiibo_series": "Legend Of Zelda",
+          "source_game_usage": [
+            {
+              "gameName": "Hyrule Warriors: Definitive Edition",
+              "gameID": [
+                "0100AE00096EA000"
+              ],
+              "amiiboUsage": [
+                {
+                  "Usage": "Receive a weapon rated 3 stars or higher",
+                  "write": false
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "reference": {
+    "file": "参考/all-amiibo.txt",
+    "entries": 932,
+    "auto_loaded": false
+  },
+  "limitations": [
+    "未逐项实机验证",
+    "不含应用区存档",
+    "BOTW 两个未发售身份缺少可核实 ID，因此未纳入"
+  ],
+  "files": [
+    {
+      "path": "01002B00111A2000/amiibo.txt",
+      "bytes": 1692,
+      "sha256": "75d1acb8d80f0ac5e53de298c5bde0dc4bd2fef907a4aeb9a7570cff1800768b"
+    },
+    {
+      "path": "01002B00111A2000/说明.md",
+      "bytes": 906,
+      "sha256": "b173cd0d95093a87adfc08e400b94e77fb8fea6510efac0432ba028347c9cf06"
+    },
+    {
+      "path": "01002DA013484000/amiibo.txt",
+      "bytes": 306,
+      "sha256": "5008aaf8b1d64c5bcd79ab27500121c717795aedf1d27ecc11918f00f60ceb28"
+    },
+    {
+      "path": "01002DA013484000/说明.md",
+      "bytes": 905,
+      "sha256": "b2ba9326a5bf3edd5f656325af7ffc727194042358aa6c543c98731ac072689c"
+    },
+    {
+      "path": "01006BB00C6F0000/amiibo.txt",
+      "bytes": 1866,
+      "sha256": "5ba5169f4c2b84009b6b7d4d1dc556211e127bf02454ab83b3ce0a70363cc4d0"
+    },
+    {
+      "path": "01006BB00C6F0000/说明.md",
+      "bytes": 900,
+      "sha256": "d1c8151c381790f725882597f5f1c526422cc0c4134927c2c6ec5257d4641987"
+    },
+    {
+      "path": "01007EF00011E000/amiibo.txt",
+      "bytes": 1644,
+      "sha256": "08f94de2f3445fd71d19746a1a6b962b27ce9fb6966fcc58dc8e3595a78fa3b2"
+    },
+    {
+      "path": "01007EF00011E000/说明.md",
+      "bytes": 1181,
+      "sha256": "172f4c6623e1776c05b16b3c81a986ee61b508895c41d703109feb6bdcbd87b3"
+    },
+    {
+      "path": "01007EF00011E000/限定装备出处.md",
+      "bytes": 2390,
+      "sha256": "e62843485e0bf097bbccbb4585a185052f8ddaedda8b92367e57c2566c9ab0d1"
+    },
+    {
+      "path": "01008CF01BAAC000/amiibo.txt",
+      "bytes": 1692,
+      "sha256": "bbfa252a7db4a0dbcd44ead0a7cbde97f1f85253d39b8dec461939ac20b04e60"
+    },
+    {
+      "path": "01008CF01BAAC000/说明.md",
+      "bytes": 906,
+      "sha256": "eb91a2ea3199b77a2a763d3275e66fa48af6969a63baad82decf67990e9c66b8"
+    },
+    {
+      "path": "0100AE00096EA000/amiibo.txt",
+      "bytes": 1410,
+      "sha256": "583b957f8df622a07dbfe5f8dddba18f6ea3b2aeee8ee7bee06f63f7609e4a21"
+    },
+    {
+      "path": "0100AE00096EA000/说明.md",
+      "bytes": 918,
+      "sha256": "d6cf9d4f612ca8a668a9943a7b867ab7826fa54be05bb795f6f9010312ab5120"
+    },
+    {
+      "path": "0100F2C0115B6000/amiibo.txt",
+      "bytes": 1869,
+      "sha256": "41cdf38e8c69560710de18275aa370cc528b9cd01fd48d51cc753bee9e1a0950"
+    },
+    {
+      "path": "0100F2C0115B6000/说明.md",
+      "bytes": 903,
+      "sha256": "2af843d6f673ad2a70ba7a13c3e27f7f327d8faa3455157eeb8b362a25b371b9"
+    },
+    {
+      "path": "LICENSE-AmiiboAPI.txt",
+      "bytes": 1065,
+      "sha256": "9b56b63c5868ea07cc41314159b614cf689474e5b92bde94f3f32821ff9e05d3"
+    },
+    {
+      "path": "README.md",
+      "bytes": 2258,
+      "sha256": "377804338900c557cb1c437a044ef0960e86bff03e13354c01a7d0a90c1a0b5b"
+    },
+    {
+      "path": "参考/all-amiibo.txt",
+      "bytes": 47424,
+      "sha256": "f667297b19060928b7800cc84fe5ca9c908981a2a1da30efc062710324155d02"
+    }
+  ]
+}

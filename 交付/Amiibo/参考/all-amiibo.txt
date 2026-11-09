@@ -1,0 +1,2801 @@
+MELONX_AMIIBO_CATALOG 1
+
+# 固定公开快照的全部 932 个身份，含 32 个塞尔达中文名称。
+# 备用参考，不代表任一游戏支持全部条目；不会自动加入当前游戏菜单。
+# 仅名称和身份 ID，不含卡片 dump、密钥或应用区存档。
+
+[丘栗（王国之泪）]
+010B000004A50902
+
+[乌尔波扎（旷野之息）]
+0106000003590902
+
+[力巴尔（旷野之息）]
+01080000035B0902
+
+[卡通林克（任天堂明星大乱斗）]
+0100010000160002
+
+[卡通林克（风之杖）]
+0100010003500902
+
+[塞尔达与洛夫特鸟（御天之剑）]
+0101030004140902
+
+[塞尔达（任天堂明星大乱斗）]
+01010000000E0002
+
+[塞尔达（旷野之息）]
+0101000003560902
+
+[塞尔达（王国之泪）]
+0101000004190902
+
+[塞尔达（风之杖）]
+0101000003520902
+
+[守护者（旷野之息）]
+0140000003550902
+
+[希克（任天堂明星大乱斗）]
+0101010000170002
+
+[希多（王国之泪）]
+010A000004A40902
+
+[幼年林克（任天堂明星大乱斗）]
+01000000037C0002
+
+[林克（任天堂明星大乱斗）]
+0100000000040002
+
+[林克（初代8位像素）]
+01000000034F0902
+
+[林克（弓箭手·旷野之息）]
+0100000003530902
+
+[林克（御天之剑）]
+01000000034E0902
+
+[林克（时之笛）]
+01000000034B0902
+
+[林克（梅祖拉的假面）]
+01000000034C0902
+
+[林克（王国之泪）]
+0100000004180902
+
+[林克（织梦岛）]
+0100000003990902
+
+[林克（骑乘·旷野之息）]
+0100000003540902
+
+[林克（黄昏公主）]
+01000000034D0902
+
+[波克布林（旷野之息）]
+01410000035C0902
+
+[狼林克与米多娜（黄昏公主）]
+01030000024F0902
+
+[盖侬多夫（任天堂明星大乱斗）]
+01020100001B0002
+
+[盖侬多夫（王国之泪）]
+01020100041A0902
+
+[米法（旷野之息）]
+01070000035A0902
+
+[达尔克尔（旷野之息）]
+0105000003580902
+
+[阿沅（王国之泪）]
+010C000004A60902
+
+[露珠（王国之泪）]
+0109000004A30902
+
+[8-Bit Mario Classic Color｜8-bit Mario]
+0000000002380602
+
+[8-Bit Mario Modern Color｜8-bit Mario]
+0000000002390602
+
+[A.K.I｜Street Fighter 6｜34D3000104BE1D02]
+34D3000104BE1D02
+
+[A.K.I｜Street Fighter 6｜34D3000104DE1D02]
+34D3000104DE1D02
+
+[Ace｜Animal Crossing]
+0A1B000103D20502
+
+[Admiral｜Animal Crossing]
+0233000103060502
+
+[Agent S｜Animal Crossing]
+04E2000101090502
+
+[Agnes｜Animal Crossing]
+0489000100EF0502
+
+[Akuma｜Street Fighter 6｜34D5000104C01D02]
+34D5000104C01D02
+
+[Akuma｜Street Fighter 6｜34D5000104E01D02]
+34D5000104E01D02
+
+[Alex｜Street Fighter 6｜34DB000104E61D02]
+34DB000104E61D02
+
+[Alex｜Street Fighter 6｜34DB000104EF1D02]
+34DB000104EF1D02
+
+[Alex｜Super Smash Bros.]
+3DC1000004230002
+
+[Alfonso｜Animal Crossing]
+02C3000100DC0502
+
+[Alice｜Animal Crossing]
+03BD000100F90502
+
+[Alli｜Animal Crossing]
+02C4000100670502
+
+[Alm｜Fire Emblem]
+2106000003601202
+
+[Al｜Animal Crossing]
+03710001005C0502
+
+[Amelia｜Animal Crossing]
+044C0001008E0502
+
+[Anabelle｜Animal Crossing]
+02030001019A0502
+
+[Anchovy｜Animal Crossing]
+022F0001011E0502
+
+[Angus｜Animal Crossing]
+024A000101D10502
+
+[Anicotti｜Animal Crossing]
+0416000100FB0502
+
+[Ankha｜Animal Crossing]
+0270000100FF0502
+
+[Annalisa｜Animal Crossing]
+0208000100960502
+
+[Annalise｜Animal Crossing]
+03AD000101B20502
+
+[Antonio｜Animal Crossing]
+02010001016A0502
+
+[Apollo｜Animal Crossing]
+044B0001016C0502
+
+[Apple｜Animal Crossing]
+037F000101AA0502
+
+[Asana Mutsuba｜Yu-Gi-Oh!]
+38460001042A1902
+
+[Astrid｜Animal Crossing]
+03D6000101570502
+
+[Audie｜Animal Crossing]
+0A0C000103C30502
+
+[Aurora｜Animal Crossing]
+045F000101A80502
+
+[Ava｜Animal Crossing]
+029E0001013D0502
+
+[Avery｜Animal Crossing]
+0450000100CF0502
+
+[Axel｜Animal Crossing]
+03290001009D0502
+
+[Azalea｜Animal Crossing]
+0A1E000103D50502
+
+[Baabara｜Animal Crossing]
+04C6000101670502
+
+[Baby Luigi - Baseball｜Mario Sports Superstars]
+09CD020102AB0E02
+
+[Baby Luigi - Golf｜Mario Sports Superstars]
+09CD040102AD0E02
+
+[Baby Luigi - Horse Racing｜Mario Sports Superstars]
+09CD050102AE0E02
+
+[Baby Luigi - Soccer｜Mario Sports Superstars]
+09CD010102AA0E02
+
+[Baby Luigi - Tennis｜Mario Sports Superstars]
+09CD030102AC0E02
+
+[Baby Mario - Baseball｜Mario Sports Superstars]
+09CC020102A60E02
+
+[Baby Mario - Golf｜Mario Sports Superstars]
+09CC040102A80E02
+
+[Baby Mario - Horse Racing｜Mario Sports Superstars]
+09CC050102A90E02
+
+[Baby Mario - Soccer｜Mario Sports Superstars]
+09CC010102A50E02
+
+[Baby Mario - Tennis｜Mario Sports Superstars]
+09CC030102A70E02
+
+[Bam｜Animal Crossing]
+02D7000101300502
+
+[Bandana Waddle Dee｜Kirby Air Riders]
+1F03010004C91E03
+
+[Bangle｜Animal Crossing]
+04FD0001007B0502
+
+[Banjo & Kazooie｜Super Smash Bros.]
+3B40000003A30002
+
+[Barioth and Ayuria｜Monster Hunter]
+3503010002E50F02
+
+[Barold｜Animal Crossing]
+028D000101BD0502
+
+[Bayonetta - Player 2｜Super Smash Bros.]
+3240010003640002
+
+[Bayonetta｜Super Smash Bros.]
+32400000025B0002
+
+[Beardo｜Animal Crossing]
+02210001013C0502
+
+[Beau｜Animal Crossing]
+02DD000100EA0502
+
+[Bea｜Animal Crossing]
+02F4000103050502
+
+[Becky｜Animal Crossing]
+02A2000101BA0502
+
+[Bella｜Animal Crossing]
+040E000100880502
+
+[Benedict｜Animal Crossing]
+029A000100EE0502
+
+[Benjamin｜Animal Crossing]
+02FA000100970502
+
+[Bertha｜Animal Crossing]
+0393000100A00502
+
+[Bettina｜Animal Crossing]
+041B000100F10502
+
+[Bianca｜Animal Crossing]
+0500000100E70502
+
+[Biff｜Animal Crossing]
+0394000100890502
+
+[Big Man｜Splatoon]
+0809000004350402
+
+[Big Top｜Animal Crossing]
+03250001010A0502
+
+[Billy｜Animal Crossing]
+0358000102FA0502
+
+[Bill｜Animal Crossing]
+0307000100640502
+
+[Birdo - Baseball｜Mario Sports Superstars]
+09CE020102B00E02
+
+[Birdo - Golf｜Mario Sports Superstars]
+09CE040102B20E02
+
+[Birdo - Horse Racing｜Mario Sports Superstars]
+09CE050102B30E02
+
+[Birdo - Soccer｜Mario Sports Superstars]
+09CE010102AF0E02
+
+[Birdo - Tennis｜Mario Sports Superstars]
+09CE030102B10E02
+
+[Biskit｜Animal Crossing]
+02ED0001015A0502
+
+[Bitty｜Animal Crossing]
+0395000102FC0502
+
+[Blaire｜Animal Crossing]
+04DE000100CE0502
+
+[Blanca｜Animal Crossing]
+01B3000100B50502
+
+[Blanche｜Animal Crossing]
+043E000101490502
+
+[Blanka｜Street Fighter 6｜34C8000104B31D02]
+34C8000104B31D02
+
+[Blanka｜Street Fighter 6｜34C8000104D31D02]
+34C8000104D31D02
+
+[Blathers｜Animal Crossing｜0192000002470502]
+0192000002470502
+
+[Blathers｜Animal Crossing｜01920001010D0502]
+01920001010D0502
+
+[Blathers｜Animal Crossing｜0192000103AD0502]
+0192000103AD0502
+
+[Bluebear｜Animal Crossing]
+027D000100630502
+
+[Bob｜Animal Crossing]
+025D000100550502
+
+[Bonbon｜Animal Crossing]
+04A5000100740502
+
+[Bones｜Animal Crossing]
+02EE000101990502
+
+[Boo - Baseball｜Mario Sports Superstars]
+09CB020102A10E02
+
+[Boo - Golf｜Mario Sports Superstars]
+09CB040102A30E02
+
+[Boo - Horse Racing｜Mario Sports Superstars]
+09CB050102A40E02
+
+[Boo - Soccer｜Mario Sports Superstars]
+09CB010102A00E02
+
+[Boo - Tennis｜Mario Sports Superstars]
+09CB030102A20E02
+
+[Booker｜Animal Crossing]
+019E000100AD0502
+
+[Boomer｜Animal Crossing]
+0469000101640502
+
+[Boone｜Animal Crossing]
+036B0001018B0502
+
+[Boots｜Animal Crossing]
+02C5000103080502
+
+[Boo｜Super Mario Bros.]
+0017000002680102
+
+[Boris｜Animal Crossing]
+0481000102F10502
+
+[Bowser - Baseball｜Mario Sports Superstars]
+09C9020102970E02
+
+[Bowser - Golf｜Mario Sports Superstars]
+09C9040102990E02
+
+[Bowser - Horse Racing｜Mario Sports Superstars]
+09C90501029A0E02
+
+[Bowser - Soccer｜Mario Sports Superstars]
+09C9010102960E02
+
+[Bowser - Tennis｜Mario Sports Superstars]
+09C9030102980E02
+
+[Bowser - Wedding｜Super Mario Bros.]
+0005000003730102
+
+[Bowser Jr. - Baseball｜Mario Sports Superstars]
+09CA0201029C0E02
+
+[Bowser Jr. - Golf｜Mario Sports Superstars]
+09CA0401029E0E02
+
+[Bowser Jr. - Horse Racing｜Mario Sports Superstars]
+09CA0501029F0E02
+
+[Bowser Jr. - Soccer｜Mario Sports Superstars]
+09CA0101029B0E02
+
+[Bowser Jr. - Tennis｜Mario Sports Superstars]
+09CA0301029D0E02
+
+[Bowser Jr.｜Super Smash Bros.]
+0006000000150002
+
+[Bowser｜Super Mario Bros.]
+0005000000390102
+
+[Bowser｜Super Smash Bros.]
+0005000000140002
+
+[Boyd｜Animal Crossing]
+036E000102FB0502
+
+[Bree｜Animal Crossing]
+040F000101500502
+
+[Brewster｜Animal Crossing]
+0190000101710502
+
+[Broccolo｜Animal Crossing]
+0418000100D80502
+
+[Broffina｜Animal Crossing]
+02A50001018C0502
+
+[Bruce｜Animal Crossing]
+02D9000101C80502
+
+[Bubbles｜Animal Crossing]
+0392000101270502
+
+[Buck｜Animal Crossing]
+03A40001014F0502
+
+[Bud｜Animal Crossing]
+03E6000100EC0502
+
+[Bunnie｜Animal Crossing]
+04940001009A0502
+
+[Butch｜Animal Crossing]
+02EB000100DE0502
+
+[Buzz｜Animal Crossing]
+044E000103150502
+
+[Byleth｜Super Smash Bros.]
+210B000003A50002
+
+[C. Viper｜Street Fighter 6｜34DA000104E51D02]
+34DA000104E51D02
+
+[C. Viper｜Street Fighter 6｜34DA000104EE1D02]
+34DA000104EE1D02
+
+[C.J.｜Animal Crossing]
+0A02000103B30502
+
+[Callie - Alterna｜Splatoon]
+0801000004360402
+
+[Callie｜Splatoon]
+08010000025D0402
+
+[Cally｜Animal Crossing]
+04E8000101CE0502
+
+[Cammy｜Street Fighter 6｜34D1000104BC1D02]
+34D1000104BC1D02
+
+[Cammy｜Street Fighter 6｜34D1000104DC1D02]
+34D1000104DC1D02
+
+[Camofrog｜Animal Crossing]
+033B000100FA0502
+
+[Canberra｜Animal Crossing]
+03C40001012B0502
+
+[Candi｜Animal Crossing]
+04140001030A0502
+
+[Captain Falcon｜Super Smash Bros.]
+0600000000120002
+
+[Carmen｜Animal Crossing]
+04A4000100D40502
+
+[Caroline｜Animal Crossing]
+04E3000101650502
+
+[Carrie｜Animal Crossing]
+03D3000102F30502
+
+[Cashmere｜Animal Crossing]
+04C90001030D0502
+
+[Celeste｜Animal Crossing｜0193000002480502]
+0193000002480502
+
+[Celeste｜Animal Crossing｜0193000101740502]
+0193000101740502
+
+[Celeste｜Animal Crossing｜0193000103AE0502]
+0193000103AE0502
+
+[Celia｜Animal Crossing]
+0454000101AE0502
+
+[Celica｜Fire Emblem]
+2107000003611202
+
+[Cephalobot｜Animal Crossing]
+0A17000103CE0502
+
+[Cesar｜Animal Crossing]
+0369000100D30502
+
+[Chabwick｜Animal Crossing]
+0A19000103D00502
+
+[Chadder｜Animal Crossing]
+041E0001015F0502
+
+[Chai｜Animal Crossing]
+032E0101031C0502
+
+[Charizard｜Super Smash Bros.]
+1906000000240002
+
+[Charlise｜Animal Crossing]
+0220000100FD0502
+
+[Chelsea｜Animal Crossing]
+02E00101031D0502
+
+[Cheri｜Animal Crossing]
+02870001005A0502
+
+[Cherry｜Animal Crossing]
+02FB000100900502
+
+[Chester｜Animal Crossing]
+028C0001013E0502
+
+[Chevre｜Animal Crossing]
+0356000101350502
+
+[Chibi Robo｜Chibi-Robo!]
+22C00000003A0202
+
+[Chief｜Animal Crossing]
+050B000100990502
+
+[Chip｜Animal Crossing]
+019A000100B70502
+
+[Chops｜Animal Crossing]
+0486000100FC0502
+
+[Chow｜Animal Crossing]
+0217000101B30502
+
+[Chrissy｜Animal Crossing]
+04A10001016F0502
+
+[Chrom｜Fire Emblem]
+21080000036F1202
+
+[Chrom｜Super Smash Bros.]
+2108000003880002
+
+[Chun-Li｜Street Fighter 6｜34C5000104B01D02]
+34C5000104B01D02
+
+[Chun-Li｜Street Fighter 6｜34C5000104D01D02]
+34C5000104D01D02
+
+[Claude｜Animal Crossing]
+049F000103010502
+
+[Claudia｜Animal Crossing]
+04FF000101620502
+
+[Clay｜Animal Crossing]
+03830001009B0502
+
+[Cleo｜Animal Crossing]
+03AB000103160502
+
+[Cloud - Player 2｜Super Smash Bros.]
+3600010003620002
+
+[Cloud｜Super Smash Bros.]
+3600000002590002
+
+[Clyde｜Animal Crossing]
+03AE000100870502
+
+[Coach｜Animal Crossing]
+0251000100C10502
+
+[Cobb｜Animal Crossing]
+04800001008D0502
+
+[Coco｜Animal Crossing]
+0496000100D90502
+
+[Cole｜Animal Crossing]
+04A6000100A30502
+
+[Colton｜Animal Crossing]
+03AF0001012C0502
+
+[Cookie｜Animal Crossing]
+02F2000100CC0502
+
+[Copper｜Animal Crossing]
+019D000100AC0502
+
+[Corrin - Player 2｜Super Smash Bros.]
+2105010003630002
+
+[Corrin｜Super Smash Bros.]
+21050000025A0002
+
+[Cousteau｜Animal Crossing]
+0342000101280502
+
+[Cranston｜Animal Crossing]
+043C000101CB0502
+
+[Croque｜Animal Crossing]
+03490001018D0502
+
+[Cube｜Animal Crossing]
+0461000101610502
+
+[Curlos｜Animal Crossing]
+04CD000101520502
+
+[Curly｜Animal Crossing]
+0478000101630502
+
+[Curt｜Animal Crossing]
+0216000100570502
+
+[Cyd｜Animal Crossing]
+0A0D000103C40502
+
+[Cyrano｜Animal Crossing]
+0200000100A10502
+
+[Cyrus｜Animal Crossing｜018B000002460502]
+018B000002460502
+
+[Cyrus｜Animal Crossing｜018B000101150502]
+018B000101150502
+
+[DJ KK｜Animal Crossing]
+0182010100460502
+
+[Daijobu｜Power Pros]
+3805000103981702
+
+[Daisy - Baseball｜Mario Sports Superstars]
+09C3020102790E02
+
+[Daisy - Golf｜Mario Sports Superstars]
+09C30401027B0E02
+
+[Daisy - Horse Racing｜Mario Sports Superstars]
+09C30501027C0E02
+
+[Daisy - Power Up Band｜Super Nintendo World]
+00130003039EFF02
+
+[Daisy - Soccer｜Mario Sports Superstars]
+09C3010102780E02
+
+[Daisy - Tennis｜Mario Sports Superstars]
+09C30301027A0E02
+
+[Daisy Mae｜Animal Crossing]
+0A04000103B50502
+
+[Daisy｜Animal Crossing]
+02F1000101450502
+
+[Daisy｜Super Mario Bros.]
+0013000002660102
+
+[Daisy｜Super Smash Bros.]
+00130000037A0002
+
+[Dark Pit｜Super Smash Bros.]
+0741000000200002
+
+[Dark Samus｜Super Smash Bros.]
+05C3000003800002
+
+[Dee Jay｜Street Fighter 6｜34CB000104B61D02]
+34CB000104B61D02
+
+[Dee Jay｜Street Fighter 6｜34CB000104D61D02]
+34CB000104D61D02
+
+[Deena｜Animal Crossing]
+030B000100790502
+
+[Deirdre｜Animal Crossing]
+02DA000101330502
+
+[Deli｜Animal Crossing]
+0401000100660502
+
+[Del｜Animal Crossing]
+02C7000101220502
+
+[Derwin｜Animal Crossing]
+030F0001016D0502
+
+[Detective Pikachu｜Pokemon]
+1D01000003750D02
+
+[Dhalsim｜Street Fighter 6｜34C9000104B41D02]
+34C9000104B41D02
+
+[Dhalsim｜Street Fighter 6｜34C9000104D41D02]
+34C9000104D41D02
+
+[Diana｜Animal Crossing]
+02DE0001009C0502
+
+[Diddy Kong - Baseball｜Mario Sports Superstars]
+09C8020102920E02
+
+[Diddy Kong - Golf｜Mario Sports Superstars]
+09C8040102940E02
+
+[Diddy Kong - Horse Racing｜Mario Sports Superstars]
+09C8050102950E02
+
+[Diddy Kong - Power Up Band｜Super Nintendo World]
+000900030432FF02
+
+[Diddy Kong - Soccer｜Mario Sports Superstars]
+09C8010102910E02
+
+[Diddy Kong - Tennis｜Mario Sports Superstars]
+09C8030102930E02
+
+[Diddy Kong｜Super Mario Bros.]
+0009000002650102
+
+[Diddy Kong｜Super Smash Bros.]
+00090000000D0002
+
+[Digby - Raincoat｜Animal Crossing]
+018C010101180502
+
+[Digby｜Animal Crossing｜018C000002430502]
+018C000002430502
+
+[Digby｜Animal Crossing｜018C0001004C0502]
+018C0001004C0502
+
+[Diva｜Animal Crossing]
+034A000101430502
+
+[Dizzy｜Animal Crossing]
+0324000101890502
+
+[Dobie｜Animal Crossing]
+050F000103140502
+
+[Doc｜Animal Crossing]
+049E000101B70502
+
+[Dom｜Animal Crossing]
+0A0B000103C20502
+
+[Don Resetti - Without Hat｜Animal Crossing]
+018F010101190502
+
+[Don Resetti｜Animal Crossing]
+018F000100B30502
+
+[Donkey Kong & Pauline｜Donkey Kong]
+00080100042F1A02
+
+[Donkey Kong - Baseball｜Mario Sports Superstars]
+09C70201028D0E02
+
+[Donkey Kong - Golf｜Mario Sports Superstars]
+09C70401028F0E02
+
+[Donkey Kong - Horse Racing｜Mario Sports Superstars]
+09C7050102900E02
+
+[Donkey Kong - Power Up Band｜Super Nintendo World]
+000800030431FF02
+
+[Donkey Kong - Soccer｜Mario Sports Superstars]
+09C70101028C0E02
+
+[Donkey Kong - Tennis｜Mario Sports Superstars]
+09C70301028E0E02
+
+[Donkey Kong｜Super Mario Bros.]
+0008000002640102
+
+[Donkey Kong｜Super Smash Bros.]
+0008000000030002
+
+[Dora｜Animal Crossing]
+040C000101590502
+
+[Dotty｜Animal Crossing]
+0495000101920502
+
+[Dr. Mario｜Super Smash Bros.]
+0000010000190002
+
+[Drago｜Animal Crossing]
+02CB000101360502
+
+[Drake｜Animal Crossing]
+0310000100F80502
+
+[Drift｜Animal Crossing]
+033C000101000502
+
+[Duck Hunt｜Super Smash Bros.]
+07820000002F0002
+
+[E. Honda｜Street Fighter 6｜34CA000104B51D02]
+34CA000104B51D02
+
+[E. Honda｜Street Fighter 6｜34CA000104D51D02]
+34CA000104D51D02
+
+[E.M.M.I.｜Metroid]
+05C4000004131302
+
+[Ed｜Animal Crossing]
+03AA000100E60502
+
+[Ed｜Street Fighter 6｜34D4000104BF1D02]
+34D4000104BF1D02
+
+[Ed｜Street Fighter 6｜34D4000104DF1D02]
+34D4000104DF1D02
+
+[Egbert｜Animal Crossing]
+029B000100CB0502
+
+[Elena｜Street Fighter 6｜34D8000104E31D02]
+34D8000104E31D02
+
+[Elena｜Street Fighter 6｜34D8000104EC1D02]
+34D8000104EC1D02
+
+[Elise｜Animal Crossing]
+03FE000101A40502
+
+[Ellie｜Animal Crossing]
+032A000103070502
+
+[Elmer｜Animal Crossing]
+03A7000101A10502
+
+[Eloise｜Animal Crossing]
+0326000101390502
+
+[Elvis｜Animal Crossing]
+03E70001012A0502
+
+[Ena｜Monster Hunter]
+35060000040D0F02
+
+[Erik｜Animal Crossing]
+02DF000101910502
+
+[Eugene｜Animal Crossing]
+03C6000100930502
+
+[Eunice｜Animal Crossing]
+04C7000100940502
+
+[Faith｜Animal Crossing]
+0A20000103D70502
+
+[Falco｜Super Smash Bros.]
+05810000001C0002
+
+[Fang｜Animal Crossing]
+0511000101950502
+
+[Fauna｜Animal Crossing]
+02D6000100560502
+
+[Felicity｜Animal Crossing]
+026E000100BA0502
+
+[Filbert｜Animal Crossing]
+04DF000100E80502
+
+[Flick｜Animal Crossing]
+0A03000103B40502
+
+[Flip｜Animal Crossing]
+03FF000100F40502
+
+[Flora｜Animal Crossing]
+043F000101550502
+
+[Flo｜Animal Crossing]
+046C0001008C0502
+
+[Flurry｜Animal Crossing]
+0384000100860502
+
+[Fox｜Super Smash Bros.]
+0580000000050002
+
+[Francine｜Animal Crossing]
+04A00001016E0502
+
+[Franklin｜Animal Crossing]
+01AE0001011B0502
+
+[Frank｜Animal Crossing]
+04510001015E0502
+
+[Freckles｜Animal Crossing]
+030E0001012F0502
+
+[Frett｜Animal Crossing]
+0A1D000103D40502
+
+[Freya｜Animal Crossing]
+0510000101070502
+
+[Friga｜Animal Crossing]
+0463000101310502
+
+[Frita｜Animal Crossing]
+04D0000101960502
+
+[Frobert｜Animal Crossing]
+033A000101CC0502
+
+[Frye｜Splatoon]
+0808000004340402
+
+[Fuchsia｜Animal Crossing]
+02DC000100BE0502
+
+[Gabi｜Animal Crossing]
+0499000100DF0502
+
+[Gakuto Sōgetsu｜Yu-Gi-Oh!]
+3842000104261902
+
+[Gala｜Animal Crossing]
+04850001014C0502
+
+[Ganda｜Power Pros]
+3804000103971702
+
+[Gaston｜Animal Crossing]
+04980001014A0502
+
+[Gayle｜Animal Crossing]
+02CA000101CA0502
+
+[Genji｜Animal Crossing]
+049C000101400502
+
+[Gigi｜Animal Crossing]
+03480001006B0502
+
+[Gladys｜Animal Crossing]
+0437000101050502
+
+[Gloria｜Animal Crossing]
+0316000101C00502
+
+[Golden - Power Up Band｜Super Nintendo World]
+000000030430FF02
+
+[Goldie - Amiibo Festival｜Animal Crossing]
+02EA000101D50502
+
+[Goldie｜Animal Crossing]
+02EA000101800502
+
+[Gonzo｜Animal Crossing]
+03C0000103100502
+
+[Goomba｜Super Mario Bros.]
+0015000003670102
+
+[Goose｜Animal Crossing]
+0299000100950502
+
+[Gracie｜Animal Crossing]
+01A9000101760502
+
+[Graham｜Animal Crossing]
+0380000101870502
+
+[Grams｜Animal Crossing]
+0199000101160502
+
+[Green Yarn Yoshi｜Yoshi's Woolly World]
+0003010200410302
+
+[Greninja｜Super Smash Bros.]
+1B92000000250002
+
+[Greta｜Animal Crossing]
+041C000101410502
+
+[Grizzly｜Animal Crossing]
+021D000101CD0502
+
+[Groucho｜Animal Crossing]
+021A000100DA0502
+
+[Gruff｜Animal Crossing]
+035A000100850502
+
+[Guile｜Street Fighter 6｜34C6000104B11D02]
+34C6000104B11D02
+
+[Guile｜Street Fighter 6｜34C6000104D11D02]
+34C6000104D11D02
+
+[Gulliver｜Animal Crossing｜01A20001017D0502]
+01A20001017D0502
+
+[Gulliver｜Animal Crossing｜01A2000103B90502]
+01A2000103B90502
+
+[Gwen｜Animal Crossing]
+0464000100C00502
+
+[Hamlet｜Animal Crossing]
+037E000101560502
+
+[Hammer Slam Bowser｜Skylanders]
+0005FF00023A0702
+
+[Hamphrey｜Animal Crossing]
+0385000101060502
+
+[Hans｜Animal Crossing]
+0373000101340502
+
+[Harriet｜Animal Crossing]
+01910001004E0502
+
+[Harry｜Animal Crossing]
+0398000100BF0502
+
+[Harvey｜Animal Crossing]
+0A05000103B80502
+
+[Hayakawa｜Power Pros]
+3803000103961702
+
+[Hazel｜Animal Crossing]
+04EF0001013B0502
+
+[Henry｜Animal Crossing]
+034B0001009F0502
+
+[Hero｜Super Smash Bros.]
+3640000003A20002
+
+[Hippeux｜Animal Crossing]
+0399000101C20502
+
+[Hopkins｜Animal Crossing]
+04A2000102E80502
+
+[Hopper｜Animal Crossing]
+0462000100F60502
+
+[Hornsby｜Animal Crossing]
+04B6000102EC0502
+
+[Huck｜Animal Crossing]
+0343000102EF0502
+
+[Hugh｜Animal Crossing]
+047B000100F50502
+
+[Ice Climbers｜Super Smash Bros.]
+078F000003810002
+
+[Iggly｜Animal Crossing]
+046A000101D00502
+
+[Ikari｜Power Pros]
+3801000103941702
+
+[Ike｜Animal Crossing]
+021F000103170502
+
+[Ike｜Super Smash Bros.]
+2101000000180002
+
+[Incineroar｜Super Smash Bros.]
+1BD7000003860002
+
+[Ingrid｜Street Fighter 6｜34DC000104E71D02]
+34DC000104E71D02
+
+[Ingrid｜Street Fighter 6｜34DC000104F01D02]
+34DC000104F01D02
+
+[Inkling - Yellow｜Splatoon]
+0800010004150402
+
+[Inkling Boy - Neon Green｜Splatoon]
+08000200036A0402
+
+[Inkling Boy - Purple｜Splatoon]
+0800020002600402
+
+[Inkling Boy｜Splatoon]
+08000200003F0402
+
+[Inkling Girl - Lime Green｜Splatoon]
+08000100025F0402
+
+[Inkling Girl - Neon Pink｜Splatoon]
+0800010003690402
+
+[Inkling Girl｜Splatoon]
+08000100003E0402
+
+[Inkling Squid - Neon Purple｜Splatoon]
+08000300036B0402
+
+[Inkling Squid - Orange｜Splatoon]
+0800030002610402
+
+[Inkling Squid｜Splatoon]
+0800030000400402
+
+[Inkling｜Super Smash Bros.]
+0800010003820002
+
+[Ione｜Animal Crossing]
+0A12000103C90502
+
+[Isabelle - Character Parfait｜Animal Crossing]
+0181000101D40502
+
+[Isabelle - Dress｜Animal Crossing]
+0181030101700502
+
+[Isabelle - Kimono｜Animal Crossing]
+01810201011A0502
+
+[Isabelle - Summer Outfit｜Animal Crossing]
+01810000024B0502
+
+[Isabelle - Sweater｜Animal Crossing]
+0181050103BF0502
+
+[Isabelle - Winter Outfit｜Animal Crossing]
+01810100023F0502
+
+[Isabelle - Winter｜Animal Crossing]
+0181010100B40502
+
+[Isabelle｜Animal Crossing｜0181000100440502]
+0181000100440502
+
+[Isabelle｜Animal Crossing｜0181040103AA0502]
+0181040103AA0502
+
+[Isabelle｜Super Smash Bros.]
+01810000037D0002
+
+[Ivysaur｜Super Smash Bros.]
+1902000003830002
+
+[JP｜Street Fighter 6｜34CE000104B91D02]
+34CE000104B91D02
+
+[JP｜Street Fighter 6｜34CE000104D91D02]
+34CE000104D91D02
+
+[Jack｜Animal Crossing]
+01AD000100B80502
+
+[Jacob｜Animal Crossing]
+0238000102F80502
+
+[Jacques｜Animal Crossing]
+023D000101B50502
+
+[Jambette｜Animal Crossing]
+03450001005F0502
+
+[Jamie｜Street Fighter 6｜34C3000004AC1D02]
+34C3000004AC1D02
+
+[Jamie｜Street Fighter 6｜34C3000104AD1D02]
+34C3000104AD1D02
+
+[Jamie｜Street Fighter 6｜34C3000104CE1D02]
+34C3000104CE1D02
+
+[Jay｜Animal Crossing]
+022D000100F20502
+
+[Jeremiah｜Animal Crossing]
+033F0001008F0502
+
+[Jigglypuff｜Super Smash Bros.]
+1927000000260002
+
+[Jingle｜Animal Crossing]
+01AF0001011C0502
+
+[Jitters｜Animal Crossing]
+02310001006A0502
+
+[Joan｜Animal Crossing]
+01A30001004A0502
+
+[Joey｜Animal Crossing]
+03080001014D0502
+
+[Joker｜Super Smash Bros.]
+3A00000003A10002
+
+[Judy｜Animal Crossing]
+0A0E000103C50502
+
+[Julian｜Animal Crossing]
+03B1000100F00502
+
+[Julia｜Animal Crossing]
+043B000103030502
+
+[June｜Animal Crossing]
+028A000102E90502
+
+[Juri｜Street Fighter 6｜34C7000104B21D02]
+34C7000104B21D02
+
+[Juri｜Street Fighter 6｜34C7000104D21D02]
+34C7000104D21D02
+
+[K. K. Slider - Pikopuri｜Animal Crossing]
+0182000101D80502
+
+[K. K. Slider｜Animal Crossing]
+0182000002400502
+
+[K.K. Slider｜Animal Crossing｜0182000100A80502]
+0182000100A80502
+
+[K.K. Slider｜Animal Crossing｜0182000103B20502]
+0182000103B20502
+
+[Kabuki｜Animal Crossing]
+0266000100680502
+
+[Kapp'n｜Animal Crossing｜01960000024E0502]
+01960000024E0502
+
+[Kapp'n｜Animal Crossing｜0196000100480502]
+0196000100480502
+
+[Katie｜Animal Crossing]
+01B6000100AE0502
+
+[Katrina｜Animal Crossing]
+01A5000101720502
+
+[Katt｜Animal Crossing]
+0272000101860502
+
+[Kazuya｜Super Smash Bros.]
+33C0000004200002
+
+[Keaton｜Animal Crossing]
+0453000101040502
+
+[Ken｜Animal Crossing]
+02A6000101240502
+
+[Ken｜Street Fighter 6｜34C1000104A91D02]
+34C1000104A91D02
+
+[Ken｜Street Fighter 6｜34C1000104CC1D02]
+34C1000104CC1D02
+
+[Ken｜Super Smash Bros.]
+34C1000003890002
+
+[Ketchup｜Animal Crossing]
+0314000102F40502
+
+[Kevin｜Animal Crossing]
+0487000101BF0502
+
+[Kicks｜Animal Crossing｜01940000024A0502]
+01940000024A0502
+
+[Kicks｜Animal Crossing｜0194000100AA0502]
+0194000100AA0502
+
+[Kicks｜Animal Crossing｜0194000103B60502]
+0194000103B60502
+
+[Kid Cat｜Animal Crossing]
+0267000101080502
+
+[Kidd｜Animal Crossing]
+035D000100C90502
+
+[Kiki｜Animal Crossing]
+0261000100650502
+
+[Kimberly｜Street Fighter 6｜34C4000004AE1D02]
+34C4000004AE1D02
+
+[Kimberly｜Street Fighter 6｜34C4000104AF1D02]
+34C4000104AF1D02
+
+[Kimberly｜Street Fighter 6｜34C4000104CF1D02]
+34C4000104CF1D02
+
+[King Dedede｜Kirby]
+1F02000002560C02
+
+[King Dedede｜Super Smash Bros.]
+1F02000000280002
+
+[King K. Rool｜Super Smash Bros.]
+00C00000037B0002
+
+[King Knight｜Shovel Knight]
+35C30000036E0A02
+
+[Kirby｜Kirby]
+1F00000002540C02
+
+[Kirby｜Kirby Air Riders]
+1F00000004C41E03
+
+[Kirby｜Super Smash Bros.]
+1F000000000A0002
+
+[Kitty｜Animal Crossing]
+026B000100E90502
+
+[Kitt｜Animal Crossing]
+03D1000100C20502
+
+[Klaus｜Animal Crossing]
+0222000101440502
+
+[Knox｜Animal Crossing]
+02A4000100720502
+
+[Kody｜Animal Crossing]
+0281000101200502
+
+[Koopa Troopa｜Super Mario Bros.]
+0023000003680102
+
+[Kyle｜Animal Crossing]
+05150001005B0502
+
+[Labelle｜Animal Crossing]
+0189000100AB0502
+
+[Label｜Animal Crossing]
+0189010103B10502
+
+[Leif｜Animal Crossing]
+01B4000101130502
+
+[Leilani｜Animal Crossing]
+0197000101770502
+
+[Leila｜Animal Crossing]
+0198000100B10502
+
+[Leonardo｜Animal Crossing]
+04FE000100590502
+
+[Leopold｜Animal Crossing]
+03EA0001030B0502
+
+[Light Blue Yarn Yoshi｜Yoshi's Woolly World]
+0003010200430302
+
+[Lily｜Animal Crossing]
+03380001011D0502
+
+[Lily｜Street Fighter 6｜34D0000104BB1D02]
+34D0000104BB1D02
+
+[Lily｜Street Fighter 6｜34D0000104DB1D02]
+34D0000104DB1D02
+
+[Limberg｜Animal Crossing]
+040D000100780502
+
+[Lionel｜Animal Crossing]
+03EE0001008B0502
+
+[Little Mac｜Super Smash Bros.]
+06C00000000F0002
+
+[Lobo｜Animal Crossing]
+050C000101C10502
+
+[Lolly｜Animal Crossing]
+026F000101900502
+
+[Loot Goblin｜Diablo]
+38C0000003911602
+
+[Lopez｜Animal Crossing]
+02DB0001005E0502
+
+[Lottie - Black Skirt And Bow｜Animal Crossing]
+01C10101017A0502
+
+[Lottie - Island｜Animal Crossing]
+01C1020103BB0502
+
+[Lottie｜Animal Crossing｜01C1000002440502]
+01C1000002440502
+
+[Lottie｜Animal Crossing｜01C1000100540502]
+01C1000100540502
+
+[Louie｜Animal Crossing]
+036D000103040502
+
+[Lucario｜Super Smash Bros.]
+1AC0000000110002
+
+[Lucas｜Super Smash Bros.]
+2281000002510002
+
+[Lucha｜Animal Crossing]
+023C000100BD0502
+
+[Lucina｜Super Smash Bros.]
+2102000000290002
+
+[Lucky｜Animal Crossing]
+02EC000101C40502
+
+[Lucy｜Animal Crossing]
+047C000101A00502
+
+[Luigi - Baseball｜Mario Sports Superstars]
+09C10201026F0E02
+
+[Luigi - Golf｜Mario Sports Superstars]
+09C1040102710E02
+
+[Luigi - Horse Racing｜Mario Sports Superstars]
+09C1050102720E02
+
+[Luigi - My Mario Wooden Blocks｜My Mario Wooden Blocks]
+0001000404401C02
+
+[Luigi - Power Up Band｜Super Nintendo World]
+00010003039CFF02
+
+[Luigi - Soccer｜Mario Sports Superstars]
+09C10101026E0E02
+
+[Luigi - Tennis｜Mario Sports Superstars]
+09C1030102700E02
+
+[Luigi｜Super Mario Bros.]
+0001000000350102
+
+[Luigi｜Super Smash Bros.]
+00010000000C0002
+
+[Luke｜Street Fighter 6｜34C2000004AA1D02]
+34C2000004AA1D02
+
+[Luke｜Street Fighter 6｜34C2000104AB1D02]
+34C2000104AB1D02
+
+[Luke｜Street Fighter 6｜34C2000104CD1D02]
+34C2000104CD1D02
+
+[Luna｜Animal Crossing]
+01B5000100510502
+
+[Lyle｜Animal Crossing]
+01AA000100530502
+
+[Lyman｜Animal Crossing]
+03C50001015C0502
+
+[M. Bison｜Street Fighter 6｜34D6000104E11D02]
+34D6000104E11D02
+
+[M. Bison｜Street Fighter 6｜34D6000104EB1D02]
+34D6000104EB1D02
+
+[Mabel｜Animal Crossing｜0188000002410502]
+0188000002410502
+
+[Mabel｜Animal Crossing｜0188000101120502]
+0188000101120502
+
+[Mabel｜Animal Crossing｜0188000103AF0502]
+0188000103AF0502
+
+[Mac｜Animal Crossing]
+02F8000101380502
+
+[Maddie｜Animal Crossing]
+02F3000102F90502
+
+[Maelle｜Animal Crossing]
+030A000101C70502
+
+[Maggie｜Animal Crossing]
+0482000102FD0502
+
+[Magnamalo｜Monster Hunter Rise]
+35080000040F1802
+
+[Mai｜Street Fighter 6｜3C81000104F21D02]
+3C81000104F21D02
+
+[Mai｜Street Fighter 6｜3C81000104F31D02]
+3C81000104F31D02
+
+[Mallary｜Animal Crossing]
+030D000101840502
+
+[Malzeno｜Monster Hunter Rise]
+350B0000042D1802
+
+[Manon｜Street Fighter 6｜34CC000104B71D02]
+34CC000104B71D02
+
+[Manon｜Street Fighter 6｜34CC000104D71D02]
+34CC000104D71D02
+
+[Maple｜Animal Crossing]
+027E000101690502
+
+[Marcel｜Animal Crossing]
+02F9000101020502
+
+[Marcie｜Animal Crossing]
+03DB0001006D0502
+
+[Margie｜Animal Crossing]
+0327000101C30502
+
+[Marie - Alterna｜Splatoon]
+0802000004370402
+
+[Marie｜Splatoon]
+08020000025E0402
+
+[Marina - Side Order｜Splatoon]
+0804000004390402
+
+[Marina｜Animal Crossing]
+042A0001012D0502
+
+[Marina｜Splatoon]
+0804000003770402
+
+[Mario - Baseball｜Mario Sports Superstars]
+09C00201026A0E02
+
+[Mario - Cat｜Super Mario Bros.]
+0000030003A60102
+
+[Mario - Gold Edition｜Super Mario Bros.]
+00000000003C0102
+
+[Mario - Golf｜Mario Sports Superstars]
+09C00401026C0E02
+
+[Mario - Horse Racing｜Mario Sports Superstars]
+09C00501026D0E02
+
+[Mario - My Mario Wooden Blocks｜My Mario Wooden Blocks]
+00000004043F1C02
+
+[Mario - Power Up Band｜Super Nintendo World]
+00000003039BFF02
+
+[Mario - Silver Edition｜Super Mario Bros.]
+00000000003D0102
+
+[Mario - Soccer｜Mario Sports Superstars]
+09C0010102690E02
+
+[Mario - Tennis｜Mario Sports Superstars]
+09C00301026B0E02
+
+[Mario - Wedding｜Super Mario Bros.]
+0000000003710102
+
+[Mario｜Super Mario Bros.]
+0000000000340102
+
+[Mario｜Super Smash Bros.]
+0000000000000002
+
+[Marisa｜Street Fighter 6｜34CD000104B81D02]
+34CD000104B81D02
+
+[Marisa｜Street Fighter 6｜34CD000104D81D02]
+34CD000104D81D02
+
+[Marlo｜Animal Crossing]
+0A15000103CC0502
+
+[Marshal｜Animal Crossing]
+04EE0001014B0502
+
+[Marth｜Super Smash Bros.]
+21000000000B0002
+
+[Marty｜Animal Crossing]
+028F0101031A0502
+
+[Mathilda｜Animal Crossing]
+03D2000100E50502
+
+[Mega Man - Gold Edition｜Super Smash Bros.]
+3480000002580002
+
+[Mega Man｜Mega Man]
+3480000003791502
+
+[Mega Man｜Super Smash Bros.]
+3480000000310002
+
+[Mega Yarn Yoshi｜Yoshi's Woolly World]
+00030102023E0302
+
+[Megan｜Animal Crossing]
+0A0A000103C10502
+
+[Melba｜Animal Crossing]
+03BE000101980502
+
+[Merengue｜Animal Crossing]
+04B9000101600502
+
+[Merry｜Animal Crossing]
+026D0001013F0502
+
+[Meta Knight｜Kirby]
+1F01000002550C02
+
+[Meta Knight｜Super Smash Bros.]
+1F01000000270002
+
+[Metal Mario - Baseball｜Mario Sports Superstars]
+09D0020102BA0E02
+
+[Metal Mario - Golf｜Mario Sports Superstars]
+09D0040102BC0E02
+
+[Metal Mario - Horse Racing｜Mario Sports Superstars]
+09D0050102BD0E02
+
+[Metal Mario - Soccer｜Mario Sports Superstars]
+09D0010102B90E02
+
+[Metal Mario - Tennis｜Mario Sports Superstars]
+09D0030102BB0E02
+
+[Metroid｜Metroid]
+05C1000003661302
+
+[Mewtwo｜Super Smash Bros.]
+19960000023D0002
+
+[Midge｜Animal Crossing]
+0235000100840502
+
+[Mii Brawler｜Super Smash Bros.]
+07C0000000210002
+
+[Mii Gunner｜Super Smash Bros.]
+07C0020000230002
+
+[Mii Swordfighter｜Super Smash Bros.]
+07C0010000220002
+
+[Min Min｜Super Smash Bros.]
+0A400000041D0002
+
+[Mint｜Animal Crossing]
+04E6000100820502
+
+[Mio｜Xenoblade Chronicles 3]
+22440000043E1B02
+
+[Miranda｜Animal Crossing]
+0313000101210502
+
+[Mira｜Animal Crossing]
+04A7000101A60502
+
+[Mitzi｜Animal Crossing]
+025E000101250502
+
+[Moe｜Animal Crossing]
+0265000101540502
+
+[Molly｜Animal Crossing]
+0317000100A60502
+
+[Monique｜Animal Crossing]
+02680001007D0502
+
+[Monty｜Animal Crossing]
+03FD000101580502
+
+[Moose｜Animal Crossing]
+041A000100E00502
+
+[Mott｜Animal Crossing]
+03EC000101830502
+
+[Mr. Game & Watch｜Super Smash Bros.]
+07800000002D0002
+
+[Muffy｜Animal Crossing]
+04D10001009E0502
+
+[Murphy｜Animal Crossing]
+0284000102FE0502
+
+[Mythra｜Super Smash Bros.]
+22420000041F0002
+
+[Nabiru｜Monster Hunter]
+3501000002E30F02
+
+[Nail Saionji｜Yu-Gi-Oh!]
+3845000104291902
+
+[Nana｜Animal Crossing]
+03FA000100D00502
+
+[Nan｜Animal Crossing]
+0357000100EB0502
+
+[Naomi｜Animal Crossing]
+02B80001019C0502
+
+[Nate｜Animal Crossing]
+02190001007E0502
+
+[Nat｜Animal Crossing]
+019B000100B60502
+
+[Ness｜Super Smash Bros.]
+22800000002C0002
+
+[Nibbles｜Animal Crossing]
+04E1000101BE0502
+
+[Niko｜Animal Crossing]
+0A07000103BC0502
+
+[Noah｜Xenoblade Chronicles 3]
+22430000043D1B02
+
+[Norma｜Animal Crossing]
+02B70001030F0502
+
+[OHare｜Animal Crossing]
+04A3000101C90502
+
+[Octavian｜Animal Crossing]
+0429000100700502
+
+[Octoling - Blue｜Splatoon]
+08050200041B0402
+
+[Octoling Boy｜Splatoon]
+08050200038F0402
+
+[Octoling Girl｜Splatoon]
+08050100038E0402
+
+[Octoling Octopus｜Splatoon]
+0805030003900402
+
+[Olaf｜Animal Crossing]
+02090001019F0502
+
+[Olimar｜Super Smash Bros.]
+06400100001E0002
+
+[Olive｜Animal Crossing]
+0286000103130502
+
+[Olivia｜Animal Crossing]
+0260000100D20502
+
+[One-Eyed Rathalos and Rider - Female｜Monster Hunter]
+3500020002E20F02
+
+[One-Eyed Rathalos and Rider - Male｜Monster Hunter]
+3500010002E10F02
+
+[Opal｜Animal Crossing]
+0323000100760502
+
+[Orville｜Animal Crossing]
+0A00000103AB0502
+
+[Ozzie｜Animal Crossing]
+03C1000100BB0502
+
+[Pac-Man｜Super Smash Bros.]
+3340000000320002
+
+[Palamute｜Monster Hunter Rise｜350A000004111802]
+350A000004111802
+
+[Palamute｜Monster Hunter Rise｜350A0100042C1802]
+350A0100042C1802
+
+[Palico｜Monster Hunter Rise｜3509000004101802]
+3509000004101802
+
+[Palico｜Monster Hunter Rise｜35090100042B1802]
+35090100042B1802
+
+[Palutena｜Super Smash Bros.]
+07420000001F0002
+
+[Pancetti｜Animal Crossing]
+0488000100980502
+
+[Pango｜Animal Crossing]
+0202000101030502
+
+[Paolo｜Animal Crossing]
+0328000102EB0502
+
+[Papi｜Animal Crossing]
+03B0000101A90502
+
+[Pascal｜Animal Crossing]
+01A40001004D0502
+
+[Pashmina｜Animal Crossing]
+035E0001018E0502
+
+[Pate｜Animal Crossing]
+0309000100C60502
+
+[Patty｜Animal Crossing]
+02B1000100690502
+
+[Paula｜Animal Crossing]
+021E000101230502
+
+[Pave｜Animal Crossing]
+01AB0001017C0502
+
+[Pawapuro｜Power Pros]
+3800000103931702
+
+[Peach - Baseball｜Mario Sports Superstars]
+09C2020102740E02
+
+[Peach - Cat｜Super Mario Bros.]
+0002010003A70102
+
+[Peach - Golf｜Mario Sports Superstars]
+09C2040102760E02
+
+[Peach - Horse Racing｜Mario Sports Superstars]
+09C2050102770E02
+
+[Peach - My Mario Wooden Blocks｜My Mario Wooden Blocks]
+0002000404411C02
+
+[Peach - Power Up Band｜Super Nintendo World]
+00020003039DFF02
+
+[Peach - Soccer｜Mario Sports Superstars]
+09C2010102730E02
+
+[Peach - Tennis｜Mario Sports Superstars]
+09C2030102750E02
+
+[Peach - Wedding｜Super Mario Bros.]
+0002000003720102
+
+[Peaches｜Animal Crossing]
+03AC000101880502
+
+[Peach｜Super Mario Bros.]
+0002000000360102
+
+[Peach｜Super Smash Bros.]
+0002000000010002
+
+[Peanut｜Animal Crossing]
+04DD000100A20502
+
+[Pearl - Side Order｜Splatoon]
+0803000004380402
+
+[Pearl｜Splatoon]
+0803000003760402
+
+[Pecan｜Animal Crossing]
+04E0000100F70502
+
+[Peck｜Animal Crossing]
+023E000100D10502
+
+[Peewee｜Animal Crossing]
+036A0001019D0502
+
+[Peggy｜Animal Crossing]
+0483000101B00502
+
+[Pekoe｜Animal Crossing]
+028B000100E30502
+
+[Pelly｜Animal Crossing]
+01A00001010F0502
+
+[Penelope｜Animal Crossing]
+041D0001018A0502
+
+[Pete｜Animal Crossing]
+019F000101110502
+
+[Petri｜Animal Crossing]
+0A16000103CD0502
+
+[Phil｜Animal Crossing]
+043D0001007C0502
+
+[Phineas｜Animal Crossing]
+019C000101730502
+
+[Phoebe｜Animal Crossing]
+0440000100CA0502
+
+[Phyllis｜Animal Crossing]
+01A1000101100502
+
+[Pichu｜Super Smash Bros.]
+19AC000003850002
+
+[Pierce｜Animal Crossing]
+044D000101930502
+
+[Pietro｜Animal Crossing]
+04D2000101A70502
+
+[Pikachu｜Super Smash Bros.]
+1919000000090002
+
+[Pikmin｜Pikmin]
+06420000035F1102
+
+[Pink Gold Peach - Baseball｜Mario Sports Superstars]
+09D1020102BF0E02
+
+[Pink Gold Peach - Golf｜Mario Sports Superstars]
+09D1040102C10E02
+
+[Pink Gold Peach - Horse Racing｜Mario Sports Superstars]
+09D1050102C20E02
+
+[Pink Gold Peach - Soccer｜Mario Sports Superstars]
+09D1010102BE0E02
+
+[Pink Gold Peach - Tennis｜Mario Sports Superstars]
+09D1030102C00E02
+
+[Pink Yarn Yoshi｜Yoshi's Woolly World]
+0003010200420302
+
+[Pinky｜Animal Crossing]
+0215000101820502
+
+[Piper｜Animal Crossing]
+0232000102EA0502
+
+[Pippy｜Animal Crossing]
+049A0001014E0502
+
+[Piranha Plant｜Super Smash Bros.]
+00240000038D0002
+
+[Pit｜Super Smash Bros.]
+0740000000100002
+
+[Plague Knight｜Shovel Knight]
+35C10000036C0A02
+
+[Plucky｜Animal Crossing]
+02A3000102FF0502
+
+[Pokemon Trainer｜Super Smash Bros.]
+1D40000003870002
+
+[Pompom｜Animal Crossing]
+030C000101B80502
+
+[Poncho｜Animal Crossing]
+027F000100B90502
+
+[Poochy｜Yoshi's Woolly World]
+00800102035D0302
+
+[Poppy｜Animal Crossing]
+04EC000100770502
+
+[Porter｜Animal Crossing]
+0195000100B00502
+
+[Portia｜Animal Crossing]
+02EF000100580502
+
+[Prince｜Animal Crossing]
+0344000100C50502
+
+[Puck｜Animal Crossing]
+04650001006E0502
+
+[Puddles｜Animal Crossing]
+033E000101A20502
+
+[Pudge｜Animal Crossing]
+0280000100830502
+
+[Punchy｜Animal Crossing]
+0263000100750502
+
+[Purrl｜Animal Crossing]
+0264000101AC0502
+
+[Pyra｜Super Smash Bros.]
+22410000041E0002
+
+[Qbby｜BoxBoy!]
+1F400000035E1002
+
+[Queenie｜Animal Crossing]
+0436000101940502
+
+[Quillson｜Animal Crossing]
+03180001006C0502
+
+[Quinn｜Animal Crossing]
+0A18000103CF0502
+
+[Qurupeco and Dan｜Monster Hunter]
+3504010002E60F02
+
+[R.O.B. - Famicom｜Super Smash Bros.]
+07810000002E0002
+
+[R.O.B. - NES｜Super Smash Bros.]
+0781000000330002
+
+[Raddle｜Animal Crossing]
+0347000103020502
+
+[Rasher｜Animal Crossing]
+047A000100600502
+
+[Rashid｜Street Fighter 6｜34D2000104BD1D02]
+34D2000104BD1D02
+
+[Rashid｜Street Fighter 6｜34D2000104DD1D02]
+34D2000104DD1D02
+
+[Rathian and Cheval｜Monster Hunter]
+3502010002E40F02
+
+[Raymond｜Animal Crossing]
+0A0F000103C60502
+
+[Razewing Ratha｜Monster Hunter]
+35050000040C0F02
+
+[Redd - Shirt｜Animal Crossing]
+01A80101017E0502
+
+[Redd｜Animal Crossing]
+01A80001004F0502
+
+[Reese｜Animal Crossing｜018A000002450502]
+018A000002450502
+
+[Reese｜Animal Crossing｜018A000100A90502]
+018A000100A90502
+
+[Reneigh｜Animal Crossing]
+0A10000103C70502
+
+[Renée｜Animal Crossing]
+04BA0001005D0502
+
+[Resetti - Without Hat｜Animal Crossing]
+018E010101780502
+
+[Resetti｜Animal Crossing｜018E000002490502]
+018E000002490502
+
+[Resetti｜Animal Crossing｜018E000100490502]
+018E000100490502
+
+[Rex｜Animal Crossing]
+03E8000102F50502
+
+[Rhonda｜Animal Crossing]
+04B3000100DD0502
+
+[Ribbot｜Animal Crossing]
+0339000101B10502
+
+[Richter｜Super Smash Bros.]
+37C10000038C0002
+
+[Ricky｜Animal Crossing]
+04E7000101320502
+
+[Ridley｜Super Smash Bros.]
+05C20000037F0002
+
+[Rilla｜Animal Crossing]
+0374010103190502
+
+[Rio｜Animal Crossing]
+0A1C000103D30502
+
+[Rizzo｜Animal Crossing]
+0415000101BB0502
+
+[Roa Kirishima｜Yu-Gi-Oh!]
+3844000104281902
+
+[Roald｜Animal Crossing]
+0460000100A50502
+
+[Robin｜Animal Crossing]
+022E000101D30502
+
+[Robin｜Super Smash Bros.]
+21030000002A0002
+
+[Rocco｜Animal Crossing]
+0390000101850502
+
+[Rocket｜Animal Crossing]
+03720001010B0502
+
+[Rodeo｜Animal Crossing]
+024B000101260502
+
+[Rodney｜Animal Crossing]
+0381000100D50502
+
+[Rod｜Animal Crossing]
+0411000101AB0502
+
+[Rolf｜Animal Crossing]
+04FA000101680502
+
+[Romin Kirishima｜Yu-Gi-Oh!]
+3843000104271902
+
+[Rooney｜Animal Crossing]
+03DA000101510502
+
+[Rory｜Animal Crossing]
+03ED000101A30502
+
+[Rosalina & Luma｜Super Smash Bros.]
+0004010000130002
+
+[Rosalina - Baseball｜Mario Sports Superstars]
+09CF020102B50E02
+
+[Rosalina - Golf｜Mario Sports Superstars]
+09CF040102B70E02
+
+[Rosalina - Horse Racing｜Mario Sports Superstars]
+09CF050102B80E02
+
+[Rosalina - Soccer｜Mario Sports Superstars]
+09CF010102B40E02
+
+[Rosalina - Tennis｜Mario Sports Superstars]
+09CF030102B60E02
+
+[Rosalina｜Super Mario Bros.]
+0004000002620102
+
+[Roscoe｜Animal Crossing]
+03A8000100910502
+
+[Rosie - Amiibo Festival｜Animal Crossing]
+025F000101D70502
+
+[Rosie｜Animal Crossing]
+025F000101C50502
+
+[Roswell｜Animal Crossing]
+0A1F000103D60502
+
+[Rover｜Animal Crossing｜018D0000024C0502]
+018D0000024C0502
+
+[Rover｜Animal Crossing｜018D0001010C0502]
+018D0001010C0502
+
+[Rowan｜Animal Crossing]
+04FB000101C60502
+
+[Roy｜Super Smash Bros.]
+2104000002520002
+
+[Ruby｜Animal Crossing]
+049D000100ED0502
+
+[Rudy｜Animal Crossing]
+02710001019B0502
+
+[Ryu｜Street Fighter 6｜34C0000104A81D02]
+34C0000104A81D02
+
+[Ryu｜Street Fighter 6｜34C0000104CB1D02]
+34C0000104CB1D02
+
+[Ryu｜Super Smash Bros.]
+34C0000002530002
+
+[Sable｜Animal Crossing｜0187000100470502]
+0187000100470502
+
+[Sable｜Animal Crossing｜0187000103B00502]
+0187000103B00502
+
+[Sagat｜Street Fighter 6｜34D9000104E41D02]
+34D9000104E41D02
+
+[Sagat｜Street Fighter 6｜34D9000104ED1D02]
+34D9000104ED1D02
+
+[Saharah｜Animal Crossing｜01A6000100500502]
+01A6000100500502
+
+[Saharah｜Animal Crossing｜01A6000103B70502]
+01A6000103B70502
+
+[Sally｜Animal Crossing]
+04E4000101B60502
+
+[Samson｜Animal Crossing]
+04100001007F0502
+
+[Samus & Vi-O-La｜Metroid]
+05C00000043A1302
+
+[Samus - Metroid Dread｜Metroid]
+05C0000004121302
+
+[Samus Aran｜Metroid]
+05C0000003651302
+
+[Samus｜Metroid]
+05C00000043B1302
+
+[Samus｜Super Smash Bros.]
+05C0000000060002
+
+[Sandy｜Animal Crossing]
+0438000103000502
+
+[Sasha｜Animal Crossing]
+0A11000103C80502
+
+[Savannah｜Animal Crossing]
+03A6000100C80502
+
+[Scoot｜Animal Crossing]
+0311000100D60502
+
+[Sephiroth｜Super Smash Bros.]
+3601000004210002
+
+[Shadow Mewtwo｜Pokemon]
+1D000001025C0D02
+
+[Shari｜Animal Crossing]
+04000001006F0502
+
+[Sheldon｜Animal Crossing]
+04ED000100620502
+
+[Shep｜Animal Crossing]
+02FC0001018F0502
+
+[Sherb｜Animal Crossing]
+0A09000103C00502
+
+[Shino｜Animal Crossing]
+0A14000103CB0502
+
+[Shiver｜Splatoon]
+0807000004330402
+
+[Shovel Knight - Gold Edition｜Shovel Knight]
+35C0000003920A02
+
+[Shovel Knight｜Shovel Knight]
+35C0000002500A02
+
+[Shrunk - Loud Jacket｜Animal Crossing]
+01B10101017B0502
+
+[Shrunk｜Animal Crossing]
+01B1000100B20502
+
+[Shulk｜Super Smash Bros.]
+22400000002B0002
+
+[Simon｜Animal Crossing]
+03FB000101CF0502
+
+[Simon｜Super Smash Bros.]
+37C00000038B0002
+
+[Skye｜Animal Crossing]
+0514000101530502
+
+[Sly｜Animal Crossing]
+02C9000100CD0502
+
+[Smallfry｜Splatoon]
+08060100041C0402
+
+[Snake｜Animal Crossing]
+04970001007A0502
+
+[Snake｜Super Smash Bros.]
+37800000038A0002
+
+[Snooty｜Animal Crossing]
+0206000103120502
+
+[Solaire of Astora｜Others]
+3380000003781402
+
+[Soleil｜Animal Crossing]
+03820001016B0502
+
+[Sonic｜Super Smash Bros.]
+3200000000300002
+
+[Sora｜Super Smash Bros.]
+3F000000042E0002
+
+[Sparro｜Animal Crossing]
+023F000101660502
+
+[Specter Knight｜Shovel Knight]
+35C20000036D0A02
+
+[Spike｜Animal Crossing]
+04B40001030C0502
+
+[Spork/Crackle｜Animal Crossing]
+047D0001012E0502
+
+[Sprinkle｜Animal Crossing]
+046D000100F30502
+
+[Sprocket｜Animal Crossing]
+0439000103110502
+
+[Squirtle｜Super Smash Bros.]
+1907000003840002
+
+[Static｜Animal Crossing]
+04E5000101AD0502
+
+[Stella｜Animal Crossing]
+04C8000102ED0502
+
+[Sterling｜Animal Crossing]
+0452000100730502
+
+[Steve｜Super Smash Bros.]
+3DC0000004220002
+
+[Stinky｜Animal Crossing]
+026A000101460502
+
+[Stitches - Amiibo Festival｜Animal Crossing]
+0282000101D60502
+
+[Stitches｜Animal Crossing]
+0282000101810502
+
+[Stu｜Animal Crossing]
+024D000102F60502
+
+[Super Mario Cereal｜Others]
+3740000103741402
+
+[Sydney｜Animal Crossing]
+03BF000101BC0502
+
+[Sylux｜Metroid]
+05C50000043C1302
+
+[Sylvana｜Animal Crossing]
+04EB000102F00502
+
+[Sylvia｜Animal Crossing]
+03D7000101B40502
+
+[T-Bone｜Animal Crossing]
+024F000100810502
+
+[Tabby｜Animal Crossing]
+02690001011F0502
+
+[Tad｜Animal Crossing]
+03410001030E0502
+
+[Tammi｜Animal Crossing]
+03FC000101470502
+
+[Tammy｜Animal Crossing]
+028E0001019E0502
+
+[Tangy｜Animal Crossing]
+0262000101370502
+
+[Tank｜Animal Crossing]
+04B2000101B90502
+
+[Tasha｜Animal Crossing]
+04EA000103180502
+
+[Tatsuhisa “Luke” Kamijō｜Yu-Gi-Oh!]
+3841000104251902
+
+[Teddy｜Animal Crossing]
+0214000100E40502
+
+[Terry｜Street Fighter 6｜3C80000104E81D02]
+3C80000104E81D02
+
+[Terry｜Street Fighter 6｜3C80000104F11D02]
+3C80000104F11D02
+
+[Terry｜Super Smash Bros.]
+3C80000003A40002
+
+[Tex｜Animal Crossing]
+046B000101970502
+
+[Tiansheng｜Animal Crossing]
+0A13000103CA0502
+
+[Tia｜Animal Crossing]
+032D000100BC0502
+
+[Tiffany｜Animal Crossing]
+049B000100610502
+
+[Tiki｜Fire Emblem]
+2109000003701202
+
+[Timbra｜Animal Crossing]
+04CF000100E10502
+
+[Timmy & Tommy｜Animal Crossing｜01840000024D0502]
+01840000024D0502
+
+[Timmy & Tommy｜Animal Crossing｜0184050103A90502]
+0184050103A90502
+
+[Timmy - Full Apron｜Animal Crossing]
+0185020101170502
+
+[Timmy - Suit｜Animal Crossing]
+0185040101790502
+
+[Timmy｜Animal Crossing]
+01850001004B0502
+
+[Tipper｜Animal Crossing]
+02B2000100C40502
+
+[Toad - Power Up Band｜Super Nintendo World]
+000A000303A0FF02
+
+[Toad｜Super Mario Bros.]
+000A000000380102
+
+[Toby｜Animal Crossing]
+04A80101031E0502
+
+[Tom Nook - Coat｜Animal Crossing]
+0183030103BE0502
+
+[Tom Nook - Jacket｜Animal Crossing]
+01830101010E0502
+
+[Tom Nook｜Animal Crossing｜0183000002420502]
+0183000002420502
+
+[Tom Nook｜Animal Crossing｜0183000100450502]
+0183000100450502
+
+[Tom Nook｜Animal Crossing｜0183020103A80502]
+0183020103A80502
+
+[Tommy - Suit｜Animal Crossing]
+0186030101750502
+
+[Tommy - Uniform｜Animal Crossing]
+0186010100AF0502
+
+[Tom｜Animal Crossing]
+026C000100C30502
+
+[Tortimer｜Animal Crossing]
+01B0000100520502
+
+[Truffles｜Animal Crossing]
+0479000100920502
+
+[Tsukino｜Monster Hunter]
+35070000040E0F02
+
+[Tucker｜Animal Crossing]
+032C000101480502
+
+[Turbo Charge Donkey Kong｜Skylanders]
+0008FF00023B0702
+
+[Tutu｜Animal Crossing]
+021B000100800502
+
+[Twiggy｜Animal Crossing]
+0230000101D20502
+
+[Tybalt｜Animal Crossing]
+04FC000102EE0502
+
+[Ursala｜Animal Crossing]
+021C000102F70502
+
+[Velma｜Animal Crossing]
+035C000101290502
+
+[Vesta｜Animal Crossing]
+04C5000101010502
+
+[Victoria｜Animal Crossing]
+03A50001015B0502
+
+[Vic｜Animal Crossing]
+0252000100FE0502
+
+[Villager｜Super Smash Bros.]
+0180000000080002
+
+[Violet｜Animal Crossing]
+03700001015D0502
+
+[Vivian｜Animal Crossing]
+0513000102E70502
+
+[Vladimir｜Animal Crossing]
+0283000100C70502
+
+[Waddle Dee｜Kirby]
+1F03000002570C02
+
+[Wade｜Animal Crossing]
+0468000102F20502
+
+[Walker｜Animal Crossing]
+02F0000100A70502
+
+[Walt｜Animal Crossing]
+03D9000101A50502
+
+[Waluigi - Baseball｜Mario Sports Superstars]
+09C6020102880E02
+
+[Waluigi - Golf｜Mario Sports Superstars]
+09C60401028A0E02
+
+[Waluigi - Horse Racing｜Mario Sports Superstars]
+09C60501028B0E02
+
+[Waluigi - Soccer｜Mario Sports Superstars]
+09C6010102870E02
+
+[Waluigi - Tennis｜Mario Sports Superstars]
+09C6030102890E02
+
+[Waluigi｜Super Mario Bros.]
+0014000002670102
+
+[Wardell｜Animal Crossing]
+0A08000103BD0502
+
+[Wario - Baseball｜Mario Sports Superstars]
+09C5020102830E02
+
+[Wario - Golf｜Mario Sports Superstars]
+09C5040102850E02
+
+[Wario - Horse Racing｜Mario Sports Superstars]
+09C5050102860E02
+
+[Wario - Soccer｜Mario Sports Superstars]
+09C5010102820E02
+
+[Wario - Tennis｜Mario Sports Superstars]
+09C5030102840E02
+
+[Wario｜Super Mario Bros.]
+0007000002630102
+
+[Wario｜Super Smash Bros.]
+00070000001A0002
+
+[Wart Jr.｜Animal Crossing]
+033D0001013A0502
+
+[Weber｜Animal Crossing]
+0312000103090502
+
+[Wendell｜Animal Crossing]
+01A7000101140502
+
+[Wendy｜Animal Crossing]
+04CE000100DB0502
+
+[Whitney｜Animal Crossing]
+050E000100D70502
+
+[Wii Fit Trainer｜Super Smash Bros.]
+0700000000070002
+
+[Wilbur｜Animal Crossing]
+0A01000103AC0502
+
+[Willow｜Animal Crossing]
+04CC000100A40502
+
+[Winnie｜Animal Crossing]
+03A9000100710502
+
+[Wisp｜Animal Crossing]
+0A06000103BA0502
+
+[Wolfgang｜Animal Crossing]
+050D000101420502
+
+[Wolf｜Super Smash Bros.]
+05840000037E0002
+
+[Yabe｜Power Pros]
+3802000103951702
+
+[Yoshi - Baseball｜Mario Sports Superstars]
+09C40201027E0E02
+
+[Yoshi - Golf｜Mario Sports Superstars]
+09C4040102800E02
+
+[Yoshi - Horse Racing｜Mario Sports Superstars]
+09C4050102810E02
+
+[Yoshi - My Mario Wooden Blocks｜My Mario Wooden Blocks]
+0003000404421C02
+
+[Yoshi - Power Up Band｜Super Nintendo World]
+00030003039FFF02
+
+[Yoshi - Soccer｜Mario Sports Superstars]
+09C40101027D0E02
+
+[Yoshi - Tennis｜Mario Sports Superstars]
+09C40301027F0E02
+
+[Yoshi｜Super Mario Bros.]
+0003000000370102
+
+[Yoshi｜Super Smash Bros.]
+0003000000020002
+
+[Yuga Ohdo｜Yu-Gi-Oh!]
+3840000104241902
+
+[Yuka｜Animal Crossing]
+03BC0001008A0502
+
+[Zangief｜Street Fighter 6｜34CF000104BA1D02]
+34CF000104BA1D02
+
+[Zangief｜Street Fighter 6｜34CF000104DA1D02]
+34CF000104DA1D02
+
+[Zell｜Animal Crossing]
+02D8000100E20502
+
+[Zero Suit Samus｜Super Smash Bros.]
+05C00100001D0002
+
+[Zipper｜Animal Crossing]
+01AC0001017F0502
+
+[Zoe｜Animal Crossing]
+0A1A000103D10502
+
+[Zucker｜Animal Crossing]
+042B000101AF0502
+
+[Étoile｜Animal Crossing]
+04D30101031B0502

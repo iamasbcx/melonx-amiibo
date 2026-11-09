@@ -2,8 +2,8 @@
 //  AmiiboSelectionView.swift
 //  MeloNX
 //
-//  游戏内虚拟 amiibo 选择界面。只在本视图可见时轮询状态，保持游戏运行，
-//  不自动暂停或恢复游戏，也不要求用户准备实体卡、NFC 或标签文件。
+//  游戏内虚拟 amiibo 选择界面。状态轮询由游戏页面生命周期负责；本视图
+//  只维护选择和自动使用开关，不自动暂停或恢复游戏，也不要求实体卡或 NFC。
 //
 
 import SwiftUI
@@ -11,16 +11,14 @@ import UniformTypeIdentifiers
 
 struct AmiiboSelectionView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject private var ryujinxController: RyujinxController
     @ObservedObject private var service = AmiiboService.shared
     @State private var searchText = ""
-    @State private var selectedId: String?
     @State private var showImporter = false
     @State private var showCustomEditor = false
     @Environment(\.scenePhase) private var scenePhase
 
     private var selectedEntry: AmiiboCatalogEntry? {
-        service.entries.first { $0.id == selectedId }
+        service.entries.first { $0.id == service.selectedId }
     }
 
     private var filteredEntries: [AmiiboCatalogEntry] {
@@ -41,7 +39,7 @@ struct AmiiboSelectionView: View {
                 Section {
                     Label(statusText, systemImage: statusSymbol)
                         .foregroundColor(service.state.isSearching ? .green : .secondary)
-                    Text("先在游戏中开启 amiibo 能力并进入读取状态，再选择角色并点“使用”。无需实体卡或 NFC。")
+                    Text("开启自动使用后，回到游戏并进入 Amiibo 读取状态时会自动提交所选角色。无需实体卡或 NFC。")
                         .font(.footnote)
                         .foregroundColor(.secondary)
                 }
@@ -98,6 +96,20 @@ struct AmiiboSelectionView: View {
             }
             .safeAreaInset(edge: .bottom) {
                 VStack(spacing: 8) {
+                    Toggle("自动使用 Amiibo", isOn: Binding(
+                        get: { service.automaticUseEnabled },
+                        set: { service.setAutomaticUseEnabled($0) }
+                    ))
+                    .tint(.accentColor)
+                    .disabled(selectedEntry == nil || service.catalogError != nil)
+
+                    if selectedEntry == nil {
+                        Text("请先选择一个 Amiibo，再开启自动使用。")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     if let entry = selectedEntry {
                         Text(entry.note)
                             .font(.footnote)
@@ -123,14 +135,9 @@ struct AmiiboSelectionView: View {
                 .background(.regularMaterial)
             }
             .onAppear {
-                if case .started(let game, _) = ryujinxController.isRunning {
-                    service.start(titleId: game.titleId)
-                } else {
-                    service.start(titleId: "")
-                }
-                selectedId = service.orderedEntries.first?.id
+                service.setSelectionMenuVisible(true)
             }
-            .onDisappear { service.stopPolling() }
+            .onDisappear { service.setSelectionMenuVisible(false) }
             .onChange(of: scenePhase) { phase in
                 if phase == .active { service.refreshCatalog() }
             }
@@ -150,12 +157,12 @@ struct AmiiboSelectionView: View {
 
     private func entryRow(_ entry: AmiiboCatalogEntry) -> some View {
         Button {
-            selectedId = entry.id
+            service.select(id: entry.id)
         } label: {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: selectedId == entry.id ? "largecircle.fill.circle" : "circle")
+                Image(systemName: service.selectedId == entry.id ? "largecircle.fill.circle" : "circle")
                     .font(.title3)
-                    .foregroundColor(selectedId == entry.id ? .accentColor : .secondary)
+                    .foregroundColor(service.selectedId == entry.id ? .accentColor : .secondary)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(entry.name)
                         .foregroundColor(.primary)
@@ -178,7 +185,7 @@ struct AmiiboSelectionView: View {
             .contentShape(Rectangle())
         }
         .accessibilityLabel(entry.name)
-        .accessibilityValue(selectedId == entry.id ? "已选择" : "未选择")
+        .accessibilityValue(service.selectedId == entry.id ? "已选择" : "未选择")
         .swipeActions(edge: .trailing) {
             if service.customIds.contains(entry.id) {
                 Button("删除自定义", role: .destructive) { service.removeCustom(id: entry.id) }
@@ -199,6 +206,7 @@ struct AmiiboSelectionView: View {
         if service.state.isPaused { return "pause.circle" }
         return "info.circle"
     }
+
 }
 
 private struct AmiiboCustomEditor: View {

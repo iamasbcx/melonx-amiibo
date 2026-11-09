@@ -23,6 +23,7 @@ struct EmulationView: View {
     @StateObject private var nativeSettingsManager: NativeSettingsManager = .shared
     
     @State var isConnected = false
+    @Environment(\.scenePhase) private var scenePhase
     
     @ViewBuilder
     func emulationView(_ airplay: Bool = false) -> some View {
@@ -43,12 +44,20 @@ struct EmulationView: View {
         Group {
             emulationView()
                 .onAppear() {
+                    // 轮询绑定整个游戏页面；Amiibo 选择 sheet 关闭后仍能自动提交。
+                    AmiiboService.shared.start(titleId: game.titleId)
                     statisticsHandler.registerPush()
                     
                     self.isConnected = Air.shared.connected
                     Air.shared.connectionCallbacks.append { self.isConnected = $0 }
                     
                     Air.play(AnyView(emulationView(true)))
+                }
+                .onDisappear {
+                    AmiiboService.shared.stop()
+                }
+                .onChange(of: scenePhase) { phase in
+                    AmiiboService.shared.setApplicationActive(phase == .active)
                 }
                 .if(!statisticsHandler.started) { view in
                     view

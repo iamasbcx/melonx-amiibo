@@ -1,8 +1,7 @@
-//  离线 TXT 目录、用户自定义身份与 NativeAOT 状态的 UI 服务。
-//  UI 发布在 MainActor；可能等待核心锁或磁盘的 C 调用在后台执行。
 import Foundation
 import Combine
 
+/// NativeAOT 核心返回的 amiibo 检测快照。结构字段必须与 AmiiboBridge.h 保持一致。
 public nonisolated struct AmiiboCoreState: Equatable, Sendable {
     public let sessionId: UInt32
     public let detectionEpoch: UInt32
@@ -19,11 +18,20 @@ private nonisolated struct AmiiboQueryResult: Sendable {
     let state: AmiiboCoreState
 }
 
+/// 虚拟 amiibo 的目录、状态轮询和提交协调器。
+///
+/// 所有公开方法均在 MainActor 执行。NativeAOT 调用在 detached task 中进行，
+/// 完成时必须再次校验 generation、Title ID、session 和检测轮次，防止旧游戏请求污染新游戏。
 @MainActor
 public final class AmiiboService: ObservableObject {
     public static let shared = AmiiboService()
+
     nonisolated private static let abiVersion: UInt32 = 1
     private static let recentIdsKey = "MeloNX.amiibo.recentIds"
+    private static let selectedIdsKey = "MeloNX.amiibo.selectedIds"
+    private static let automaticUseKey = "MeloNX.amiibo.automaticUse"
+    private static let autoBusyRetryLimit = 3
+    private static let autoBusyRetryDelay: UInt64 = 150_000_000
 
     @Published public private(set) var entries: [AmiiboCatalogEntry] = []
     @Published public private(set) var state: AmiiboCoreState = .unavailable
@@ -33,31 +41,39 @@ public final class AmiiboService: ObservableObject {
     @Published public private(set) var lastMessage: String?
     @Published public private(set) var catalogError: String?
     @Published public private(set) var activeTitleId: String?
+    @Published public private(set) var selectedId: String?
+    @Published public private(set) var automaticUseEnabled = false
+
+    public var selectedEntry: AmiiboCatalogEntry? {
+        guard let selectedId else { return nil }
+        return entries.first { $0.id == selectedId }
+    }
 
     private var external: [AmiiboCatalogEntry] = []
     private var custom: [AmiiboCatalogEntry] = []
     private var pollTask: Task<Void, Never>?
     private var submitTask: Task<Void, Never>?
+    private var autoRetryTask: Task<Void, Never>?
     private var refreshInProgress = false
-
-    public func reportImportFailure(_ error: Error) { lastMessage = error.localizedDescription }
-
-    private var gameDirectory: URL? {
-        guard let titleId = activeTitleId else { return nil }
-        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Amiibo", isDirectory: true)
-            .appendingPathComponent(titleId, isDirectory: true)
-    }
-
-    private var externalURL: URL? { gameDirectory?.appendingPathComponent("amiibo.txt") }
-    private var customURL: URL? { gameDirectory?.appendingPathComponent("custom.txt") }
+    private var generation: UInt64 = 0
+    private var applicationIsActive = true
+    private var selectionMenuVisible = true
+    private var automaticRoundKey: String?
+    private var automaticBusyRetries = 0
+    private var submissionToken: String?
 
     private init() {
         let stored = UserDefaults.standard.stringArray(forKey: Self.recentIdsKey) ?? []
-        for id in stored where !recentIds.contains(id) { recentIds.append(id) }
+        recentIds = stored.reduce(into: []) { result, id in
+            if !result.contains(id) { result.append(id) }
+        }
     }
 
-    deinit { pollTask?.cancel(); submitTask?.cancel() }
+    deinit {
+        pollTask?.cancel()
+        submitTask?.cancel()
+        autoRetryTask?.cancel()
+    }
 
     public var orderedEntries: [AmiiboCatalogEntry] {
         let recent = Dictionary(uniqueKeysWithValues: recentIds.enumerated().map { ($1, $0) })
@@ -71,35 +87,149 @@ public final class AmiiboService: ObservableObject {
         }
     }
 
+    /// 开始一个游戏会话。每次调用都会使旧轮询和旧提交结果失效。
     public func start(titleId: String) {
-        stopPolling()
         let normalized = titleId.uppercased()
+        if AmiiboCatalogParser.validId(normalized), activeTitleId == normalized, pollTask != nil {
+            return
+        }
+        stopInternal(clearSelection: true)
         guard AmiiboCatalogParser.validId(normalized) else {
             activeTitleId = nil
             entries = []
             external = []
             custom = []
             customIds = []
+            selectedId = nil
+            automaticUseEnabled = false
             catalogError = "无法确定当前游戏的 16 位 Title ID。"
             return
         }
+
+        generation &+= 1
         activeTitleId = normalized
         state = .unavailable
         external = []
         custom = []
         entries = []
         customIds = []
-        loadCatalogs()
+        catalogError = nil
         lastMessage = nil
+        applicationIsActive = true
+        // 游戏页面启动时没有打开选择菜单，已保存的自动选择可以直接工作。
+        selectionMenuVisible = false
+        automaticRoundKey = nil
+        automaticBusyRetries = 0
+        selectedId = storedSelectedId(for: normalized)
+        automaticUseEnabled = storedAutomaticUse(for: normalized)
+        loadCatalogs()
+        // 目录加载后再校验保存的 ID，避免偏好指向已删除的项目。
+        clearInvalidSelectionIfNeeded()
+
+        let currentGeneration = generation
         pollTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
-                await self?.refreshState()
+                guard let self, self.generation == currentGeneration else { return }
+                await self.refreshState()
                 try? await Task.sleep(nanoseconds: 250_000_000)
             }
         }
     }
 
-    public func stopPolling() { pollTask?.cancel(); pollTask = nil }
+    /// 结束游戏会话并清理内存中的选择、检测轮次和异步任务；按游戏偏好仍保存在 UserDefaults。
+    public func stop() {
+        stopInternal(clearSelection: true)
+        activeTitleId = nil
+        entries = []
+        external = []
+        custom = []
+        customIds = []
+        state = .unavailable
+        catalogError = nil
+    }
+
+    /// 兼容旧调用方。菜单关闭不应调用此方法；游戏生命周期应使用 stop()。
+    public func stopPolling() {
+        pollTask?.cancel()
+        pollTask = nil
+    }
+
+    public func setApplicationActive(_ active: Bool) {
+        applicationIsActive = active
+        if active {
+            coordinateAutomaticUse()
+        } else if autoRetryTask != nil {
+            // 后台期间不保留延迟重试，并清除待重试本轮标记；回到前台后由当前快照重新协调。
+            autoRetryTask?.cancel()
+            autoRetryTask = nil
+            automaticRoundKey = nil
+            automaticBusyRetries = 0
+        }
+    }
+
+    public func setSelectionMenuVisible(_ visible: Bool) {
+        selectionMenuVisible = visible
+        if visible {
+            // 菜单打开期间暂停延迟重试；关闭菜单后从当前检测轮次重新协调。
+            let hadRetry = autoRetryTask != nil
+            autoRetryTask?.cancel()
+            autoRetryTask = nil
+            if hadRetry {
+                automaticRoundKey = nil
+                automaticBusyRetries = 0
+            }
+        } else {
+            coordinateAutomaticUse()
+        }
+    }
+
+    /// 选择目录中的身份。选择本身不会绕过游戏的 amiibo 等待状态。
+    public func select(id: String) {
+        let normalized = id.uppercased()
+        guard AmiiboCatalogParser.validId(normalized), entries.contains(where: { $0.id == normalized }) else {
+            lastMessage = "请选择当前目录中的有效 amiibo。"
+            return
+        }
+        selectedId = normalized
+        if let activeTitleId { storeSelectedId(normalized, for: activeTitleId) }
+        autoRetryTask?.cancel()
+        autoRetryTask = nil
+        // 用户明确切换角色时允许当前读取轮次重新提交；同一角色仍由轮次令牌去重。
+        automaticRoundKey = nil
+        automaticBusyRetries = 0
+        coordinateAutomaticUse()
+    }
+
+    public func setAutomaticUseEnabled(_ enabled: Bool) {
+        guard !enabled || (selectedEntry != nil && catalogError == nil) else {
+            automaticUseEnabled = false
+            if let activeTitleId { storeAutomaticUse(false, for: activeTitleId) }
+            lastMessage = "请先选择一个有效的 Amiibo，再开启自动使用。"
+            return
+        }
+        automaticUseEnabled = enabled
+        if let activeTitleId { storeAutomaticUse(enabled, for: activeTitleId) }
+        if enabled {
+            coordinateAutomaticUse()
+        } else {
+            autoRetryTask?.cancel()
+            autoRetryTask = nil
+        }
+    }
+
+    public func reportImportFailure(_ error: Error) {
+        lastMessage = error.localizedDescription
+    }
+
+    private var gameDirectory: URL? {
+        guard let titleId = activeTitleId else { return nil }
+        return FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Amiibo", isDirectory: true)
+            .appendingPathComponent(titleId, isDirectory: true)
+    }
+
+    private var externalURL: URL? { gameDirectory?.appendingPathComponent("amiibo.txt") }
+    private var customURL: URL? { gameDirectory?.appendingPathComponent("custom.txt") }
 
     public func refreshCatalog() {
         guard let externalURL, let customURL else { return }
@@ -111,12 +241,16 @@ public final class AmiiboService: ObservableObject {
             mergeCatalogs()
             catalogError = nil
             lastMessage = "已刷新当前游戏目录。"
-        } catch { catalogError = error.localizedDescription }
+            clearInvalidSelectionIfNeeded()
+        } catch {
+            catalogError = error.localizedDescription
+        }
     }
 
     public func openCatalogDirectory() {
         guard let directory = gameDirectory else {
-            lastMessage = "无法确定当前游戏的目录。"; return
+            lastMessage = "无法确定当前游戏的目录。"
+            return
         }
         do {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -126,15 +260,28 @@ public final class AmiiboService: ObservableObject {
         } catch { lastMessage = error.localizedDescription }
     }
 
-    /// 轮询串行等待后台快照，绝不让 MainActor 阻塞在 NativeAOT 的生命周期锁。
+    /// 轮询核心状态；快照返回后立即协调一次自动提交。
     public func refreshState() async {
         guard !refreshInProgress else { return }
+        guard let title = activeTitleId else { return }
+        let expectedGeneration = generation
         refreshInProgress = true
         defer { refreshInProgress = false }
         let snapshot = await Task.detached(priority: .utility) { Self.readNativeState() }.value
-        guard !Task.isCancelled else { return }
-        if snapshot.result == 0 { state = snapshot.state }
-        else if snapshot.result != 9 {
+        guard !Task.isCancelled,
+              generation == expectedGeneration,
+              activeTitleId == title else { return }
+        if snapshot.result == 0 {
+            let previous = state
+            state = snapshot.state
+            if previous.sessionId != state.sessionId || previous.detectionEpoch != state.detectionEpoch {
+                automaticRoundKey = nil
+                automaticBusyRetries = 0
+                autoRetryTask?.cancel()
+                autoRetryTask = nil
+            }
+            coordinateAutomaticUse()
+        } else if snapshot.result != 9 {
             state = .unavailable
             lastMessage = message(for: snapshot.result)
         }
@@ -159,14 +306,90 @@ public final class AmiiboService: ObservableObject {
             flags: native.flags & 7, lastResult: native.last_result))
     }
 
-    public func use(_ entry: AmiiboCatalogEntry) {
-        guard !isSubmitting else { lastMessage = "正在提交，请稍候。"; return }
-        guard AmiiboCatalogParser.validId(entry.id), let id = entry.id.data(using: .ascii) else {
-            lastMessage = "amiibo ID 必须是 16 位 ASCII 十六进制字符。"; return
+    private var automaticRoundToken: String? {
+        guard state.sessionId != 0, state.detectionEpoch != 0 else { return nil }
+        return "\(state.sessionId):\(state.detectionEpoch)"
+    }
+
+    private func coordinateAutomaticUse() {
+        guard automaticUseEnabled,
+              !selectionMenuVisible,
+              applicationIsActive,
+              catalogError == nil,
+              let entry = selectedEntry,
+              let round = automaticRoundToken,
+              state.isRunning,
+              !state.isPaused,
+              state.isSearching,
+              !isSubmitting,
+              automaticRoundKey != round else { return }
+        automaticRoundKey = round
+        automaticBusyRetries = 0
+        submit(entry, automatic: true)
+    }
+
+    private func scheduleAutomaticRetry(entry: AmiiboCatalogEntry, generation expectedGeneration: UInt64,
+                                        title: String, session: UInt32, epoch: UInt32) {
+        guard automaticUseEnabled, !selectionMenuVisible, applicationIsActive else {
+            // 菜单打开或应用在后台时不创建悬空重试任务；清除轮次后由恢复时的快照重新协调。
+            automaticRoundKey = nil
+            automaticBusyRetries = 0
+            return
         }
+        guard automaticBusyRetries < Self.autoBusyRetryLimit else {
+            automaticUseEnabled = false
+            storeAutomaticUse(false, for: title)
+            lastMessage = "核心持续忙碌，已暂停自动使用；可手动重试。"
+            return
+        }
+        automaticBusyRetries += 1
+        autoRetryTask?.cancel()
+        autoRetryTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: Self.autoBusyRetryDelay)
+            // 被新的重试任务替换时，旧任务不能清除新任务句柄。
+            guard !Task.isCancelled, let self else { return }
+            self.autoRetryTask = nil
+            guard
+                  self.generation == expectedGeneration,
+                  self.activeTitleId == title,
+                  self.state.sessionId == session,
+                  self.state.detectionEpoch == epoch,
+                  self.state.isSearching,
+                  self.automaticUseEnabled,
+                  !self.selectionMenuVisible,
+                  self.applicationIsActive,
+                  !self.isSubmitting else { return }
+            self.submit(entry, automatic: true)
+        }
+    }
+
+    /// 手动按钮和自动协调器共用提交路径；手动提交不受菜单可见性限制。
+    public func use(_ entry: AmiiboCatalogEntry) {
+        submit(entry, automatic: false)
+    }
+
+    private func submit(_ entry: AmiiboCatalogEntry, automatic: Bool) {
+        guard !isSubmitting else { return }
+        guard AmiiboCatalogParser.validId(entry.id), let id = entry.id.data(using: .ascii) else {
+            lastMessage = "amiibo ID 必须是 16 位 ASCII 十六进制字符。"
+            if automatic { disableAutomaticUse(for: activeTitleId) }
+            return
+        }
+        guard state.isRunning, !state.isPaused, state.isSearching else {
+            lastMessage = message(for: state.isPaused ? 5 : 6)
+            if automatic {
+                // 读取窗口可能在快照与提交之间短暂变化；等待下一次快照，不关闭用户的自动设置。
+                automaticRoundKey = nil
+            }
+            return
+        }
+        guard let title = activeTitleId else { return }
+        let expectedGeneration = generation
         let session = state.sessionId
         let epoch = state.detectionEpoch
+        let token = "\(expectedGeneration):\(title):\(session):\(epoch)"
         isSubmitting = true
+        submissionToken = token
         lastMessage = nil
         let background = Task.detached(priority: .userInitiated) {
             var request = MlxAmiiboScanRequest()
@@ -184,20 +407,44 @@ public final class AmiiboService: ObservableObject {
         submitTask = Task { @MainActor [weak self] in
             let result = await background.value
             guard let self else { return }
+            guard self.submissionToken == token else { return }
+            self.submissionToken = nil
             self.isSubmitting = false
-            guard self.state.sessionId == session else {
-                self.lastMessage = "游戏会话已变化，旧请求结果不再应用到当前目录。"
-                return
-            }
+            guard self.generation == expectedGeneration,
+                  self.activeTitleId == title,
+                  self.state.sessionId == session,
+                  self.state.detectionEpoch == epoch else { return }
             if result == 0 {
-                self.recentIds.removeAll { $0 == entry.id }
-                self.recentIds.insert(entry.id, at: 0)
-                self.recentIds = Array(self.recentIds.prefix(8))
-                UserDefaults.standard.set(self.recentIds, forKey: Self.recentIdsKey)
+                self.recordRecent(entry.id)
                 self.lastMessage = "已提交“\(entry.name)”虚拟身份；实际效果由游戏决定。"
-            } else { self.lastMessage = self.message(for: result) }
-            await self.refreshState()
+                await self.refreshState()
+            } else if automatic && result == 9 {
+                self.lastMessage = "核心正在准备 amiibo，稍后自动重试。"
+                self.scheduleAutomaticRetry(entry: entry, generation: expectedGeneration,
+                                            title: title, session: session, epoch: epoch)
+            } else if automatic && (result == 6 || result == 7 || result == 8) {
+                // 读取窗口或检测轮次可能在快照与提交之间变化；保留自动模式，
+                // 等待核心报告新的检测轮次后再提交。
+                self.lastMessage = self.message(for: result)
+                await self.refreshState()
+            } else {
+                self.lastMessage = self.message(for: result)
+                if automatic { self.disableAutomaticUse(for: title) }
+                await self.refreshState()
+            }
         }
+    }
+
+    private func disableAutomaticUse(for title: String?) {
+        automaticUseEnabled = false
+        if let title { storeAutomaticUse(false, for: title) }
+    }
+
+    private func recordRecent(_ id: String) {
+        recentIds.removeAll { $0 == id }
+        recentIds.insert(id, at: 0)
+        recentIds = Array(recentIds.prefix(8))
+        UserDefaults.standard.set(recentIds, forKey: Self.recentIdsKey)
     }
 
     public func importCatalog(from url: URL) {
@@ -218,6 +465,7 @@ public final class AmiiboService: ObservableObject {
             external = imported
             mergeCatalogs()
             catalogError = nil
+            clearInvalidSelectionIfNeeded()
             lastMessage = "已导入 \(imported.count) 个项目；相同 ID 使用外部目录名称。"
         } catch { lastMessage = error.localizedDescription }
     }
@@ -228,7 +476,7 @@ public final class AmiiboService: ObservableObject {
         }
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard AmiiboCatalogParser.validName(name, maxLength: 60) else {
-            throw AmiiboCatalogParseError(line: 0, reason: "名称须为 1～60 个字符，且不含方括号或控制字符。")
+            throw AmiiboCatalogParseError(line: 0, reason: "名称须为 1–60 个字符，且不含方括号或控制字符。")
         }
         guard AmiiboCatalogParser.validId(id) else {
             throw AmiiboCatalogParseError(line: 0, reason: "ID 必须是 16 位 ASCII 十六进制字符。")
@@ -254,6 +502,7 @@ public final class AmiiboService: ObservableObject {
             } else { try replaceLocalCatalog(AmiiboCatalogParser.encode(updated), destination: destination) }
             custom = updated
             mergeCatalogs()
+            clearInvalidSelectionIfNeeded()
         } catch { lastMessage = error.localizedDescription }
     }
 
@@ -286,6 +535,22 @@ public final class AmiiboService: ObservableObject {
         entries = Array(indexed.values)
         customIds = Set(custom.map(\.id))
         recentIds = recentIds.filter { indexed[$0] != nil }
+        clearInvalidSelectionIfNeeded()
+    }
+
+    /// 目录变化后清理失效选择；自动模式没有身份可提交时必须关闭并持久化。
+    private func clearInvalidSelectionIfNeeded() {
+        guard let selectedId else {
+            if automaticUseEnabled {
+                disableAutomaticUse(for: activeTitleId)
+            }
+            return
+        }
+        guard !entries.contains(where: { $0.id == selectedId }) else { return }
+        self.selectedId = nil
+        if automaticUseEnabled {
+            disableAutomaticUse(for: activeTitleId)
+        }
     }
 
     private func replaceLocalCatalog(_ data: Data, destination: URL) throws {
@@ -302,6 +567,46 @@ public final class AmiiboService: ObservableObject {
             .appendingPathComponent(formatter.string(from: Date()) + "-" + UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try FileManager.default.copyItem(at: url, to: directory.appendingPathComponent(url.lastPathComponent))
+    }
+
+    private func stopInternal(clearSelection: Bool) {
+        generation &+= 1
+        pollTask?.cancel(); pollTask = nil
+        submitTask?.cancel(); submitTask = nil
+        autoRetryTask?.cancel(); autoRetryTask = nil
+        // get_state 在 detached task 中无法立即取消；保留标记，待旧调用返回时由 defer 清除，
+        // 防止新旧游戏同时进入 NativeAOT 核心。
+        isSubmitting = false
+        submissionToken = nil
+        state = .unavailable
+        automaticRoundKey = nil
+        automaticBusyRetries = 0
+        if clearSelection {
+            selectedId = nil
+            automaticUseEnabled = false
+        }
+    }
+
+    private func storedSelectedId(for title: String) -> String? {
+        guard let values = UserDefaults.standard.object(forKey: Self.selectedIdsKey) as? [String: String] else { return nil }
+        return values[title]?.uppercased()
+    }
+
+    private func storeSelectedId(_ id: String, for title: String) {
+        var values = (UserDefaults.standard.object(forKey: Self.selectedIdsKey) as? [String: String]) ?? [:]
+        values[title] = id
+        UserDefaults.standard.set(values, forKey: Self.selectedIdsKey)
+    }
+
+    private func storedAutomaticUse(for title: String) -> Bool {
+        guard let values = UserDefaults.standard.object(forKey: Self.automaticUseKey) as? [String: Bool] else { return false }
+        return values[title] ?? false
+    }
+
+    private func storeAutomaticUse(_ enabled: Bool, for title: String) {
+        var values = (UserDefaults.standard.object(forKey: Self.automaticUseKey) as? [String: Bool]) ?? [:]
+        values[title] = enabled
+        UserDefaults.standard.set(values, forKey: Self.automaticUseKey)
     }
 
     private func message(for result: Int32) -> String {
