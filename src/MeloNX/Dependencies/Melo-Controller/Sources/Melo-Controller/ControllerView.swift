@@ -217,8 +217,8 @@ public struct ControllerView: View {
 
                     VStack(spacing: 15) {
                         shoulderButtonsRight
-                        VStack(spacing: 12) {
-                            // 右侧控件上下排列，避免 XYAB 与右摇杆重叠后抢占触摸事件。
+                        ZStack {
+                            editableJoystick(id: "rightJoystick", iscool: true, showBackground: $hideABXY)
                             if layout.joysticks["rightJoystick"]?.hide ?? true {
                                 abxyView
                                     .opacity(hideABXY ? 0 : 1)
@@ -227,7 +227,6 @@ public struct ControllerView: View {
                             } else {
                                 abxyView
                             }
-                            editableJoystick(id: "rightJoystick", iscool: true, showBackground: $hideABXY)
                         }
                     }
                 }
@@ -283,8 +282,8 @@ public struct ControllerView: View {
 
                 VStack(spacing: 20) {
                     shoulderButtonsRight
-                    VStack(spacing: 12) {
-                        // 横屏同样保持 XYAB 在上、右摇杆在下，两个触摸区域完全分离。
+                    ZStack {
+                        editableJoystick(id: "rightJoystick", iscool: true, showBackground: $hideABXY)
                         if layout.joysticks["rightJoystick"]?.hide ?? true {
                             abxyView
                                 .opacity(hideABXY ? 0 : 1)
@@ -293,7 +292,6 @@ public struct ControllerView: View {
                         } else {
                             abxyView
                         }
-                        editableJoystick(id: "rightJoystick", iscool: true, showBackground: $hideABXY)
                     }
                 }
             }
