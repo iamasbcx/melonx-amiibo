@@ -62,10 +62,14 @@ public struct LayoutConfig: Codable, Equatable {
     /// 对布局中已有控件执行一次网格吸附，用于打开网格后统一整理旧布局。
     mutating func snapAllOffsets() {
         for id in buttons.keys {
-            buttons[id]?.offset = snapped(buttons[id]?.offset ?? .zero)
+            guard var item = buttons[id] else { continue }
+            item.offset = snapped(item.offset)
+            buttons[id] = item
         }
         for id in joysticks.keys {
-            joysticks[id]?.offset = snapped(joysticks[id]?.offset ?? .zero)
+            guard var item = joysticks[id] else { continue }
+            item.offset = snapped(item.offset)
+            joysticks[id] = item
         }
     }
 }
