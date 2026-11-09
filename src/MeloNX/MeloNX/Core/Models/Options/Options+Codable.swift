@@ -145,14 +145,14 @@ extension Options: Codable {
         expandRAM                  = try c.decodeIfPresent(Bool.self,   forKey: .expandRAM)                ?? false
         ignoreMissingServices      = try c.decodeIfPresent(Bool.self,   forKey: .ignoreMissingServices)    ?? false
         
-        controllerType1        = try decodeCase(ControllerType.self, forKey: .controllerType1, default: .none)
-        controllerType2        = try decodeCase(ControllerType.self, forKey: .controllerType2, default: .none)
-        controllerType3        = try decodeCase(ControllerType.self, forKey: .controllerType3, default: .none)
-        controllerType4        = try decodeCase(ControllerType.self, forKey: .controllerType4, default: .none)
-        controllerType5        = try decodeCase(ControllerType.self, forKey: .controllerType5, default: .none)
-        controllerType6        = try decodeCase(ControllerType.self, forKey: .controllerType6, default: .none)
-        controllerType7        = try decodeCase(ControllerType.self, forKey: .controllerType7, default: .none)
-        controllerType8        = try decodeCase(ControllerType.self, forKey: .controllerType8, default: .none)
+        controllerType1        = try decodeCase(ControllerType.self, forKey: .controllerType1, default: .proController)
+        controllerType2        = try decodeCase(ControllerType.self, forKey: .controllerType2, default: .proController)
+        controllerType3        = try decodeCase(ControllerType.self, forKey: .controllerType3, default: .proController)
+        controllerType4        = try decodeCase(ControllerType.self, forKey: .controllerType4, default: .proController)
+        controllerType5        = try decodeCase(ControllerType.self, forKey: .controllerType5, default: .proController)
+        controllerType6        = try decodeCase(ControllerType.self, forKey: .controllerType6, default: .proController)
+        controllerType7        = try decodeCase(ControllerType.self, forKey: .controllerType7, default: .proController)
+        controllerType8        = try decodeCase(ControllerType.self, forKey: .controllerType8, default: .proController)
         hideCursorMode         = try decodeCase(HideCursorMode.self, forKey: .hideCursorMode, default: .onIdle)
         systemLanguage         = try decodeCase(SystemLanguage.self, forKey: .systemLanguage, default: .americanEnglish)
         systemRegion           = try decodeCase(NativeRegionCode.self, forKey: .systemRegion, default: .USA)

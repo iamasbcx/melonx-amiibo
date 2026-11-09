@@ -16,16 +16,16 @@ struct SettingsView: View {
     @ObservedObject public var nativeSettingsManager = NativeSettingsManager.shared
     @ObservedObject var controllerManager = ControllerManager.shared
     let appEnvironment: AppEnvironment = .shared
-    
+
     @AppStorage("useTrollStore") var useTrollStore: Bool = false
     @AppStorage("OldView") var oldView = true
     @AppStorage("hasSetupFinished") var hasSetupFinished: Bool = false
-    
+
     @Environment(\.colorScheme) var colorScheme
     @Environment(\.appTheme) var theme
     @Environment(\.verticalSizeClass) var verticalSizeClass: UserInterfaceSizeClass?
     @Environment(\.horizontalSizeClass) var horizontalSizeClass: UserInterfaceSizeClass?
-    
+
     @State private var selectedCategory: SettingsCategory = .graphics
     @State private var isShowingGameController = false
     @State private var showOSIcon = true
@@ -34,8 +34,8 @@ struct SettingsView: View {
     @State private var showingThemePicker = false
     @State private var showingKeyboardConfig = false
     @FocusState private var isArgumentsKeyboardVisible: Bool
-    
-    
+
+
     private var config: Binding<Options> {
         Binding(
             get: { ryujinxController.settings },
@@ -73,42 +73,42 @@ struct SettingsView: View {
             config.wrappedValue = options
         }
     }
-    
+
     var currentResolution: String {
         let base: Int = config.wrappedValue.disableDockedMode ? 720 : 1080
         let val = Float(base) * config.wrappedValue.resScale
         return val.toOneDecimalString() + "p"
     }
-    
+
     private let memoryManagerModes: [(MemoryManagerMode, String)] = [
         (.hostMapped, "Host (fast)"),
         (.hostMappedUnsafe, "Host Unchecked (fast, unstable / unsafe)"),
         (.softwarePageTable, "Software (slow)"),
     ]
-    
+
     private let totalMemory = ProcessInfo.processInfo.physicalMemory
-    
+
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
     }
-    
+
     private var isRegularLayout: Bool {
         (horizontalSizeClass == .regular && verticalSizeClass == .regular) ||
         (horizontalSizeClass == .regular && verticalSizeClass == .compact)
     }
-    
+
     private var deviceIcon: String {
         let model = UIDevice.modelName
         if model.contains("iPad") { return "ipad" }
         if model.contains("iPhone") { return "iphone" }
         return "desktopcomputer"
     }
-    
+
     private var memoryText: String {
         let divisor = ProcessInfo.processInfo.isiOSAppOnMac ? (1024 * 1024 * 1024) : 1_000_000_000
         return String(format: "%.0f GB", Double(totalMemory) / Double(divisor))
     }
-    
+
     private var systemVersionString: String {
         let versionPart = ProcessInfo.processInfo.operatingSystemVersionString
             .replacingOccurrences(of: "Version ", with: "")
@@ -120,24 +120,24 @@ struct SettingsView: View {
         }
         return "\(osName) \(UIDevice.current.systemVersion)"
     }
-    
+
     private var osVersionString: String {
         let osName = ProcessInfo.processInfo.isiOSAppOnMac
         ? "macOS"
         : UIDevice.current.systemName
-        
+
         return "\(osName) \(UIDevice.current.systemVersion)"
     }
-    
+
     enum SettingsCategory: LocalizedStringKey, CaseIterable, Identifiable {
         case graphics = "Graphics"
         case input    = "Input"
         case misc     = "Misc"
         case system   = "System"
         case advanced = "Advanced"
-        
+
         var id: String { "\(rawValue)" }
-        
+
         var icon: String {
             switch self {
             case .graphics: return "paintbrush.fill"
@@ -147,7 +147,7 @@ struct SettingsView: View {
             case .advanced: return "terminal.fill"
             }
         }
-        
+
         @ViewBuilder
         func formView(for parent: SettingsView) -> some View {
             switch self {
@@ -159,17 +159,17 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     var needsExtendedVirtualAddressing: Bool {
         AppEnvironment.shared.requiresExtendedVirtualAddressing()
     }
-    
+
     var isPortrait: Bool {
         AlertHandlers.topWindow().bounds.height > AlertHandlers.topWindow().bounds.width
     }
-    
+
     // MARK: - Body
-    
+
     var body: some View {
         Group {
             if UIDevice.current.userInterfaceIdiom == .phone  {
@@ -181,31 +181,31 @@ struct SettingsView: View {
         .onAppear { resolveConfiguredNetworkInterface() }
         .onDisappear { ryujinxController.saveConfig() }
     }
-    
+
     // MARK: - iPhone
-    
+
     var iOSSettings: some View {
         NavigationStack {
             VStack(spacing: 0) {
                 VStack(spacing: 8) {
-                    
+
                     HStack(spacing: 6) {
                         jitRow
                     }
                     .padding(.horizontal, 16)
-                    
+
                     deviceInfoGrid
-                    
+
                     categorySelector
                 }
                 .padding(.vertical, 10)
                 .background(Color(.secondarySystemGroupedBackground))
-                
+
                 Divider()
-                
+
                 selectedCategory.formView(for: self)
                     .id(selectedCategory.id)
-                
+
             }
             .if(isPortrait) {
                 $0
@@ -216,7 +216,7 @@ struct SettingsView: View {
             .onAppear(perform: loadSettings)
         }
     }
-    
+
     // 将设备信息网格与导航容器分开求值；权限检测和点击动作沿用原有行为。
     private var deviceInfoGrid: some View {
         let infoColumns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 3)
@@ -350,11 +350,11 @@ struct SettingsView: View {
         } set: { set in
             selectedCategory = set ?? .system
         }
-        
+
     }
-    
+
     // MARK: - iPad
-    
+
     var iPadSettings: some View {
         NavigationView {
             List {
@@ -362,7 +362,7 @@ struct SettingsView: View {
                     jitRow
                     deviceInfoCards
                 }
-                
+
                 Section("Settings") {
                     ForEach(SettingsCategory.allCases) { category in
                         Button {
@@ -386,7 +386,7 @@ struct SettingsView: View {
             }
             .listStyle(.sidebar)
             .navigationTitle("Settings")
-            
+
             selectedCategory.formView(for: self)
                 .navigationTitle(Text(selectedCategory.rawValue))
                 .modifier(HiddenScrollBackground())
@@ -394,7 +394,7 @@ struct SettingsView: View {
         }
         .onAppear(perform: loadSettings)
     }
-    
+
     private var jitRow: some View {
         HStack(spacing: 6) {
             Circle()
@@ -413,9 +413,9 @@ struct SettingsView: View {
                 Text(ryujinxController.isJITEnabled ? String(localized: "JIT Enabled") : String(localized: "JIT Not Acquired"))
                     .foregroundColor(ryujinxController.isJITEnabled ? .green : .red)
             }
-            
+
             Spacer()
-            
+
             Spacer()
             Text("v\(appVersion)")
                 .font(.subheadline.weight(.medium))
@@ -423,7 +423,7 @@ struct SettingsView: View {
         }
         .font(.subheadline.weight(.medium))
     }
-    
+
     @ViewBuilder
     private var deviceInfoCards: some View {
         VStack(spacing: 16) {
@@ -433,14 +433,14 @@ struct SettingsView: View {
                 icon: deviceIcon,
                 color: .blue
             )
-            
+
             InfoCard(
                 title: "System",
                 value: "\(systemVersionString)",
                 icon: "applelogo",
                 color: .gray
             )
-            
+
             if ProcessInfo.processInfo.isiOSAppOnMac {
                 InfoCard(
                     title: "Increased Memory Limit",
@@ -489,9 +489,9 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     // MARK: - Graphics Form
-    
+
     var graphicsForm: some View {
         Form {
             // Resolution Scale
@@ -545,7 +545,7 @@ struct SettingsView: View {
                     )
                 }
             }
-            
+
             // Anisotropic Filtering
             Section {
                 SliderRow(
@@ -567,7 +567,7 @@ struct SettingsView: View {
                     )
                 }
             }
-            
+
             Section("Scaling Options") {
                 Picker("Anti-Aliasing", selection: config.antiAliasing) {
                     ForEach(AntiAliasing.allCases, id: \.self) { antiAliasing in
@@ -584,13 +584,13 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                
+
                 if config.wrappedValue.scalingFilter == .fsr {
                     let levelBinding = Binding<Float>(
                         get: { Float(config.wrappedValue.scalingFilterLevel) },
                         set: { config.wrappedValue.scalingFilterLevel = Int32($0) }
                     )
-                    
+
                     SliderRow(
                         "Filter Sharpness",
                         value: levelBinding,
@@ -622,7 +622,7 @@ struct SettingsView: View {
                     )
                 }
             }
-            
+
             // Display Toggles
             Section("Display") {
                 let vSyncModeBinding = Binding<VSyncMode>(
@@ -636,7 +636,7 @@ struct SettingsView: View {
                     get: { Float(config.wrappedValue.customVSyncInterval / 2) },
                     set: { config.wrappedValue.customVSyncInterval = max(1, Int32($0.rounded() * 2)) }
                 )
-                
+
                 NativeToggleRow("Shader Cache", icon: "memorychip",
                                 isOn: config.disableShaderCache.reversed,
                                 info: "Shader Cache saves shaders to a file and preloads them on game launch. Leave OFF if unsure.")
@@ -644,14 +644,14 @@ struct SettingsView: View {
                 NativeToggleRow("Texture Recompression", icon: "arrow.down.and.line.horizontal.and.arrow.up",
                                 isOn: config.enableTextureRecompression,
                                 info: "Re-compresses textures that your GPU can't use directly (such as BC textures on devices without BC support) instead of storing them uncompressed. Uses much less memory at a small cost in quality and texture loading time. Leave ON if unsure.")
-                
+
                 Picker("VSync Mode", selection: vSyncModeBinding) {
                     ForEach(VSyncMode.allCases) { mode in
                         Text(mode.displayName).tag(mode)
                     }
                 }
                 .pickerStyle(.menu)
-                
+
                 if config.wrappedValue.vSyncMode == .custom {
                     let formatter: NumberFormatter = {
                         let f = NumberFormatter(); f.numberStyle = .none; return f
@@ -665,14 +665,14 @@ struct SettingsView: View {
                             .frame(width: 80)
                     }
                 }
-                
+
                 NativeToggleRow("Docked Mode", icon: "dock.rectangle",
                                 isOn: config.disableDockedMode.reversed,
                                 info: "Docked mode emulates a docked Nintendo Switch, improving graphics. Disabling emulates handheld mode. Leave OFF if unsure.")
                 NativeToggleRow("Macro HLE", icon: "gearshape",
                                 isOn: config.disableMacroHLE.reversed,
                                 info: "High-level emulation of GPU Macro code. Improves performance but may cause graphical glitches. Leave OFF if unsure.")
-                
+
                 NativeToggleRow("Async Shader Compilation (EXPERIMENTAL)", icon: "bolt.horizontal.circle",
                                 isOn: config.enableAsyncShaderCompilation,
                                 info: "Compiles Vulkan shader pipelines in the background to reduce stalls. Newly seen effects may appear after compilation finishes. May break graphics or cause crashes in some games.")
@@ -683,43 +683,43 @@ struct SettingsView: View {
                                 isOn: config.enableHostMemoryBudgetTracking,
                                 info: "Sizes the texture and buffer caches from how much memory this app may actually use, and shrinks them when the system asks for memory back. Turn OFF if a game renders a blank or white screen, or loses geometry after a few seconds.")
             }
-            
+
             // Performance Overlay
             Section("Performance Overlay") {
                 NativeToggleRow("Performance Overlay", icon: "speedometer",
                                 isOn: nativeSettingsManager.performacehud.projectedValue,
                                 info: "Shows framerate, frametime, fifo (First In, First Out) and battery info while a game is running.")
-                
+
                 if nativeSettingsManager.performacehud.value {
                     NativeToggleRow("Show Battery Percentage", icon: "battery.100percent.bolt",
                                     isOn: nativeSettingsManager.showBatteryPercentage.projectedValue)
-                    
+
                     NativeToggleRow("Show Frame Time", icon: "clock.arrow.2.circlepath",
                                     isOn: nativeSettingsManager.performanceFrameTime(true).projectedValue)
-                    
+
                     NativeToggleRow("Show Memory Usage", icon: "memorychip",
                                     isOn: nativeSettingsManager.performanceRam(true).projectedValue)
-                    
+
                     NativeToggleRow("Show FIFO", icon: "arrow.left.arrow.right",
                                     isOn: nativeSettingsManager.performanceFIFO.projectedValue)
-                    
+
                     NativeToggleRow("Horizontal Layout", icon: "rotate.right",
                                     isOn: nativeSettingsManager.horizontalorvertical.projectedValue,
                                     info: "Changes the Performance Overlay to display horizontally instead of vertically.")
-                    
+
                     NativeToggleRow("Move Overlay below Screen", icon: "arrow.uturn.down",
                                     isOn: nativeSettingsManager.overlayBelowScreen(true).projectedValue,
                                     info: "When device is in portrait, the overlay will be moved below the game screen.")
-                    
+
                 }
-                
+
                 Picker("Overlay Position", selection: nativeSettingsManager.performancePosition(PerformanceOverlayPosition.topRight).projectedValue) {
                     ForEach(PerformanceOverlayPosition.allCases, id: \.self) { position in
                         Text(position.displayValue).tag(position)
                     }
                 }
             }
-            
+
             // Aspect Ratio
             Section("Aspect Ratio") {
                 Picker("Aspect Ratio", selection: config.aspectRatio) {
@@ -730,12 +730,12 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     var inputForm: some View {
         Form {
             Section {
                 if controllerManager.selectedControllers.isEmpty {
-                    Text("No controllers selected, keyboard will be used")
+                    Text("未选择手柄，将使用键盘")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(Array(controllerManager.resolvedSelection.enumerated()), id: \.offset) { index, entry in
@@ -748,19 +748,19 @@ struct SettingsView: View {
                             !contains(controllerManager.selectedControllers, value: $0)
                         }) { controller in
                             Button(controller.name) {
-                                controllerManager.selectedControllers.append(controller.id)
+                                controllerManager.selectController(controller)
                             }
                         }
                     } label: {
-                        Label("Add Controller", systemImage: "plus.circle.fill")
+                        Label("添加手柄", systemImage: "plus.circle.fill")
                     }
                 }
             } header: {
-                Text("Controller Selection")
+                Text("手柄选择")
             } footer: {
                 Text("Long-press the virtual controller to switch controller type.")
             }
-            
+
             if controllerManager.selectedControllers.isEmpty {
                 Section {
                     Button("Map Keyboard") {
@@ -771,18 +771,18 @@ struct SettingsView: View {
                     }
                 }
             }
-            
+
             // On-Screen Controller
-            Section("Global On-Screen Controller Options") {
+            Section("全局屏幕手柄选项") {
                 Button {
                     isShowingGameController = true
                 } label: {
-                    Label("Edit Layout", systemImage: "formfitting.gamecontroller")
+                    Label("编辑布局", systemImage: "formfitting.gamecontroller")
                 }
                 .fullScreenCover(isPresented: $isShowingGameController) {
                     ControllerView(controller: VirtualControllerManager.shared, isEditing: true, gameId: nil)
                 }
-                
+
                 SliderRow(
                     "Scale",
                     value: nativeSettingsManager.setting(forKey: "On-ScreenControllerScale", default: 1.0).projectedValue,
@@ -791,16 +791,29 @@ struct SettingsView: View {
                     minLabel: "Smaller",
                     maxLabel: "Larger"
                 )
-                
+
+                let opacitySetting = nativeSettingsManager.setting(forKey: "On-ScreenControllerOpacity", default: 1.0)
+                let opacityBinding = Binding<Float>(
+                    get: {
+                        let value = opacitySetting.value
+                        let clamped = value.isFinite ? min(1.0, max(0.05, value)) : 1.0
+                        return Float(clamped)
+                    },
+                    set: { value in
+                        let clamped = value.isFinite ? min(1.0, max(0.05, value)) : 1.0
+                        opacitySetting.value = Double(clamped)
+                    }
+                )
+
                 SliderRow(
                     "Opacity",
-                    value: nativeSettingsManager.setting(forKey: "On-ScreenControllerOpacity", default: 1.0).projectedValue,
+                    value: opacityBinding,
                     range: 0.05...1.0,
                     step: 0.05,
                     minLabel: "More Transparent",
                     maxLabel: "Less Transparent"
                 )
-                
+
                 NativeToggleRow("Show Stick Buttons (L3/R3)", icon: "l.joystick.press.down",
                                 isOn: nativeSettingsManager.stickButton.projectedValue,
                                 info: "Shows L3 and R3 buttons (left and right joystick press) on the virtual controller.")
@@ -810,10 +823,10 @@ struct SettingsView: View {
             }
         }
     }
-    
-    
+
+
     // MARK: - System Form
-    
+
     var systemForm: some View {
         Form {
             Section("Language & Region") {
@@ -822,14 +835,14 @@ struct SettingsView: View {
                         Text(lang.displayName).tag(lang)
                     }
                 }
-                
+
                 Picker("Region", selection: config.systemRegion) {
                     ForEach(Array(NativeRegionCode.allCases), id: \.self) { region in
                         Text(region.displayName).tag(region)
                     }
                 }
             }
-            
+
             Section {
                 Picker("Memory Manager Mode", selection: config.memoryManagerMode) {
                     ForEach(memoryManagerModes, id: \.0.rawValue) { mode, name in
@@ -842,7 +855,7 @@ struct SettingsView: View {
             }
         }
     }
-    
+
     var advancedForm: some View {
         Form {
             Section("Debug Logging") {
@@ -856,7 +869,7 @@ struct SettingsView: View {
                                 isOn: nativeSettingsManager.writeStdout.projectedValue,
                                 info: "Write logs to stdout, disabling the default log file output.")
             }
-            
+
             Section("Behaviour") {
                 NativeToggleRow("Disable FS Integrity Checks", icon: "checkmark.shield",
                                 isOn: config.disableFsIntegrityChecks,
@@ -864,33 +877,33 @@ struct SettingsView: View {
                 NativeToggleRow("Ignore JIT Popup", icon: "cpu",
                                 isOn: nativeSettingsManager.ignoreJIT.projectedValue,
                                 info: "Ignores the JIT popup and tries to load the game regardless.")
-                
+
                 Button("Show Setup Screen") {
                     hasSetupFinished = false
                 }
                 .foregroundColor(.accentColor)
             }
-            
+
             Section {
                 NativeToggleRow("Expand Guest RAM", icon: "memorychip.fill",
                                 isOn: config.expandRAM,
                                 info: "Uses an alternative memory mode with 8 GiB DRAM to mimic a Switch dev unit. Only useful for high-res texture packs or 4K mods. Does NOT improve performance. Leave OFF if unsure.")
                 .disabled(5723 > totalMemory)
-                
+
                 NativeToggleRow("Ignore Missing Services", icon: "waveform.path",
                                 isOn: config.ignoreMissingServices,
                                 info: "Ignores unimplemented Horizon OS services. May help bypass crashes on certain games. Leave OFF if unsure.")
-                
+
                 NativeToggleRow("Donate Guest RAM", icon: "externaldrive.connected.to.line.below",
                                 isOn: nativeSettingsManager.donateGuestMemory(true).projectedValue,
                                 info: "Holds guest RAM in helper processes so it counts against their memory limits instead of MeloNX's. Experimental: the helpers can be killed under memory pressure, which ends the game. Leave ON if unsure.")
                 .disabled(!RamDonor.isSupported)
-                
+
                 NativeToggleRow("Donate GPU Buffers", icon: "memorychip",
                                 isOn: nativeSettingsManager.donateGpuBuffers(false).projectedValue,
                                 info: "Reserves up to 512 MiB in memory helpers for eligible GPU buffers and uploads. May reduce MeloNX's memory footprint in large scenes; does not move texture allocations. Experimental, requires a game restart. Falls back to normal memory when unavailable.")
                 .disabled(!RamDonor.isSupported)
-                
+
                 NativeToggleRow("Kill Helpers After Mapping", icon: "xmark.octagon",
                                 isOn: nativeSettingsManager.killDonorsAfterMapping(true).projectedValue,
                                 info: "kills the memory helpers as soon as their memory has been mapped, then keeps running on it. Leave ON if unsure.")
@@ -907,7 +920,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            
+
             Section("System Info") {
                 Button {
                     showingMemoryLimit = true
@@ -918,25 +931,25 @@ struct SettingsView: View {
                     RamLimitTestView()
                 }
 
-                
+
                 LabeledRow(label: "Page Size", value: String(Int(getpagesize())))
                 if let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
                    let bounds = scene.windows.first?.bounds {
                     LabeledRow(label: "App Resolution", value: "\(Int(bounds.width))×\(Int(bounds.height))")
                 }
             }
-            
+
             Section("Reference/Credits") {
                 Text("\"Nintendo Switch Cartridge\" Model:")
                     .bold()
                 Text("https://skfb.ly/oL6So by crocoman2019 is licensed under Creative Commons Attribution (https://creativecommons.org/licenses/by/4.0/).")
                 Text("https://www.printables.com/model/31474-nintendo-switch-cartridge by @link270_69760 is licensed under Creative Commons Attribution (https://creativecommons.org/licenses/by/4.0/).")
-                
+
                 Text("3D Cartridge Inspiration:")
                     .bold()
                 Text("Socket by @depmots (https://depmots.com/socket) was the inspiration for the 3D cartridge look.")
             }
-            
+
             Section {
                 HStack {
                     Text("In memoriam of 'Lily'")
@@ -950,17 +963,17 @@ struct SettingsView: View {
             }
         }
     }
-    
-    
+
+
     // MARK: - Misc Form
-    
+
     var miscForm: some View {
         Form {
             // External (ex Custom, to clear up confusion) ROM Folders
             Section("External ROM Folders") {
                 FolderListView()
             }
-            
+
             Section("Cache") {
                 Button {
                     ryujinxController.clearShaderCacheWithConfirmation()
@@ -968,7 +981,7 @@ struct SettingsView: View {
                     Label("Clear All Shader Cache", systemImage: "document.on.trash")
                 }
             }
-            
+
             // Network
             Section {
                 Picker("Network Interface", selection: selectedNetworkInterfaceId) {
@@ -977,7 +990,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.menu)
-                
+
                 NativeToggleRow("Guest Internet Access / LAN Mode", icon: "wifi.router.fill",
                                 isOn: config.enableInternetAccess,
                                 info: "Allows the emulated app to connect to the Internet. LAN mode games can connect across devices on the same network, including real consoles. Does NOT connect to Nintendo servers. May cause crashes in some games. Leave OFF if unsure.")
@@ -987,7 +1000,7 @@ struct SettingsView: View {
             } header: {
                 Text("Network")
             }
-            
+
             // UI Options
             Section("Interface") {
                 Button {
@@ -1011,7 +1024,7 @@ struct SettingsView: View {
                 .sheet(isPresented: $showingThemePicker) {
                     ThemePickerView()
                 }
-                
+
                 if UIDevice.current.userInterfaceIdiom == .pad {
                     NativeToggleRow("Toggle Color Green when ON", icon: "arrow.clockwise",
                                     isOn: nativeSettingsManager.toggleGreen.projectedValue,
@@ -1020,13 +1033,13 @@ struct SettingsView: View {
                 NativeToggleRow("Disable Touch", icon: "hand.point.up.left.fill",
                                 isOn: nativeSettingsManager.disableTouch.projectedValue,
                                 info: "Disables the touch screen (not the virtual controller).")
-                
+
                 Picker("Library View", selection: nativeSettingsManager.cardLayout(CardType.card).projectedValue) {
                     ForEach(CardType.allCases, id: \.self) { type in
                         Text(type.displayName).tag(type)
                     }
                 }
-                
+
                 Picker("AirPlay Library View", selection: nativeSettingsManager.airplayCard(CardType.carousel).projectedValue) {
                     ForEach(CardType.airplayCases, id: \.self) { type in
                         Text(type.displayName).tag(type)
@@ -1036,8 +1049,8 @@ struct SettingsView: View {
                         AppAlerts.showSyncAlert(title: "About \"AirPlay Library View\"", message: "When a controller is connected, the library will be shown on the AirPlay view instead of the main screen.", hasCancel: false)
                     }
                 }
-                
-                
+
+
                 Picker("Library Sort", selection: nativeSettingsManager.gameSort(GameSort.none).projectedValue) {
                     ForEach(GameSort.allCases, id: \.self) { type in
                         Text(type.displayName).tag(type)
@@ -1046,16 +1059,16 @@ struct SettingsView: View {
                 .onChange(of: nativeSettingsManager.gameSort(GameSort.none).value) { _ in
                     ryujinxController.sortGames()
                 }
-                
-                
+
+
                 NativeToggleRow("Menu Button (in-game)", icon: "arrow.left.circle",
                                 isOn: nativeSettingsManager.showScreenShotButton(true).projectedValue,
                                 info: "Shows an in-game menu button to exit, lock orientation (iPhone only), change aspect ratio, or change controllers.")
                 NativeToggleRow("Keep App in Background", icon: "location.viewfinder",
                                 isOn: nativeSettingsManager.setting(forKey: "location-enabled", default: false).projectedValue,
                                 info: "Uses Location to keep the app in the background. Does NOT track or store any data.")
-                
-                
+
+
                 Button {
                     showingAppIconSwitcher = true
                 } label: {
@@ -1064,9 +1077,9 @@ struct SettingsView: View {
                 .sheet(isPresented: $showingAppIconSwitcher) {
                     AppIconSwitcherView()
                 }
-                
+
             }
-            
+
             // JIT and Updates
             Section("JIT & Updates") {
                 HStack {
@@ -1079,7 +1092,7 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.menu)
                 }
-                
+
                 let model = UIDevice.modelName
                 if !model.contains("Mac") || !ProcessInfo.processInfo.isiOSAppOnMac {
                     if #available(iOS 19, *) {
@@ -1094,25 +1107,25 @@ struct SettingsView: View {
                     NativeToggleRow("Dual Mapped JIT", icon: "light.strip.2",
                                     isOn: nativeSettingsManager.setting(forKey: "DUAL_MAPPED_JIT", default: false).projectedValue)
                 }
-                
+
                 NativeToggleRow("Check for Updates", icon: "square.and.arrow.down",
                                 isOn: nativeSettingsManager.checkForUpdate(true).projectedValue,
                                 info: "Automatically checks for updates on launch.")
-                
+
             }
         }
     }
-    
+
     private var hasAvailableControllers: Bool {
         !ControllerManager.shared.allControllers
             .filter { !contains(ControllerManager.shared.selectedControllers, value: $0) }
             .isEmpty
     }
-    
+
     func contains(_ array: [String], value: BaseController) -> Bool {
         array.contains { $0 == value.id }
     }
-    
+
     private func loadSettings() { ryujinxController.loadConfig() }
 }
 
@@ -1142,7 +1155,7 @@ extension View {
 
 struct FolderListView: View {
     @StateObject private var folderManager = ROMFolderManager.shared
-    
+
     var body: some View {
         VStack(spacing: 0) {
             ForEach(folderManager.bookmarks, id: \.self) { path in
@@ -1153,9 +1166,9 @@ struct FolderListView: View {
                     )
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    
+
                     Spacer()
-                    
+
                     Button(role: .destructive) {
                         folderManager.bookmarks.removeAll(where: { $0 == path })
                     } label: {
@@ -1166,7 +1179,7 @@ struct FolderListView: View {
                 }
                 .padding(.vertical, 4)
             }
-            
+
             Button {
                 FileImporterManager.shared.importFiles(types: [.folder]) { result in
                     if case .success(let paths) = result {
@@ -1187,7 +1200,7 @@ struct FolderListView: View {
 
 struct NavigationStack<Content: View>: View {
     @ViewBuilder var content: () -> Content
-    
+
     var body: some View {
         if #available(iOS 16, *) {
             SwiftUI.NavigationStack(root: content)

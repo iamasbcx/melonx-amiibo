@@ -149,6 +149,21 @@ public final class RyujinxController: ObservableObject {
             settings = newValue
         }
     }
+
+    /// 修改当前玩家的控制器类型，并按当前运行作用域保存。
+    /// 游戏运行时优先写入对应的 per-game 配置，避免界面显示的类型与 attach 使用的配置不一致。
+    func updateControllerType(index: Int, to type: ControllerType) {
+        if case .started(let game, _) = isRunning {
+            var gameSettings = perSettings[game.titleId] ?? settings
+            Options.updateControllerType(index: index, to: type, options: &gameSettings)
+            perSettings[game.titleId] = gameSettings
+            schedulePerGameConfigSave(game.titleId)
+            return
+        }
+
+        Options.updateControllerType(index: index, to: type, options: &settings)
+        scheduleConfigSave()
+    }
     
     var lastGameLaunched: String? {
         get {
@@ -229,10 +244,11 @@ public final class RyujinxController: ObservableObject {
         let config = pullKeyboardConfig()
         Ryujinx.setKeyboardConfig(config)
         
-        controllerManager.attachAllControllers()
-        
         if NativeSettingsManager.exists(game.titleId) {
             NativeSettingsManager.setShared(game.titleId, pullOriginal: true)
+        } else {
+            // 没有游戏专属覆盖时恢复全局设置作用域，避免上一局游戏的 titleId 继续生效。
+            NativeSettingsManager.setShared(nil, pullOriginal: false)
         }
         
         loadWithoutSave(game.titleId)
@@ -250,6 +266,10 @@ public final class RyujinxController: ObservableObject {
         _isPaused = false
         wasManuallyPaused = false
         emulationThreadActive = true
+
+        // 先进入运行态，再绑定控制器，避免刷新回调与游戏启动之间出现 attach 竞态。
+        // 绑定完成后，虚拟手柄输入才能稳定送入当前游戏。
+        controllerManager.attachAllControllers()
         
         let nativeSettingsManager = NativeSettingsManager.shared
         

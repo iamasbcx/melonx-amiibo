@@ -711,13 +711,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		4E5FB8F82F9612F6005969EC /* XCRemoteSwiftPackageReference "Melo-Controller" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/stossy11/Melo-Controller";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
+		4E5FB8F82F9612F6005969EC /* XCLocalSwiftPackageReference "Melo-Controller" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/Melo-Controller;
 		};
 		4EA652392FBD941E00D6FB52 /* XCRemoteSwiftPackageReference "navigation-stack-backport" */ = {
 			isa = XCRemoteSwiftPackageReference;

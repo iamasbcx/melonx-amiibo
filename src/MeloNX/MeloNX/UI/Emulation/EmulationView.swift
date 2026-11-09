@@ -24,6 +24,15 @@ struct EmulationView: View {
     
     @State var isConnected = false
     @Environment(\.scenePhase) private var scenePhase
+
+    /// 透明度只控制显示效果，读取旧配置时限制到有效范围，避免 alpha 过低让 UIKit 跳过输入视图。
+    private var controllerOpacity: Double {
+        let raw: Double = nativeSettingsManager
+            .setting(forKey: "On-ScreenControllerOpacity", default: 1.0)
+            .value
+        guard raw.isFinite else { return 1.0 }
+        return min(1.0, max(0.05, raw))
+    }
     
     @ViewBuilder
     func emulationView(_ airplay: Bool = false) -> some View {
@@ -32,7 +41,7 @@ struct EmulationView: View {
                 .overlay {
                     if controllerManager.hasVirtualController() && !airplay {
                         ControllerView(controller: VirtualControllerManager.shared, isEditing: false, gameId: game.titleId, gameName: game.titleName)
-                            .opacity(nativeSettingsManager.setting(forKey: "On-ScreenControllerOpacity", default: 1.0).value)
+                            .opacity(controllerOpacity)
                             .ignoresSafeArea(.all, edges: .vertical)
                     }
                 }

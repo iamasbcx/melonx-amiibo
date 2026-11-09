@@ -12,14 +12,14 @@ import Combine
 class InGameConfigView_MenuView: ObservableObject {
     @Published var hideTask: Task<Void, Never>? = nil
     @Published var showButton: Bool = false
-    
+
     static var shared: InGameConfigView_MenuView = .init()
-    
+
     func triggerButton() {
         hideTask?.cancel()
-        
+
         showButton = true
-        
+
         hideTask = Task {
             try? await Task.sleep(nanoseconds: 5_000_000_000) // 5 seconds
             if !Task.isCancelled {
@@ -37,9 +37,9 @@ struct InGameConfigView: View {
     @State var showingKeyboardConfig: Bool = false
     @State var showControllerSettings: Bool = false
     @State private var showAmiiboSelection: Bool = false
-    
 
-    
+
+
     var body: some View {
         Menu {
             menuButton
@@ -58,8 +58,8 @@ struct InGameConfigView: View {
             AmiiboSelectionView()
         }
     }
-    
-    
+
+
     @ViewBuilder
     private var menuButton: some View {
         Button {
@@ -72,7 +72,7 @@ struct InGameConfigView: View {
                 Image(systemName: ryujinxController.isPaused ? "play.circle" : "pause.circle")
             }
         }
-        
+
         Button {
             showControllerSettings = true
         } label: {
@@ -93,7 +93,7 @@ struct InGameConfigView: View {
         } label: {
             Label(LocalizedStringKey("虚拟 amiibo"), systemImage: "person.crop.circle.badge.checkmark")
         }
-        
+
         if UIDevice.current.userInterfaceIdiom == .phone {
             Button {
                 rotationlock.toggle()
@@ -110,8 +110,8 @@ struct InGameConfigView: View {
                 }
             }
         }
-        
-        
+
+
         Button(role: .destructive) {
             Ryujinx.stopEmulation()
             Ryujinx.emulationView = nil
@@ -123,15 +123,15 @@ struct InGameConfigView: View {
                 Image(systemName: "x.circle")
             }
         }
-         
+
     }
-    
+
     @ViewBuilder
     private var controllerSelection: some View {
         List {
-            Section("Controller Selection") {
+            Section("手柄选择") {
                 if controllerManager.selectedControllers.isEmpty {
-                    Text(LocalizedStringKey("No controllers selected, keyboard will be used"))
+                    Text("未选择手柄，将使用键盘")
                         .foregroundColor(.secondary)
                 } else {
                     ForEach(Array(controllerManager.resolvedSelection.enumerated()), id: \.offset) { index, entry in
@@ -144,16 +144,16 @@ struct InGameConfigView: View {
                             !contains(controllerManager.selectedControllers, value: $0)
                         }) { controller in
                             Button(controller.name) {
-                                controllerManager.selectedControllers.append(controller.id)
+                                controllerManager.selectController(controller)
                             }
                         }
                     } label: {
-                        Label("Add Controller", systemImage: "plus.circle.fill")
+                        Label("添加手柄", systemImage: "plus.circle.fill")
                     }
                 }
             }
-            
-            
+
+
             if controllerManager.selectedControllers.isEmpty {
                 Section {
                     Button(LocalizedStringKey("Map Keyboard")) {
@@ -173,13 +173,13 @@ struct InGameConfigView: View {
             controllerManager.refreshControllersList(true)
         }
     }
-    
+
     private var hasAvailableControllers: Bool {
         !ControllerManager.shared.allControllers
             .filter { !contains(ControllerManager.shared.selectedControllers, value: $0) }
             .isEmpty
     }
-    
+
     func contains(_ array: [String], value: BaseController) -> Bool {
         array.contains { $0 == value.id }
     }

@@ -32,7 +32,7 @@ struct ControllerRow: View {
                     Image(systemName: "gamecontroller.fill")
                         .foregroundColor(.accentColor)
 
-                    Text("Player \(index + 1): \(controller.name)")
+                    Text("玩家 \(index + 1)：\(controller.name)")
                         .lineLimit(1)
 
                     Spacer()
@@ -47,7 +47,7 @@ struct ControllerRow: View {
                     .accessibilityLabel("Controller Settings")
 
                     Button {
-                        controllerManager.toggleController(controller)
+                        controllerManager.deselectController(controller)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)

@@ -25,7 +25,7 @@ struct ControllerMappingView: View {
     @State private var mapping: ControllerMapping = .standard()
     @State private var listening: BindingTarget?
     @State private var controllerType: ControllerType = .proController
-    
+
     @State private var visualizer: StickVisualizer
 
     init(controller: BaseController, playerIndex: Int) {
@@ -116,7 +116,10 @@ struct ControllerMappingView: View {
             .onChange(of: controllerType) { type in
                 controller.controllerType = type
 
-                Options.updateControllerType(index: playerIndex, to: type, options: &ryujinxController.settings)
+                ryujinxController.updateControllerType(index: playerIndex, to: type)
+                if ryujinxController.isRunning.isRunning() {
+                    ControllerManager.shared.attachAllControllers()
+                }
             }
             .onChange(of: mapping.motionEnabled) { _ in
                 nativeController?.refreshMotion()
@@ -149,7 +152,7 @@ struct ControllerMappingView: View {
         }
     }
 
-    
+
     @ViewBuilder
     private var motionSection: some View {
         if controller.nativeController?.motion != nil, !controller.usesDeviceHandlers {
@@ -203,7 +206,7 @@ struct ControllerMappingView: View {
 
                 Spacer()
 
-                Text(isListening ? String(localized: "Press any button…") : mapping[button].displayName)
+                Text(isListening ? String(localized: "Press any button\u{2026}") : mapping[button].displayName)
                     .foregroundColor(isListening ? .accentColor : .secondary)
             }
         }
@@ -233,7 +236,7 @@ struct ControllerMappingView: View {
 
                 Spacer()
 
-                Text(isListening ? String(localized: "Move a stick…") : stick.wrappedValue.source.displayName)
+                Text(isListening ? String(localized: "Move a stick\u{2026}") : stick.wrappedValue.source.displayName)
                     .foregroundColor(isListening ? .accentColor : .secondary)
             }
         }
@@ -276,7 +279,7 @@ struct ControllerMappingView: View {
 
     private func startListening(_ target: BindingTarget) {
         guard let nativeController else { return }
-        
+
         if listening == target {
             stopListening()
             return
@@ -311,7 +314,7 @@ struct ControllerMappingView: View {
         nativeController?.endCapture()
     }
 
-    
+
 
     private func save() {
         ControllerMappingStore.shared.setMapping(mapping, for: controller)
