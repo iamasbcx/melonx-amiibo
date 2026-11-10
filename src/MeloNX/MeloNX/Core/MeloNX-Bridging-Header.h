@@ -16,6 +16,7 @@
 #include "Models/Options/NativeOptions.h" 
 #include "Models/AmiiboBridge.h"
 #include "Models/MotionBridge.h"
+#include "Models/PerformanceBridge.h"
 #include "Memory/MLXRamDonor.h"
 #include <IOKit/IOKitLib.h>
 

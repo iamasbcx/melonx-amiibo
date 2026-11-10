@@ -33,6 +33,8 @@ namespace Ryujinx.Input.HLE
         private readonly IGamepadDriver _keyboardDriver;
         private readonly IGamepadDriver _gamepadDriver;
         private readonly IGamepadDriver _mouseDriver;
+        // 原始键盘读取使用独立实例，避免与玩家键盘映射共享可变配置。
+        private readonly IKeyboard _rawKeyboard;
         private bool _isDisposed;
 
         private List<InputConfig> _inputConfig;
@@ -49,6 +51,7 @@ namespace Ryujinx.Input.HLE
             _cemuHookClient = new CemuHookClient(this);
 
             _keyboardDriver = keyboardDriver;
+            _rawKeyboard = keyboardDriver.GetGamepad("0") as IKeyboard;
             _gamepadDriver = gamepadDriver;
             _mouseDriver = mouseDriver;
             _inputConfig = [];
@@ -253,11 +256,6 @@ namespace Ryujinx.Input.HLE
 
                         motionState = (controller.GetHLEMotionState(), altMotionState);
                     }
-                    else
-                    {
-                        // Ensure that orientation isn't null
-                        motionState.Item1.Orientation = new float[9];
-                    }
 
                     inputState.PlayerId = playerIndex;
                     motionState.Item1.PlayerId = playerIndex;
@@ -265,7 +263,8 @@ namespace Ryujinx.Input.HLE
                     _hleInputStates.Add(inputState);
                     _hleMotionStates.Add(motionState.Item1);
 
-                    if (isJoyconPair && !motionState.Item2.Equals(default))
+                    // Joy-Con 双手柄始终提交两侧；没有运动源时右侧零值也是有效的中性状态。
+                    if (isJoyconPair)
                     {
                         motionState.Item2.PlayerId = playerIndex;
 
@@ -273,9 +272,9 @@ namespace Ryujinx.Input.HLE
                     }
                 }
 
-                if (!_blockInputUpdates && _enableKeyboard)
+                if (!_blockInputUpdates && _enableKeyboard && _rawKeyboard != null)
                 {
-                    hleKeyboardInput = NpadController.GetHLEKeyboardInput(_keyboardDriver);
+                    hleKeyboardInput = NpadController.GetHLEKeyboardInput(_rawKeyboard);
                 }
 
                 _device.Hid.Npads.Update(_hleInputStates);
@@ -351,6 +350,7 @@ namespace Ryujinx.Input.HLE
                     if (!_isDisposed)
                     {
                         _cemuHookClient.Dispose();
+                        _rawKeyboard?.Dispose();
 
                         _gamepadDriver.OnGamepadConnected -= HandleOnGamepadConnected;
                         _gamepadDriver.OnGamepadDisconnected -= HandleOnGamepadDisconnected;

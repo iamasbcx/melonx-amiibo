@@ -20,9 +20,8 @@ extension BaseController {
             }
             return
         }
-        guard isActive, activeInputAttachment == attachment else { return }
+        guard isActive, activeInputAttachment == attachment, inputResourceActivity.activeGeneration != nil else { return }
         stopMotion()
-        guard let registration = beginMotionRegistration(attachment: attachment) else { return }
         if let nativeController, nativeController.motion != nil, !self.usesDeviceHandlers {
             guard ControllerMappingStore.shared.runtimeMapping(for: self).motionEnabled else {
                 nativeController.motion?.valueChangedHandler = nil
@@ -31,6 +30,7 @@ extension BaseController {
                 return
             }
             
+            guard let registration = beginMotionRegistration(attachment: attachment) else { return }
             nativeController.motion?.sensorsActive = true
             
             // Thank you @BXYMartin :3
@@ -57,18 +57,19 @@ extension BaseController {
                 self.submitMotion(accelerometer: accel, gyroscope: gyro, generation: generation, attachment: attachment, registration: registration)
             }
         } else {
-            guard self.motionManager.isDeviceMotionAvailable else { return }
+            guard virtual || ControllerMappingStore.shared.runtimeMapping(for: self).motionEnabled,
+                  self.motionManager.isDeviceMotionAvailable,
+                  InputPowerPolicy.phoneMotionEnabled(PhoneMotionContextStore.shared.snapshot.controls),
+                  let registration = beginMotionRegistration(attachment: attachment) else { return }
             
             self.motionManager.deviceMotionUpdateInterval = 1.0 / 60.0 // 60Hz
-            _ = self.currentMotionInterfaceOrientation()
             self.motionManager.startDeviceMotionUpdates(to: self.motionOperation) { [weak self] (data, error) in
                 guard let self = self, let m = data, self.activeInputAttachment == attachment,
                       self.activeMotionRegistration == registration else { return }
                 guard let generation = InGameInputSession.shared.activeGeneration,
                       self.shouldSubmitMotion() else { return }
                 
-                let context = self.currentPhoneMotionContext()
-                guard let transformOrientation = self.phoneMotionOrientation(context.orientation) else { return }
+                let context = PhoneMotionContextStore.shared.snapshot
                 let sample = PhoneMotionTransform.driverSample(
                     gravity: SIMD3<Float>(
                         Float(m.gravity.x), Float(m.gravity.y), Float(m.gravity.z)
@@ -81,7 +82,7 @@ extension BaseController {
                         Float(m.rotationRate.y),
                         Float(m.rotationRate.z)
                     ),
-                    orientation: transformOrientation,
+                    orientation: context.orientation,
                     controls: context.controls
                 )
                 self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope, gravity: sample.gravity, rotationFactors: sample.rotationFactors, screenOrientation: sample.screenOrientation, generation: generation, attachment: attachment, registration: registration)
@@ -134,62 +135,4 @@ extension BaseController {
         }
     }
 
-    /// 同一主线程快照内读取方向和配置，避免一帧跨越两次主线程读取而混用新旧界面状态。
-    private func currentPhoneMotionContext() -> (orientation: UIInterfaceOrientation, controls: PhoneMotionControls) {
-        if Thread.isMainThread {
-            return (currentMotionInterfaceOrientation(), PhoneMotionControls.read(from: NativeSettingsManager.shared))
-        }
-        return DispatchQueue.main.sync {
-            (currentMotionInterfaceOrientation(), PhoneMotionControls.read(from: NativeSettingsManager.shared))
-        }
-    }
-    
-    /// 获取当前窗口的界面方向。方向变化后下一帧立即使用新矩阵，未知方向沿用上次有效值。
-    private func currentMotionInterfaceOrientation() -> UIInterfaceOrientation {
-        let sceneOrientation: UIInterfaceOrientation?
-        if Thread.isMainThread {
-            sceneOrientation = primaryMotionSceneOrientation()
-        } else {
-            sceneOrientation = DispatchQueue.main.sync {
-                primaryMotionSceneOrientation()
-            }
-        }
-
-        motionOrientationLock.lock()
-        defer { motionOrientationLock.unlock() }
-        if let sceneOrientation {
-            motionInterfaceOrientation = sceneOrientation
-        }
-        return isUsableInterfaceOrientation(motionInterfaceOrientation) ? motionInterfaceOrientation : .portrait
-    }
-
-    /// 手机输入以主应用窗口为准；外接显示器的横屏方向不能覆盖手机竖屏方向。
-    @MainActor private func primaryMotionSceneOrientation() -> UIInterfaceOrientation? {
-        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            .filter { $0.session.role == .windowApplication }
-        let scene = scenes.first { $0.activationState == .foregroundActive && $0.windows.contains(where: { $0.isKeyWindow }) }
-            ?? scenes.first { $0.activationState == .foregroundActive }
-            ?? scenes.first { $0.activationState == .foregroundInactive }
-        guard let orientation = scene?.interfaceOrientation, isUsableInterfaceOrientation(orientation) else { return nil }
-        return orientation
-    }
-
-    private func isUsableInterfaceOrientation(_ orientation: UIInterfaceOrientation) -> Bool {
-        switch orientation {
-        case .portrait, .portraitUpsideDown, .landscapeLeft, .landscapeRight:
-            return true
-        default:
-            return false
-        }
-    }
-
-    nonisolated private func phoneMotionOrientation(_ orientation: UIInterfaceOrientation) -> PhoneMotionTransform.Orientation? {
-        switch orientation {
-        case .portrait: return .portrait
-        case .portraitUpsideDown: return .portraitUpsideDown
-        case .landscapeLeft: return .landscapeLeft
-        case .landscapeRight: return .landscapeRight
-        default: return nil
-        }
-    }
 }

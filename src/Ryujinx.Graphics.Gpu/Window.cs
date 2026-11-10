@@ -89,10 +89,9 @@ namespace Ryujinx.Graphics.Gpu
 
         private readonly ConcurrentQueue<PresentationTexture> _frameQueue;
         private readonly Stopwatch _unboundedPresentTimer;
-        private long _unboundedPresentTicksPerFrame;
+        private readonly UnboundedPresentPacer _unboundedPresentPacer;
 
         private int _framesAvailable;
-        private long _lastUnboundedPresentTicks;
         private volatile bool _unboundedPresentMode;
 
         public bool IsFrameAvailable => _framesAvailable != 0;
@@ -107,7 +106,7 @@ namespace Ryujinx.Graphics.Gpu
 
             _frameQueue = new ConcurrentQueue<PresentationTexture>();
             _unboundedPresentTimer = Stopwatch.StartNew();
-            SetUnboundedPresentTargetFps(DefaultUnboundedPresentTargetFps);
+            _unboundedPresentPacer = new UnboundedPresentPacer(Stopwatch.Frequency, DefaultUnboundedPresentTargetFps);
         }
 
         /// <summary>
@@ -277,22 +276,20 @@ namespace Ryujinx.Graphics.Gpu
             }
 
             long ticks = _unboundedPresentTimer.ElapsedTicks;
-            long lastPresentTicks = Interlocked.Read(ref _lastUnboundedPresentTicks);
-            bool shouldPresent = lastPresentTicks == 0 || ticks - lastPresentTicks >= Interlocked.Read(ref _unboundedPresentTicksPerFrame);
+            bool firstReadyFrame = true;
 
             while (ConsumeFrameAvailable())
             {
-                if (shouldPresent)
+                if (firstReadyFrame && _unboundedPresentPacer.TrySchedulePresent(ticks))
                 {
                     Present(swapBuffersCallback);
-                    _lastUnboundedPresentTicks = ticks;
-                    shouldPresent = false;
                     presented = true;
                 }
                 else
                 {
                     DropFrame();
                 }
+                firstReadyFrame = false;
             }
 
             return presented;
@@ -307,7 +304,7 @@ namespace Ryujinx.Graphics.Gpu
             if (_unboundedPresentMode != enabled)
             {
                 _unboundedPresentMode = enabled;
-                Interlocked.Exchange(ref _lastUnboundedPresentTicks, 0);
+                _unboundedPresentPacer.Reset();
             }
         }
 
@@ -317,10 +314,7 @@ namespace Ryujinx.Graphics.Gpu
         /// <param name="targetFps">Host display refresh rate in frames per second</param>
         public void SetUnboundedPresentTargetFps(int targetFps)
         {
-            targetFps = Math.Max(1, targetFps);
-
-            Interlocked.Exchange(ref _unboundedPresentTicksPerFrame, Math.Max(1, Stopwatch.Frequency / targetFps));
-            Interlocked.Exchange(ref _lastUnboundedPresentTicks, 0);
+            _unboundedPresentPacer.SetTargetFps(targetFps);
         }
 
         private void DropFrame()

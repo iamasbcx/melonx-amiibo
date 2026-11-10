@@ -12,13 +12,15 @@ final class SteamController: NativeController {
     let peripheralID: UUID
     private let setMotionEnabled: (Bool) -> Void
     private let sendRumble: (RumbleData) -> Void
+    private let cancelRumble: () -> Void
     
     override var name: String { "Steam Controller" }
     
-    init(peripheralID: UUID, setMotionEnabled: @escaping (Bool) -> Void, sendRumble: @escaping (RumbleData) -> Void) {
+    init(peripheralID: UUID, setMotionEnabled: @escaping (Bool) -> Void, sendRumble: @escaping (RumbleData) -> Void, stopRumble: @escaping () -> Void) {
         self.peripheralID = peripheralID
         self.setMotionEnabled = setMotionEnabled
         self.sendRumble = sendRumble
+        self.cancelRumble = stopRumble
         super.init(nativeController: GCController.withExtendedGamepad())
         applyMapping(ControllerMappingStore.shared.runtimeMapping(for: self))
     }
@@ -30,12 +32,12 @@ final class SteamController: NativeController {
     
     override func applyMapping(_ mapping: ControllerMapping) {
         super.applyMapping(mapping)
-        if let attachment = activeInputAttachment, mapping.motionEnabled {
+        if let attachment = activeInputAttachment, mapping.motionEnabled, inputResourceActivity.activeGeneration != nil {
             if activeMotionRegistration == nil { _ = beginMotionRegistration(attachment: attachment) }
         } else {
             endMotionRegistration()
         }
-        setMotionEnabled(activeInputAttachment != nil && mapping.motionEnabled)
+        setMotionEnabled(activeInputAttachment != nil && mapping.motionEnabled && inputResourceActivity.activeGeneration != nil)
     }
     
     override func refreshMotion() {
@@ -43,9 +45,24 @@ final class SteamController: NativeController {
         endMotionRegistration()
         DispatchQueue.main.async { [weak self] in
             guard let self, self.activeInputAttachment == attachment else { return }
-            if self.activeMapping.motionEnabled { _ = self.beginMotionRegistration(attachment: attachment) }
-            self.setMotionEnabled(self.activeMapping.motionEnabled)
+            self.refreshMotionIfNeeded()
         }
+    }
+
+    override func refreshMotionIfNeeded() {
+        guard let attachment = activeInputAttachment else { return }
+        let enabled = activeMapping.motionEnabled && inputResourceActivity.activeGeneration != nil
+        if enabled && activeMotionRegistration == nil { _ = beginMotionRegistration(attachment: attachment) }
+        if !enabled {
+            endMotionRegistration()
+            performIfInputAttached(generation: attachment) { Ryujinx.suspendGamepadMotion(pointer) }
+        }
+        setMotionEnabled(enabled)
+    }
+
+    override func stopHaptics() {
+        cancelRumble()
+        super.stopHaptics()
     }
 
     override func stopInputSensors() {
@@ -101,8 +118,13 @@ final class SteamController: NativeController {
     }
     
     override func rumble(data: RumbleData) {
-        guard isActive else { return }
-        sendRumble(data)
+        guard isActive, let attachment = activeInputAttachment,
+              let generation = inputResourceActivity.activeGeneration else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.activeInputAttachment == attachment,
+                  self.inputResourceActivity.activeGeneration == generation else { return }
+            self.sendRumble(data)
+        }
     }
     
     override func cleanup() {

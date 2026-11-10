@@ -36,6 +36,8 @@ namespace Ryujinx.SDL3.Common
         public event Action<SDL_JoystickID> OnJoystickDisconnected;
 
         public event Action<SDL_JoystickID, SDL_PowerState> OnJoyBatteryUpdated;
+        // SDL 完成按键状态更新后通知宿主采样；不替代桌面已有的窗口事件分发。
+        public event Action OnKeyboardInputUpdated;
 
         private ConcurrentDictionary<SDL_WindowID, Action<SDL_Event>> _registeredWindowHandlers;
 
@@ -123,6 +125,10 @@ namespace Ryujinx.SDL3.Common
         private void HandleSDLEvent(ref SDL_Event evnt)
         {
             SDL_EventType type = evnt.Type;
+            if (type is SDL_EventType.SDL_EVENT_KEY_DOWN or SDL_EventType.SDL_EVENT_KEY_UP)
+            {
+                OnKeyboardInputUpdated?.Invoke();
+            }
             if (type == SDL_EventType.SDL_EVENT_JOYSTICK_ADDED)
             {
                 SDL_JoystickID instanceId = evnt.jbutton.which;
@@ -198,6 +204,7 @@ namespace Ryujinx.SDL3.Common
 
                         OnJoyStickConnected = null;
                         OnJoystickDisconnected = null;
+                        OnKeyboardInputUpdated = null;
                     }
                 }
             }

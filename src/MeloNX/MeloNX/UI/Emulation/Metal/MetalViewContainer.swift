@@ -78,7 +78,8 @@ struct MetalViewContainer: View {
 
     /// 上下两处入口共享同一尺寸；当前几何方向决定唯一显示位置，避免旋转时出现双份叠加。
     private var performanceOverlay: some View {
-        PerformanceOverlayView(nativeSettings: nativeSettingsManager, statisticsHandler: statisticsHandler)
+        PerformanceOverlayView(nativeSettings: nativeSettingsManager, metrics: statisticsHandler.metrics,
+                               samplingEnabled: !ryujinxController.isPaused && !ryujinxController.isStopping)
             .padding(4)
             .onTapGesture { menuViewHandler.triggerButton() }
     }

@@ -1,48 +1,59 @@
-//
-//  StatisticsHandler.swift
-//  MeloNX
-//
-//  Created by Stossy11 on 26/5/2026.
-//
-
-import SwiftUI
 import Foundation
 import Combine
 
-private struct StatisticsRequest: Codable {
-    let FPS: Double
-    let FrameTime: Double
-    let Started: Bool
-    let FIFO: Double
+/// 高频数值只通知性能条；游戏页面仅订阅首帧状态，避免整页随统计刷新。
+@MainActor
+final class PerformanceStatisticsStore: ObservableObject {
+    @Published private(set) var snapshot = PerformanceStatisticsSnapshot.zero
+
+    func update(_ next: PerformanceStatisticsSnapshot) {
+        if snapshot != next { snapshot = next }
+    }
 }
 
-class StatisticsHandler: ObservableObject {
-    @Published var fps: Double = 0
-    @Published var frameTime: Double = 0
-    @Published var started: Bool = false
-    @Published var fifo: Double = 0
-    
-    func registerPush() {
-        CallbackManager.register(name: "push_statistics") { data in
-            guard let ptr = data.ptr, data.len >= 33 else { return }
-            
-            let fps = ptr.load(fromByteOffset: 0, as: Double.self)
-            let frameTime = ptr.load(fromByteOffset: 8, as: Double.self)
-            let started = ptr.load(fromByteOffset: 16, as: UInt8.self) != 0
-            let fifo = ptr.load(fromByteOffset: 17, as: Double.self)
-            
-            Task {
-                await MainActor.run {
-                    self.fps       = fps
-                    self.frameTime = frameTime
-                    self.started   = started
-                    self.fifo      = fifo
-                }
+/// 应用级回调只注册一次。会话代次拦截退出后仍在主队列等待的旧统计包。
+@MainActor
+final class StatisticsHandler: ObservableObject {
+    static let shared = StatisticsHandler()
+    @Published private(set) var started = false
+    let metrics = PerformanceStatisticsStore()
+    private let gate = PerformanceStatisticsSession()
+    private var registered = false
+    private var collecting = false
+
+    private init() {}
+
+    /// 必须在启动核心前调用；首帧通知不依赖普通 HUD 统计开关。
+    func beginSession() {
+        gate.begin()
+        started = false
+        metrics.update(.zero)
+        collecting = false
+        Ryujinx.setStatisticsEnabled(false)
+        guard !registered else { return }
+        registered = true
+        let gate = gate
+        CallbackManager.register(name: "push_statistics") { @Sendable [weak self, gate] data in
+            guard let token = gate.current(), let ptr = data.ptr,
+                  let packet = PerformanceStatisticsSnapshot.read(ptr, length: Int(data.len)) else { return }
+            DispatchQueue.main.async { [weak self, gate] in
+                guard let self, gate.accepts(token) else { return }
+                if packet.started && !self.started { self.started = true }
+                if self.collecting { self.metrics.update(packet) }
             }
         }
     }
-    
-    func formatFPS() -> String {
-        String(format: "FPS: %.2f", fps)
+
+    func endSession() {
+        gate.end()
+        setCollectionEnabled(false)
+    }
+
+    /// 由游戏页面根据可见性、暂停和前后台状态统一调用，重复状态不跨 ABI。
+    func setCollectionEnabled(_ enabled: Bool) {
+        let next = enabled && gate.current() != nil
+        guard collecting != next else { return }
+        collecting = next
+        Ryujinx.setStatisticsEnabled(next)
     }
 }

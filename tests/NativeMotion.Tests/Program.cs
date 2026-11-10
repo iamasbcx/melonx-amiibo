@@ -125,7 +125,7 @@ NativeGamepadDriver.SuspendMotion(id);
 Require(gamepad.GetMotionSample() == suspended, "重复挂起不是幂等操作");
 npad.Update();
 var held = npad.GetHLEMotionState();
-Require(held.Gyroscope == Vector3.Zero && held.Rotation == controlled.Rotation && held.Orientation.SequenceEqual(controlled.Orientation),
+Require(held.Gyroscope == Vector3.Zero && held.Rotation == controlled.Rotation && held.Orientation.AsSpan().SequenceEqual(controlled.Orientation.AsSpan()),
     "Npad 暂停轮询清空了受控姿态或继续积分");
 // 与挂起后的静止值完全相同也必须恢复，不能被数据去重提前返回。
 Submit(suspended);
@@ -133,7 +133,7 @@ Require(!gamepad.GetMotionSample().IsMotionSuspended && gamepad.GetMotionSample(
     "相同静止采样没有恢复或错误清除了暂停代数");
 npad.Update();
 var resumed = npad.GetHLEMotionState();
-Require(resumed.Gyroscope == Vector3.Zero && resumed.Rotation == held.Rotation && resumed.Orientation.SequenceEqual(held.Orientation),
+Require(resumed.Gyroscope == Vector3.Zero && resumed.Rotation == held.Rotation && resumed.Orientation.AsSpan().SequenceEqual(held.Orientation.AsSpan()),
     "恢复首帧没有保留游戏姿态");
 
 // 暂停与恢复都发生在两次 Npad 轮询之间时，递增代数仍必须阻止旧时间段积分。
@@ -141,7 +141,7 @@ NativeGamepadDriver.SuspendMotion(id);
 Submit(new GamepadMotionSample(driverGravity, new Vector3(10, 20, 30), driverGravity, new Vector3(-1, 0, 1), 0));
 npad.Update();
 var unobservedPause = npad.GetHLEMotionState();
-Require(unobservedPause.Gyroscope == Vector3.Zero && unobservedPause.Rotation == held.Rotation && unobservedPause.Orientation.SequenceEqual(held.Orientation),
+Require(unobservedPause.Gyroscope == Vector3.Zero && unobservedPause.Rotation == held.Rotation && unobservedPause.Orientation.AsSpan().SequenceEqual(held.Orientation.AsSpan()),
     "没有轮询到暂停标记时丢失时间边界");
 npad.Update();
 Require(Vector3.Distance(npad.GetHLEMotionState().Gyroscope, new Vector3(-0.027f, 0, 0.054f)) < 0.002f,
@@ -158,7 +158,7 @@ for (int index = 0; index < 30; index++)
     npad.Update();
 }
 var afterOrientation = npad.GetHLEMotionState();
-Require(afterOrientation.Orientation.SequenceEqual(beforeBoundary.Orientation) && afterOrientation.Accelerometer == beforeBoundary.Accelerometer,
+Require(afterOrientation.Orientation.AsSpan().SequenceEqual(beforeBoundary.Orientation.AsSpan()) && afterOrientation.Accelerometer == beforeBoundary.Accelerometer,
     "界面方向变化使 HLE 姿态或虚拟重力延迟回拉");
 NativeGamepadDriver.SuspendMotion(id);
 Submit(new GamepadMotionSample(Vector3.UnitX, Vector3.Zero, Vector3.UnitX, new Vector3(-1, 0, 1), 2));
@@ -169,7 +169,7 @@ for (int index = 0; index < 30; index++)
     npad.Update();
 }
 var afterChangedPause = npad.GetHLEMotionState();
-Require(afterChangedPause.Orientation.SequenceEqual(beforeBoundary.Orientation) && afterChangedPause.Accelerometer == beforeBoundary.Accelerometer,
+Require(afterChangedPause.Orientation.AsSpan().SequenceEqual(beforeBoundary.Orientation.AsSpan()) && afterChangedPause.Accelerometer == beforeBoundary.Accelerometer,
     "暂停期间改变手机姿态后 HLE 仍持续运动");
 
 // 两次方向切换在同一次轮询前完成，最终方向码相同也必须保留时间边界。
@@ -178,6 +178,16 @@ Submit(new GamepadMotionSample(Vector3.UnitX, new Vector3(100, 0, 0), Vector3.Un
 Submit(new GamepadMotionSample(Vector3.UnitX, new Vector3(100, 0, 0), Vector3.UnitX, Vector3.One, 2));
 npad.Update();
 var afterUnobservedOrientation = npad.GetHLEMotionState();
-Require(afterUnobservedOrientation.Orientation.SequenceEqual(beforeUnobservedOrientation.Orientation) && afterUnobservedOrientation.Gyroscope == Vector3.Zero,
+Require(afterUnobservedOrientation.Orientation.AsSpan().SequenceEqual(beforeUnobservedOrientation.Orientation.AsSpan()) && afterUnobservedOrientation.Gyroscope == Vector3.Zero,
     "未轮询到中间方向时丢失坐标基变化边界");
-Console.WriteLine("NativeMotion.Tests: 完整采样、并发、手机元数据校验、HLE平移/旋转、转屏及暂停姿态变化通过");
+// 使用已配置手机运动源的真实 Npad 采样，验证左右姿态快照不产生逐帧堆数组。
+for (int index = 0; index < 100; index++) _ = npad.GetHLEMotionState();
+long allocationBefore = GC.GetAllocatedBytesForCurrentThread();
+for (int index = 0; index < 10000; index++)
+{
+    _ = npad.GetHLEMotionState();
+    _ = npad.GetHLEMotionState(true);
+}
+long motionAllocation = GC.GetAllocatedBytesForCurrentThread() - allocationBefore;
+Require(motionAllocation == 0, $"Npad 姿态采样仍分配 {motionAllocation} 字节");
+Console.WriteLine("NativeMotion.Tests: 完整采样、并发、手机元数据校验、HLE平移/旋转、转屏、暂停姿态变化及姿态采样零分配通过");

@@ -8,44 +8,55 @@
 import CoreHaptics
 import Foundation
 
-class RumbleController {
-    private final class HapticChannel {
+/// 主线程创建和持有对象；初始化后所有播放器、定时器及震动状态由 hapticQueue 串行访问。
+/// stop 会持有对象至排队停止完成，解除绑定不会遗留循环定时器或活动播放器。
+/// @unchecked Sendable 仅承诺此队列所有权：可变成员全部私有，公开输出只入队；最后一个强引用释放后析构独占资源。
+nonisolated final class RumbleController: @unchecked Sendable {
+    private nonisolated final class HapticChannel {
         private let engine: CHHapticEngine
         private let hapticEventDuration: TimeInterval
         private var lowHapticPlayer: CHHapticPatternPlayer?
         private var highHapticPlayer: CHHapticPatternPlayer?
+        private var engineStarted = false
+        var isPlaying: Bool { engineStarted && lowHapticPlayer != nil && highHapticPlayer != nil }
         
         init?(engine: CHHapticEngine?, hapticEventDuration: TimeInterval) {
             guard let engine else { return nil }
             
             self.engine = engine
             self.hapticEventDuration = hapticEventDuration
-            
-            do {
-                try engine.start()
-                
-                try createPlayers()
-            } catch {
-                return nil
-            }
+            // 未收到有效震动时不启动引擎；系统也可在空闲后自动关闭硬件资源。
+            engine.isAutoShutdownEnabled = true
         }
         
-        func restart() {
+        private func restart() -> Bool {
             do {
                 try lowHapticPlayer?.stop(atTime: CHHapticTimeImmediate)
                 try highHapticPlayer?.stop(atTime: CHHapticTimeImmediate)
                 
                 try engine.start()
+                engineStarted = true
                 try createPlayers()
+                return true
             } catch {
-                lowHapticPlayer = nil
-                highHapticPlayer = nil
+                stop()
+                NSLog("MeloNX haptics: could not start vibration: %@", error.localizedDescription)
+                return false
             }
+        }
+
+        func restartIfPlaying() -> Bool {
+            !engineStarted || restart()
         }
         
         func stop() {
+            guard engineStarted || lowHapticPlayer != nil || highHapticPlayer != nil else { return }
             try? lowHapticPlayer?.stop(atTime: CHHapticTimeImmediate)
             try? highHapticPlayer?.stop(atTime: CHHapticTimeImmediate)
+            lowHapticPlayer = nil
+            highHapticPlayer = nil
+            engine.stop(completionHandler: nil)
+            engineStarted = false
         }
         
         func update(
@@ -55,7 +66,16 @@ class RumbleController {
             highFrequency: Float,
             rumbleMultiplier: Float
         ) {
+            guard InputPowerPolicy.hasVibration(durationMs: nil, amplitudes: [lowAmplitude, highAmplitude]) else {
+                stop()
+                return
+            }
             do {
+                if lowHapticPlayer == nil || highHapticPlayer == nil {
+                    try engine.start()
+                    engineStarted = true
+                    try createPlayers()
+                }
                 try sendParameters(
                     lowAmplitude: lowAmplitude,
                     lowFrequency: lowFrequency,
@@ -64,7 +84,14 @@ class RumbleController {
                     rumbleMultiplier: rumbleMultiplier
                 )
             } catch {
-                restart()
+                guard restart() else { return }
+                do {
+                    try sendParameters(lowAmplitude: lowAmplitude, lowFrequency: lowFrequency,
+                        highAmplitude: highAmplitude, highFrequency: highFrequency, rumbleMultiplier: rumbleMultiplier)
+                } catch {
+                    stop()
+                    NSLog("MeloNX haptics: could not apply vibration: %@", error.localizedDescription)
+                }
             }
         }
         
@@ -125,7 +152,7 @@ class RumbleController {
         }
         
         private static func clamp(_ value: Float, _ lower: Float = 0, _ upper: Float = 1) -> Float {
-            min(upper, max(lower, value))
+            value.isFinite ? min(upper, max(lower, value)) : lower
         }
     }
     
@@ -137,14 +164,14 @@ class RumbleController {
     
     private let hapticEventDuration: TimeInterval = 20
     private let restartGracePeriod: TimeInterval = 1.0
-    private var playerRestartTimer: Timer?
-    private var durationTimer: Timer?
+    private var playerRestartTimer: DispatchSourceTimer?
+    private var durationWork: DispatchWorkItem?
+    private var currentVibration: (left: RumbleData.VibrationValue, right: RumbleData.VibrationValue)?
     
     init (engine: CHHapticEngine?, rumbleMultiplier: Float) {
         self.rumbleMultiplier = rumbleMultiplier
         
         fallbackChannel = HapticChannel(engine: engine, hapticEventDuration: hapticEventDuration)
-        setupPlayerRestartTimer()
     }
     
     init(leftEngine: CHHapticEngine?, rightEngine: CHHapticEngine?, fallbackEngine: CHHapticEngine?, rumbleMultiplier: Float) {
@@ -159,28 +186,31 @@ class RumbleController {
             fallbackChannel = HapticChannel(engine: fallbackEngine, hapticEventDuration: hapticEventDuration)
         }
         
-        setupPlayerRestartTimer()
     }
     
     deinit {
-        playerRestartTimer?.invalidate()
+        playerRestartTimer?.cancel()
         playerRestartTimer = nil
+        durationWork?.cancel()
         
         leftChannel?.stop()
         rightChannel?.stop()
         fallbackChannel?.stop()
     }
     
+    /// 仅在持续震动期间维持播放器时长；停止后不再为零强度播放器唤醒线程。
     private func setupPlayerRestartTimer() {
-        playerRestartTimer?.invalidate()
-        
+        dispatchPrecondition(condition: .onQueue(hapticQueue))
+        guard playerRestartTimer == nil else { return }
         let restartInterval = hapticEventDuration - restartGracePeriod
-        
         guard restartInterval > 0 else { return }
-        
-        playerRestartTimer = Timer.scheduledTimer(withTimeInterval: restartInterval, repeats: true) { [weak self] _ in
+        let timer = DispatchSource.makeTimerSource(queue: hapticQueue)
+        timer.schedule(deadline: .now() + restartInterval, repeating: restartInterval, leeway: .milliseconds(100))
+        timer.setEventHandler { [weak self] in
             self?.restartPlayers()
         }
+        playerRestartTimer = timer
+        timer.resume()
     }
     
     public func rumble(lowFreq: Float, highFreq: Float, durationMs: UInt32? = nil) {
@@ -201,56 +231,85 @@ class RumbleController {
     private func rumble(left: RumbleData.VibrationValue, right: RumbleData.VibrationValue, durationMs: UInt32?) {
         hapticQueue.async { [weak self] in
             guard let self else { return }
-            
-            if leftChannel != nil, rightChannel != nil {
-                leftChannel?.update(
-                    lowAmplitude: left.amplitudeLow,
-                    lowFrequency: left.frequencyLow,
-                    highAmplitude: left.amplitudeHigh,
-                    highFrequency: left.frequencyHigh,
-                    rumbleMultiplier: rumbleMultiplier
-                )
-                rightChannel?.update(
-                    lowAmplitude: right.amplitudeLow,
-                    lowFrequency: right.frequencyLow,
-                    highAmplitude: right.amplitudeHigh,
-                    highFrequency: right.frequencyHigh,
-                    rumbleMultiplier: rumbleMultiplier
-                )
-            } else {
-                fallbackChannel?.update(
-                    lowAmplitude: max(left.amplitudeLow, right.amplitudeLow),
-                    lowFrequency: weightedFrequency(left.frequencyLow, left.amplitudeLow, right.frequencyLow, right.amplitudeLow, fallback: 160),
-                    highAmplitude: max(left.amplitudeHigh, right.amplitudeHigh),
-                    highFrequency: weightedFrequency(left.frequencyHigh, left.amplitudeHigh, right.frequencyHigh, right.amplitudeHigh, fallback: 320),
-                    rumbleMultiplier: rumbleMultiplier
-                )
+            self.durationWork?.cancel()
+            self.durationWork = nil
+            let active = InputPowerPolicy.hasVibration(durationMs: durationMs,
+                amplitudes: [left.amplitudeLow, left.amplitudeHigh, right.amplitudeLow, right.amplitudeHigh])
+            guard active, self.leftChannel != nil || self.rightChannel != nil || self.fallbackChannel != nil else {
+                self.stopOnQueue()
+                return
+            }
+            self.currentVibration = (left, right)
+            self.applyVibration(left: left, right: right)
+            guard self.leftChannel?.isPlaying == true || self.rightChannel?.isPlaying == true ||
+                  self.fallbackChannel?.isPlaying == true else {
+                self.stopOnQueue()
+                return
+            }
+            self.setupPlayerRestartTimer()
+            if let durationMs, durationMs > 0, durationMs != UInt32.max {
+                let work = DispatchWorkItem { [weak self] in self?.stopOnQueue() }
+                self.durationWork = work
+                self.hapticQueue.asyncAfter(deadline: .now() + Double(durationMs) / 1000, execute: work)
             }
         }
-        
-        scheduleStopTimer(durationMs: durationMs)
+    }
+
+    private func applyVibration(left: RumbleData.VibrationValue, right: RumbleData.VibrationValue) {
+        dispatchPrecondition(condition: .onQueue(hapticQueue))
+        if leftChannel != nil, rightChannel != nil {
+            leftChannel?.update(
+                lowAmplitude: left.amplitudeLow,
+                lowFrequency: left.frequencyLow,
+                highAmplitude: left.amplitudeHigh,
+                highFrequency: left.frequencyHigh,
+                rumbleMultiplier: rumbleMultiplier
+            )
+            rightChannel?.update(
+                lowAmplitude: right.amplitudeLow,
+                lowFrequency: right.frequencyLow,
+                highAmplitude: right.amplitudeHigh,
+                highFrequency: right.frequencyHigh,
+                rumbleMultiplier: rumbleMultiplier
+            )
+        } else {
+            fallbackChannel?.update(
+                lowAmplitude: max(left.amplitudeLow, right.amplitudeLow),
+                lowFrequency: weightedFrequency(left.frequencyLow, left.amplitudeLow, right.frequencyLow, right.amplitudeLow, fallback: 160),
+                highAmplitude: max(left.amplitudeHigh, right.amplitudeHigh),
+                highFrequency: weightedFrequency(left.frequencyHigh, left.amplitudeHigh, right.frequencyHigh, right.amplitudeHigh, fallback: 320),
+                rumbleMultiplier: rumbleMultiplier
+            )
+        }
     }
     
     private func restartPlayers() {
-        hapticQueue.async { [weak self] in
-            self?.leftChannel?.restart()
-            self?.rightChannel?.restart()
-            self?.fallbackChannel?.restart()
+        dispatchPrecondition(condition: .onQueue(hapticQueue))
+        guard let vibration = currentVibration else { return }
+        guard leftChannel?.restartIfPlaying() != false,
+              rightChannel?.restartIfPlaying() != false,
+              fallbackChannel?.restartIfPlaying() != false else {
+            stopOnQueue()
+            return
         }
+        applyVibration(left: vibration.left, right: vibration.right)
     }
     
-    private func scheduleStopTimer(durationMs: UInt32?) {
-        DispatchQueue.main.async { [weak self] in
-            self?.durationTimer?.invalidate()
-            self?.durationTimer = nil
-            
-            guard let durationMs, durationMs > 0, durationMs != UInt32.max else { return }
-            
-            let durationSeconds = TimeInterval(durationMs) / 1000.0
-            self?.durationTimer = Timer.scheduledTimer(withTimeInterval: durationSeconds, repeats: false) { [weak self] _ in
-                self?.rumble(lowFreq: 0, highFreq: 0)
-            }
-        }
+    /// 解绑、暂停或退出必须主动调用；队列顺序保证此前的震动写入先完成，再统一停止。
+    func stop() {
+        hapticQueue.async { [self] in stopOnQueue() }
+    }
+
+    private func stopOnQueue() {
+        dispatchPrecondition(condition: .onQueue(hapticQueue))
+        durationWork?.cancel()
+        durationWork = nil
+        playerRestartTimer?.cancel()
+        playerRestartTimer = nil
+        currentVibration = nil
+        leftChannel?.stop()
+        rightChannel?.stop()
+        fallbackChannel?.stop()
     }
     
     private func weightedFrequency(_ firstFrequency: Float, _ firstAmplitude: Float, _ secondFrequency: Float, _ secondAmplitude: Float, fallback: Float) -> Float {

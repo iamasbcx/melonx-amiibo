@@ -6,9 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using System.Linq;
 
 namespace Ryujinx.Library
 {
@@ -22,55 +20,48 @@ namespace Ryujinx.Library
         private long _lastCursorMoveTime;
 
         public bool[] PressedButtons { get; }
-        public Vector2[] CurrentPosition => _activeTouches.Values.ToArray();
         public Vector2 Scroll { get; private set; }
         public Size ClientSize;
 
-        private static Dictionary<int, Vector2> _activeTouches = new();
+        private static readonly NativeTouchState _touchState = new();
+        private static readonly string[] _gamepadIds = ["0"];
+        private readonly NativeMouse _mouse;
+        public static event Action OnInputUpdated;
 
         public NativeTouchDriver(HideCursorMode hideCursorMode)
         {
             PressedButtons = new bool[(int)MouseButton.Count];
             _hideCursorMode = hideCursorMode;
+            _mouse = new NativeMouse(this);
+            // 每局窗口独占触摸驱动，不能沿用上局未收到抬起的手指。
+            _touchState.Clear();
         }
 
         [UnmanagedCallersOnly(EntryPoint = "touch_began")]
         public static void TouchBeganAtPoint(float x, float y, int index)
         {
-            Vector2 position = new Vector2(x, y);
-            _activeTouches[index] = position;
+            if (_touchState.Begin(index, new Vector2(x, y))) OnInputUpdated?.Invoke();
         }
 
 
         [UnmanagedCallersOnly(EntryPoint = "touch_moved")]
         public static void TouchMovedAtPoint(float x, float y, int index)
         {
-            if (_activeTouches.ContainsKey(index))
-            {
-                _activeTouches[index] = new Vector2(x, y);
-            }
+            if (_touchState.Move(index, new Vector2(x, y))) OnInputUpdated?.Invoke();
         }
 
         [UnmanagedCallersOnly(EntryPoint = "touch_ended")]
         public static void TouchEndedForIndex(int index)
         {
-            if (_activeTouches.ContainsKey(index))
-            {
-                _activeTouches.Remove(index);
-            }
+            if (_touchState.End(index)) OnInputUpdated?.Invoke();
         }
 
         public void UpdatePosition()
         {
-            if (_activeTouches.Count > 0)
-            {
-                var touch = _activeTouches.Values.GetEnumerator();
-                touch.MoveNext(); 
-                Vector2 position = touch.Current;
-            }
-
             CheckIdle();
         }
+
+        public int CopyTouches(Span<TouchSnapshot> destination) => _isDisposed ? 0 : _touchState.CopyTo(destination);
 
         private void CheckIdle()
         {
@@ -108,11 +99,7 @@ namespace Ryujinx.Library
 
         public bool IsAnyPressed(MouseButton button)
         {
-            if (_activeTouches.Count > 0)
-            {
-                return true;
-            }
-            return false;
+            return !_isDisposed && _touchState.HasTouches;
         }
 
         public Size GetClientSize()
@@ -134,11 +121,11 @@ namespace Ryujinx.Library
             remove { }
         }
 
-        public ReadOnlySpan<string> GamepadsIds => new[] { "0" };
+        public ReadOnlySpan<string> GamepadsIds => _gamepadIds;
 
         public IGamepad GetGamepad(string id)
         {
-            return new NativeMouse(this);
+            return _mouse;
         }
 
         public void Dispose()
@@ -148,6 +135,7 @@ namespace Ryujinx.Library
                 return;
             }
             _isDisposed = true;
+            _touchState.Clear();
         }
     }
 }

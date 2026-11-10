@@ -92,6 +92,9 @@ namespace Ryujinx.Library
         private static int _stopRequested;
         // 标记 native 主入口仍在运行，避免入口已返回后迟到的停止调用污染下一局。
         private static int _mainExternalActive;
+        // UI 可以早于核心启动提交显示策略；新窗口/上下文必须继承最近一次设置。
+        private static int _statisticsEnabled;
+        private static int _unboundedPresentTargetFps = 60;
 
         // 创建应用级输入管理器；其 NativeGamepadDriver 必须跨游戏重启保持有效。
         private static InputManager CreateInputManager()
@@ -173,9 +176,8 @@ namespace Ryujinx.Library
 
                 WindowBase.QueueMainThreadAction(() =>
                 {
-                    action();
-
-                    invoked.Set();
+                    try { action(); }
+                    finally { invoked.Set(); }
                 });
 
                 invoked.WaitOne();
@@ -194,7 +196,16 @@ namespace Ryujinx.Library
         [UnmanagedCallersOnly(EntryPoint = "set_unbounded_present_target_fps")]
         public static void SetUnboundedPresentTargetFps(int targetFps)
         {
-            _emulationContext?.SetUnboundedPresentTargetFps(targetFps);
+            Interlocked.Exchange(ref _unboundedPresentTargetFps, Math.Max(1, targetFps));
+            _emulationContext?.SetUnboundedPresentTargetFps(Volatile.Read(ref _unboundedPresentTargetFps));
+        }
+
+        /// <summary>0 关闭普通统计，非 0 开启；首帧启动通知不受影响。可在游戏创建前调用。</summary>
+        [UnmanagedCallersOnly(EntryPoint = "set_statistics_enabled")]
+        public static void SetStatisticsEnabled(int enabled)
+        {
+            Interlocked.Exchange(ref _statisticsEnabled, enabled != 0 ? 1 : 0);
+            _window?.SetStatisticsEnabled(Volatile.Read(ref _statisticsEnabled) != 0);
         }
 
         [UnmanagedCallersOnly(EntryPoint = "stop_emulation")]
@@ -229,9 +240,14 @@ namespace Ryujinx.Library
         [UnmanagedCallersOnly(EntryPoint = "toggle_pause_emulation")]
         public static void TogglePauseEmulation(bool shouldPause)
         {
-            if (_emulationContext != null && _emulationContext.System != null)
+            Switch context = _emulationContext;
+            WindowBase window = _window;
+            if (context?.System != null)
             {
-                _emulationContext.System.TogglePauseEmulation(shouldPause);
+                // 暂停先冻结来宾，再关闭宿主门；恢复先打开 GPU 门，避免来宾等待尚未恢复的 GPU。
+                if (!shouldPause) window?.SetPaused(false);
+                context.System.TogglePauseEmulation(shouldPause);
+                if (shouldPause) window?.SetPaused(true);
             }
         }
 
@@ -648,6 +664,7 @@ namespace Ryujinx.Library
         public static void SetKeyboardConfig(KeyboardConfigNative config) 
         {
             _keyboardConfig = config;
+            _window?.SignalInputUpdated();
         }
         
         [UnmanagedCallersOnly(EntryPoint = "attach_gamepad")]
@@ -695,6 +712,7 @@ namespace Ryujinx.Library
                     EnsureKeyboardFallback();
                     
                     _window?.NpadManager.ReloadConfiguration(_inputConfiguration, _enableKeyboard, _enableMouse);
+                    _window?.SignalInputUpdated();
                 }
 
                 return result;
@@ -729,6 +747,7 @@ namespace Ryujinx.Library
                         _inputConfiguration ?? new List<InputConfig>(),
                         _enableKeyboard,
                         _enableMouse);
+                    _window?.SignalInputUpdated();
                 }
             }
         }
@@ -1164,8 +1183,16 @@ namespace Ryujinx.Library
                 EndAmiiboSession(_emulationContext);
                 // Exit 统一拥有核心释放；避免与 UI 停止路径重复 Dispose。
                 _window.Exit();
-                _emulationContext.Dispose();
-                _window.Dispose();
+                try
+                {
+                    _emulationContext.Dispose();
+                }
+                finally
+                {
+                    // HLE 释放期间后端必须留活；之后才停渲染并释放 GPU，最后回收窗口等待门。
+                    try { _emulationContext.DisposeGpu(); }
+                    finally { _window.Dispose(); }
+                }
                 _emulationContext = null;
                 _window = null;
 
@@ -1191,6 +1218,7 @@ namespace Ryujinx.Library
             IRenderer renderer = CreateRenderer(options, window);
 
             _window = window;
+            _window.SetStatisticsEnabled(Volatile.Read(ref _statisticsEnabled) != 0);
             _window.IsFullscreen = options.IsFullscreen;
             _window.DisplayId = options.DisplayId;
             _window.IsExclusiveFullscreen = options.IsExclusiveFullscreen;
@@ -1203,6 +1231,7 @@ namespace Ryujinx.Library
             renderer.Window?.SetColorSpacePassthrough(true);
 
             _emulationContext = InitializeEmulationContext(window, renderer, options);
+            _emulationContext.SetUnboundedPresentTargetFps(Volatile.Read(ref _unboundedPresentTargetFps));
 
             SystemVersion firmwareVersion = _contentManager.GetCurrentFirmwareVersion();
             Logger.Notice.Print(LogClass.Application, $"Using Firmware Version: {firmwareVersion?.VersionString}");

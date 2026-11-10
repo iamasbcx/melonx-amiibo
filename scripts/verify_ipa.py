@@ -21,7 +21,9 @@ DYLIB_COMMANDS = {0x0C, 0x80000018, 0x8000001F, 0x20, 0x80000023}
 AMIIBO_SYMBOLS = frozenset({"_mlx_amiibo_get_abi", "_mlx_amiibo_get_state", "_mlx_amiibo_scan"})
 # 手机采样必须整帧传递；只包含旧逐轴接口的核心不能承接独立重力。
 MOTION_SYMBOLS = frozenset({"_set_gamepad_phone_motion_sample", "_suspend_gamepad_motion"})
-CORE_SYMBOLS = AMIIBO_SYMBOLS | MOTION_SYMBOLS
+# HUD 的普通统计门控必须与本次 Swift 宿主同时交付。
+PERFORMANCE_SYMBOLS = frozenset({"_set_statistics_enabled"})
+CORE_SYMBOLS = AMIIBO_SYMBOLS | MOTION_SYMBOLS | PERFORMANCE_SYMBOLS
 # Apple 平台由系统 ICU 与 Foundation 提供全球化和基础运行时能力。
 SYSTEM_ICU_DEPENDENCIES = frozenset({
     "/usr/lib/libicucore.A.dylib",
@@ -360,6 +362,7 @@ def verify(path: Path, expected_core: Path) -> dict:
         "core_sha256": sha256(core),
         "amiibo_symbols": sorted(AMIIBO_SYMBOLS),
         "motion_symbols": sorted(MOTION_SYMBOLS),
+        "performance_symbols": sorted(PERFORMANCE_SYMBOLS),
         "extension": extension_info["CFBundleIdentifier"],
         "macho_files_checked": len(macho_files),
         "globalization": {

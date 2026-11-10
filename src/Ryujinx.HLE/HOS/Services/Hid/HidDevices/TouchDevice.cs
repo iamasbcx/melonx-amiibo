@@ -21,11 +21,10 @@ namespace Ryujinx.HLE.HOS.Services.Hid
 
             if (Active)
             {
-                newState.TouchesCount = points.Length;
-
                 Span<TouchState> touchesSpan = newState.Touches.AsSpan();
                 
                 int pointsLength = Math.Min(points.Length, touchesSpan.Length);
+                newState.TouchesCount = pointsLength;
 
                 for (int i = 0; i < pointsLength; ++i)
                 {
@@ -36,7 +35,7 @@ namespace Ryujinx.HLE.HOS.Services.Hid
                         Attribute = pi.Attribute,
                         X = pi.X,
                         Y = pi.Y,
-                        FingerId = (uint)i,
+                        FingerId = pi.FingerId,
                         DiameterX = pi.DiameterX,
                         DiameterY = pi.DiameterY,
                         RotationAngle = pi.Angle,

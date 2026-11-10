@@ -8,8 +8,6 @@ namespace Ryujinx.Input
     /// </summary>
     public interface IKeyboard : IGamepad
     {
-        private static bool[] _keyState;
-
         /// <summary>
         /// Check if a given key is pressed on the keyboard.
         /// </summary>
@@ -31,17 +29,13 @@ namespace Ryujinx.Input
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static KeyboardStateSnapshot GetStateSnapshot(IKeyboard keyboard)
         {
-            if (_keyState is null)
-            {
-                _keyState = new bool[(int)Key.Count];
-            }
-            
+            KeyboardStateSnapshot snapshot = default;
             for (Key key = 0; key < Key.Count; key++)
             {
-                _keyState[(int)key] = keyboard.IsPressed(key);
+                snapshot.SetPressed(key, keyboard.IsPressed(key));
             }
 
-            return new KeyboardStateSnapshot(_keyState);
+            return snapshot;
         }
     }
 }

@@ -37,12 +37,10 @@ namespace Ryujinx.Library
             if (IsExclusiveFullscreen)
             {
                 Renderer?.Window.SetSize(ExclusiveFullscreenWidth, ExclusiveFullscreenHeight);
-                MouseDriver.SetClientSize(ExclusiveFullscreenWidth, ExclusiveFullscreenHeight);
             }
             else
             {
                 Renderer?.Window.SetSize(DefaultWidth, DefaultHeight);
-                MouseDriver.SetClientSize(DefaultWidth, DefaultHeight);
             }
         }
 

@@ -51,6 +51,7 @@ xcrun --sdk iphoneos --show-sdk-version
 # 运动桥接头使用标准 C 标量 ABI；先以严格告警检查，再交由 Swift 导入。
 xcrun clang -x c -std=c11 -Wall -Wextra -Werror -fsyntax-only \
   src/MeloNX/MeloNX/Core/Models/MotionBridge.h \
+  src/MeloNX/MeloNX/Core/Models/PerformanceBridge.h \
   2>&1 | tee "${LOG_DIR}/motion-bridge-header.log"
 xcrun swiftc -parse-as-library \
   src/MeloNX/MeloNX/Core/Amiibo/AmiiboCatalogParser.swift \
@@ -84,6 +85,29 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   -o "${BUILD_DIR}/InputLifecycleTests" \
   2>&1 | tee "${LOG_DIR}/input-lifecycle-build.log"
 "${BUILD_DIR}/InputLifecycleTests" 2>&1 | tee "${LOG_DIR}/input-lifecycle-tests.log"
+# 使用生产解析与会话令牌校验性能统计和 Amiibo 按需轮询。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Common/PerformanceStatisticsState.swift \
+  src/MeloNX/MeloNX/Core/Amiibo/AmiiboPollingPolicy.swift \
+  tests/PerformanceSamplingTests.swift \
+  -o "${BUILD_DIR}/PerformanceSamplingTests" \
+  2>&1 | tee "${LOG_DIR}/performance-sampling-build.log"
+"${BUILD_DIR}/PerformanceSamplingTests" 2>&1 | tee "${LOG_DIR}/performance-sampling-tests.log"
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Controllers/Motion/PhoneMotionControls.swift \
+  src/MeloNX/MeloNX/Core/Controllers/Motion/PhoneMotionTransform.swift \
+  src/MeloNX/MeloNX/Core/Controllers/InputPowerPolicy.swift \
+  tests/InputPowerPolicyTests.swift \
+  -o "${BUILD_DIR}/InputPowerPolicyTests" \
+  2>&1 | tee "${LOG_DIR}/input-power-build.log"
+"${BUILD_DIR}/InputPowerPolicyTests" 2>&1 | tee "${LOG_DIR}/input-power-tests.log"
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/UI/Emulation/Metal/MetalViewConfigurationState.swift \
+  src/MeloNX/MeloNX/UI/Emulation/Metal/MetalFxOutputPlan.swift \
+  tests/MetalPresentationPolicyTests.swift \
+  -o "${BUILD_DIR}/MetalPresentationPolicyTests" \
+  2>&1 | tee "${LOG_DIR}/metal-presentation-build.log"
+"${BUILD_DIR}/MetalPresentationPolicyTests" 2>&1 | tee "${LOG_DIR}/metal-presentation-tests.log"
 # 本地手柄包使用自身隔离规则；测试直接链接生产仲裁和布局数学，避免复制实现。
 xcrun swiftc -parse-as-library \
   src/MeloNX/Dependencies/Melo-Controller/Sources/Melo-Controller/ControllerInteractionState.swift \
@@ -109,6 +133,10 @@ DOTNET="${DOTNET_ROOT}/dotnet"
   -c Release 2>&1 | tee "${LOG_DIR}/amiibo-contract-tests.log"
 "${DOTNET}" run --project tests/HleAmiibo.Tests/HleAmiibo.Tests.csproj \
   -c Release 2>&1 | tee "${LOG_DIR}/amiibo-hle-tests.log"
+"${DOTNET}" run --project tests/PresentationPacing.Tests/PresentationPacing.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/presentation-pacing-tests.log"
+"${DOTNET}" run --project tests/HostLoop.Tests/HostLoop.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/host-loop-tests.log"
 
 # 所有可复用的输入先记录摘要；SPM 只接受现有锁文件，禁止构建时自动升级。
 python3 - "${PROJECT_ROOT}" "${ARTIFACT_DIR}" <<'PY'
@@ -156,7 +184,7 @@ touch "${CORE_PUBLISH_STAMP}"
 test -s "${CORE_DYLIB}"
 test "${CORE_DYLIB}" -nt "${CORE_PUBLISH_STAMP}"
 nm -gU "${CORE_DYLIB}" > "${LOG_DIR}/core-symbols.log"
-for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion; do
+for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion set_statistics_enabled; do
   if ! awk '{print $NF}' "${LOG_DIR}/core-symbols.log" | grep -qx "_${symbol}"; then
     echo "新核心缺少导出：${symbol}" >&2
     exit 1
@@ -174,13 +202,14 @@ xcrun otool -L "${CORE_NORMALIZED}" | tee "${LOG_DIR}/core-dependencies.log"
 python3 - "${SCRIPT_DIR}" "${CORE_NORMALIZED}" "${ARTIFACT_DIR}/core-verification.json" <<'PY'
 import json, pathlib, sys
 sys.path.insert(0, sys.argv[1])
-from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, sha256, validate_system_icu, verify_core
+from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, PERFORMANCE_SYMBOLS, sha256, validate_system_icu, verify_core
 data = pathlib.Path(sys.argv[2]).read_bytes()
 core = verify_core(data)
 report = {
     "core_sha256": sha256(data),
     "amiibo_symbols": sorted(AMIIBO_SYMBOLS),
     "motion_symbols": sorted(MOTION_SYMBOLS),
+    "performance_symbols": sorted(PERFORMANCE_SYMBOLS),
     "dependencies": list(core.dependencies),
     "globalization": {"mode": "apple-system-icu", "dependency": validate_system_icu(core)},
     "scope": "NativeAOT 核心的平台、导出与依赖结构；未完成真机运行验证",

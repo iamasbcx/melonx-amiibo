@@ -170,8 +170,11 @@ public final class RyujinxController: ObservableObject {
         get {
             return _isPaused
         } set {
+            // 退出开始后核心可能正在释放；恢复前台或关闭设置不得再次向旧核心发送暂停命令。
+            guard !isStopping else { return }
             _isPaused = newValue
             Ryujinx.togglePauseEmulation(_isPaused)
+            controllerManager.refreshInputResources()
         }
     }
     
@@ -245,6 +248,7 @@ public final class RyujinxController: ObservableObject {
         // 始终以当前游戏读取并逐项回退到全局；游戏内首次创建覆盖也无需替换正在观察的对象。
         let inputGameId = ControllerInputProfile.normalizedGameId(game.titleId)
         NativeSettingsManager.setShared(inputGameId, pullOriginal: inputGameId != nil)
+        StatisticsHandler.shared.beginSession()
 
         loadWithoutSave(game.titleId)
         
@@ -266,6 +270,7 @@ public final class RyujinxController: ObservableObject {
         // 先进入运行态，再绑定控制器，避免刷新回调与游戏启动之间出现 attach 竞态。
         // 绑定完成后，虚拟手柄输入才能稳定送入当前游戏。
         InGameInputSession.shared.beginGame()
+        controllerManager.setInputEditing(false)
         controllerManager.attachAllControllers()
         
         let nativeSettingsManager = NativeSettingsManager.shared
@@ -313,6 +318,8 @@ public final class RyujinxController: ObservableObject {
         }
 
         isStopping = true
+        controllerManager.refreshInputResources()
+        StatisticsHandler.shared.endSession()
         _isPaused = false
         wasManuallyPaused = false
         // 先停止向 native 输入层提交事件，给窗口和渲染线程留下完整的释放窗口。
@@ -340,6 +347,7 @@ public final class RyujinxController: ObservableObject {
     /// 模拟线程结束后恢复菜单使用的全局范围，不向已经退出的核心重新绑定设备。
     @MainActor
     private func restoreGlobalInputProfile() {
+        StatisticsHandler.shared.endSession()
         InGameInputSession.shared.endGame()
         controllerManager.detachAllControllers()
         controllerManager.activateInputProfile(gameId: nil)

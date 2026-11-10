@@ -37,15 +37,21 @@ private final class MetalFxSpatialState {
         let renderHeight: Int
         let inputPixelFormat: UInt
         let outputPixelFormat: UInt
+        let destinationWidth: Int
+        let destinationHeight: Int
+        let destinationUsage: UInt
+        let destinationX: Int
+        let destinationY: Int
     }
     
     private let configuration: Configuration
     private let scaler: any MTLFXSpatialScaler
-    private let outputTexture: any MTLTexture
+    private let outputTexture: (any MTLTexture)?
+    private let writesDirectlyToDestination: Bool
     private let presentationTexture: (any MTLTexture)?
     private let presentationScaler: MPSImageLanczosScale?
     
-    init?(device: any MTLDevice, inputTexture: any MTLTexture, destinationTexture: any MTLTexture, inputWidth: Int, inputHeight: Int, outputWidth: Int, outputHeight: Int, renderWidth: Int, renderHeight: Int) {
+    init?(device: any MTLDevice, inputTexture: any MTLTexture, destinationTexture: any MTLTexture, inputWidth: Int, inputHeight: Int, outputWidth: Int, outputHeight: Int, renderWidth: Int, renderHeight: Int, destinationX: Int, destinationY: Int) {
         guard inputWidth > 0,
               inputHeight > 0,
               outputWidth > 0,
@@ -82,15 +88,23 @@ private final class MetalFxSpatialState {
             return nil
         }
         
-        let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: destinationTexture.pixelFormat, width: renderWidth, height: renderHeight, mipmapped: false)
-        outputDescriptor.storageMode = .private
-        outputDescriptor.usage = scaler.outputTextureUsage.union(.shaderRead)
-        
-        guard let outputTexture = device.makeTexture(descriptor: outputDescriptor) else {
-            return nil
+        // 精确覆盖且 usage 满足 MetalFX 要求时直接写入 drawable，省掉等尺寸中间纹理与末尾 blit。
+        // 不裁减用户设置的输出尺寸；其他情况继续使用原有升频和二次缩放路径。
+        let writesDirectly = MetalFxOutputPlan.canWriteDirectly(
+            renderWidth: renderWidth, renderHeight: renderHeight,
+            outputWidth: outputWidth, outputHeight: outputHeight,
+            destinationWidth: destinationTexture.width, destinationHeight: destinationTexture.height,
+            destinationX: destinationX, destinationY: destinationY,
+            destinationUsage: destinationTexture.usage.rawValue, requiredUsage: scaler.outputTextureUsage.rawValue)
+        var outputTexture: (any MTLTexture)?
+        if !writesDirectly {
+            let outputDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: destinationTexture.pixelFormat, width: renderWidth, height: renderHeight, mipmapped: false)
+            outputDescriptor.storageMode = .private
+            outputDescriptor.usage = scaler.outputTextureUsage.union(.shaderRead)
+            guard let texture = device.makeTexture(descriptor: outputDescriptor) else { return nil }
+            texture.label = "MeloNX MetalFX spatial output"
+            outputTexture = texture
         }
-        
-        outputTexture.label = "MeloNX MetalFX spatial output"
         
         var presentationTexture: (any MTLTexture)?
         var presentationScaler: MPSImageLanczosScale?
@@ -118,11 +132,17 @@ private final class MetalFxSpatialState {
             renderWidth: renderWidth,
             renderHeight: renderHeight,
             inputPixelFormat: inputTexture.pixelFormat.rawValue,
-            outputPixelFormat: destinationTexture.pixelFormat.rawValue
+            outputPixelFormat: destinationTexture.pixelFormat.rawValue,
+            destinationWidth: destinationTexture.width,
+            destinationHeight: destinationTexture.height,
+            destinationUsage: destinationTexture.usage.rawValue,
+            destinationX: destinationX,
+            destinationY: destinationY
         )
         
         self.scaler = scaler
         self.outputTexture = outputTexture
+        self.writesDirectlyToDestination = writesDirectly
         self.presentationTexture = presentationTexture
         self.presentationScaler = presentationScaler
     }
@@ -136,7 +156,9 @@ private final class MetalFxSpatialState {
         outputWidth: Int,
         outputHeight: Int,
         renderWidth: Int,
-        renderHeight: Int
+        renderHeight: Int,
+        destinationX: Int,
+        destinationY: Int
     ) -> Bool {
         configuration == .init(
             deviceRegistryID: device.registryID,
@@ -147,7 +169,12 @@ private final class MetalFxSpatialState {
             renderWidth: renderWidth,
             renderHeight: renderHeight,
             inputPixelFormat: inputTexture.pixelFormat.rawValue,
-            outputPixelFormat: destinationTexture.pixelFormat.rawValue
+            outputPixelFormat: destinationTexture.pixelFormat.rawValue,
+            destinationWidth: destinationTexture.width,
+            destinationHeight: destinationTexture.height,
+            destinationUsage: destinationTexture.usage.rawValue,
+            destinationX: destinationX,
+            destinationY: destinationY
         )
     }
     
@@ -165,6 +192,11 @@ private final class MetalFxSpatialState {
               inputTexture.height == configuration.inputHeight,
               inputTexture.pixelFormat.rawValue == configuration.inputPixelFormat,
               destinationTexture.pixelFormat.rawValue == configuration.outputPixelFormat,
+              destinationTexture.width == configuration.destinationWidth,
+              destinationTexture.height == configuration.destinationHeight,
+              destinationTexture.usage.rawValue == configuration.destinationUsage,
+              destinationX == configuration.destinationX,
+              destinationY == configuration.destinationY,
               destinationX >= 0,
               destinationY >= 0,
               destinationX + configuration.outputWidth <= destinationTexture.width,
@@ -174,12 +206,32 @@ private final class MetalFxSpatialState {
         }
         
         commandBuffer.label = "MeloNX MetalFX spatial upscale"
+
+        let scalerOutput: any MTLTexture
+        if writesDirectlyToDestination {
+            scalerOutput = destinationTexture
+        } else {
+            guard let outputTexture else { return false }
+            scalerOutput = outputTexture
+        }
         
         scaler.inputContentWidth = configuration.inputWidth
         scaler.inputContentHeight = configuration.inputHeight
         scaler.colorTexture = inputTexture
-        scaler.outputTexture = outputTexture
+        scaler.outputTexture = scalerOutput
+        // 已编码的 command buffer 持有本帧纹理；状态对象不跨帧保留外部 drawable。
+        defer {
+            scaler.colorTexture = nil
+            scaler.outputTexture = nil
+        }
         scaler.encode(commandBuffer: commandBuffer)
+
+        if writesDirectlyToDestination {
+            commandBuffer.commit()
+            return true
+        }
+
+        guard let outputTexture else { return false }
         
         let copySource: any MTLTexture
         
@@ -192,8 +244,6 @@ private final class MetalFxSpatialState {
         }
         
         guard let blitEncoder = commandBuffer.makeBlitCommandEncoder() else {
-            scaler.colorTexture = nil
-            scaler.outputTexture = nil
             return false
         }
         
@@ -216,9 +266,6 @@ private final class MetalFxSpatialState {
         blitEncoder.endEncoding()
         
         commandBuffer.commit()
-        
-        scaler.colorTexture = nil
-        scaler.outputTexture = nil
         
         return true
     }
@@ -356,7 +403,9 @@ enum MetalFxBridge {
             outputWidth: outputWidth,
             outputHeight: outputHeight,
             renderWidth: renderWidth,
-            renderHeight: renderHeight
+            renderHeight: renderHeight,
+            destinationX: Int(request.pointee.destinationX),
+            destinationY: Int(request.pointee.destinationY)
         ) != true {
             state = .init(
                 device: device,
@@ -367,7 +416,9 @@ enum MetalFxBridge {
                 outputWidth: outputWidth,
                 outputHeight: outputHeight,
                 renderWidth: renderWidth,
-                renderHeight: renderHeight
+                renderHeight: renderHeight,
+                destinationX: Int(request.pointee.destinationX),
+                destinationY: Int(request.pointee.destinationY)
             )
         }
         

@@ -232,7 +232,7 @@ namespace Ryujinx.Input.SDL3
                 rawKeyboardState = SDL_GetKeyboardState(null);
             }
 
-            bool[] keysState = new bool[(int)Key.Count];
+            KeyboardStateSnapshot snapshot = default;
 
             for (Key key = 0; key < Key.Count; key++)
             {
@@ -246,15 +246,15 @@ namespace Ryujinx.Input.SDL3
                         continue;
                     }
 
-                    keysState[(int)key] = (rawKeyboardModifierState & modifierMask) == modifierMask;
+                    snapshot.SetPressed(key, (rawKeyboardModifierState & modifierMask) == modifierMask);
                 }
                 else
                 {
-                    keysState[(int)key] = rawKeyboardState[index];
+                    snapshot.SetPressed(key, rawKeyboardState[index]);
                 }
             }
 
-            return new KeyboardStateSnapshot(keysState);
+            return snapshot;
         }
 
         private static float ConvertRawStickValue(short value)

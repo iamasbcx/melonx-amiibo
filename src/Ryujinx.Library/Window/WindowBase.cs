@@ -12,11 +12,13 @@ using Ryujinx.HLE.UI;
 using Ryujinx.Input;
 using Ryujinx.Input.HLE;
 using Ryujinx.Input.Native;
+using Ryujinx.SDL3.Common;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using AntiAliasing = Ryujinx.Common.Configuration.AntiAliasing;
 using ScalingFilter = Ryujinx.Common.Configuration.ScalingFilter;
@@ -24,7 +26,6 @@ using Switch = Ryujinx.HLE.Switch;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 using System.Buffers.Binary;
@@ -37,17 +38,15 @@ namespace Ryujinx.Library
     {
         protected const int DefaultWidth = 1280;
         protected const int DefaultHeight = 720;
-        private const int TargetFps = 60;
-
         private static readonly ConcurrentQueue<Action> _mainThreadActions = new();
+        private static event Action MainThreadActionQueued;
+        private static readonly NativeViewportState _viewport = new(DefaultWidth, DefaultHeight);
 
         public static void QueueMainThreadAction(Action action)
         {
             _mainThreadActions.Enqueue(action);
+            MainThreadActionQueued?.Invoke();
         }
-
-        public bool _isPaused;
-        public ManualResetEvent _pauseEvent;
 
         public NpadManager NpadManager;
         public TouchScreenManager TouchScreenManager;
@@ -57,8 +56,8 @@ namespace Ryujinx.Library
         public IntPtr WindowHandle;
 
         public IHostUITheme HostUITheme { get; }
-        public static int Width { get; private set; }
-        public static int Height { get; private set; }
+        public static int Width => _viewport.Size.Width;
+        public static int Height => _viewport.Size.Height;
         public int DisplayId { get; set; }
         public bool IsFullscreen { get; set; }
         public bool IsExclusiveFullscreen { get; set; }
@@ -73,21 +72,21 @@ namespace Ryujinx.Library
         private readonly InputManager _inputManager;
         private readonly IKeyboard _keyboardInterface;
         private readonly GraphicsDebugLevel _glLogLevel;
-        private readonly Stopwatch _chrono;
-        private readonly long _ticksPerFrame;
         private readonly CancellationTokenSource _gpuCancellationTokenSource;
         public ManualResetEvent _exitEvent;
         public ManualResetEvent _gpuDoneEvent;
-        private readonly AutoResetEvent _inputUpdatedEvent;
-        private volatile StatisticsRequest? _latestStatistics;
-        private CancellationTokenSource? _statisticsCts;
-
-
-        private long _ticks;
+        private readonly HostLoopScheduler _scheduler = new();
+        private readonly StatisticsPublishGate _statisticsGate = new(Stopwatch.Frequency);
+        private readonly ITouchScreen _touchScreen;
         public volatile bool _isActive;
         private volatile bool _isStopped;
         private int _exitStarted;
+        private readonly object _exitCompletionLock = new();
+        private bool _exitCompleted;
         private int _windowDisposed;
+        private Thread _renderLoopThread;
+        private ExceptionDispatchInfo _renderFailure;
+        private bool _renderLoopEntered;
 
         public bool _ranFirstFrame;
 
@@ -111,25 +110,35 @@ namespace Ryujinx.Library
             TouchScreenManager = _inputManager.CreateTouchScreenManager();
             _keyboardInterface = (IKeyboard)_inputManager.KeyboardDriver.GetGamepad("0");
             _glLogLevel = glLogLevel;
-            _chrono = new Stopwatch();
-            _ticksPerFrame = Stopwatch.Frequency / TargetFps;
             _gpuCancellationTokenSource = new CancellationTokenSource();
             _exitEvent = new ManualResetEvent(false);
             _gpuDoneEvent = new ManualResetEvent(false);
-            _inputUpdatedEvent = new AutoResetEvent(false);
-            _pauseEvent = new ManualResetEvent(true);
+            _touchScreen = (ITouchScreen)MouseDriver.GetGamepad("0");
             _aspectRatio = aspectRatio;
             _enableMouse = enableMouse;
             HostUITheme = new NativeHostUiTheme();
             NativeGamepadDriver.OnInputUpdated += SignalInputUpdated;
+            NativeTouchDriver.OnInputUpdated += SignalInputUpdated;
+            SDL3Driver.Instance.OnKeyboardInputUpdated += SignalInputUpdated;
+            MainThreadActionQueued += SignalInputUpdated;
 
-            Width = DefaultWidth;
-            Height = DefaultHeight;
         }
 
-        private void SignalInputUpdated()
+        public void SignalInputUpdated()
         {
-            _inputUpdatedEvent.Set();
+            _scheduler.Signal();
+        }
+
+        public void SetPaused(bool paused) => _scheduler.SetPaused(paused);
+
+        public void SetStatisticsEnabled(bool enabled) => _statisticsGate.SetEnabled(enabled);
+
+        private void UnsubscribeInputEvents()
+        {
+            NativeGamepadDriver.OnInputUpdated -= SignalInputUpdated;
+            NativeTouchDriver.OnInputUpdated -= SignalInputUpdated;
+            SDL3Driver.Instance.OnKeyboardInputUpdated -= SignalInputUpdated;
+            MainThreadActionQueued -= SignalInputUpdated;
         }
 
         public void Initialize(Switch device, List<InputConfig> inputConfigs, bool enableKeyboard, bool enableMouse)
@@ -152,18 +161,21 @@ namespace Ryujinx.Library
         [UnmanagedCallersOnly(EntryPoint = "set_view_size")]
         static unsafe void set_view_size(int width, int height)
         {
-            Width = width;
-            Height = height;
-
-
+            if (_viewport.SetNativeSize(width, height)) MainThreadActionQueued?.Invoke();
         }
 
         private void InitializeWindow()
         {
-            Width = ExclusiveFullscreenWidth;
-            Height = ExclusiveFullscreenHeight;
+            _viewport.InitializeFallback(
+                ExclusiveFullscreenWidth > 0 ? ExclusiveFullscreenWidth : DefaultWidth,
+                ExclusiveFullscreenHeight > 0 ? ExclusiveFullscreenHeight : DefaultHeight);
+            UpdateTouchClientSize();
+        }
 
-            MouseDriver.SetClientSize(Width, Height);
+        private void UpdateTouchClientSize()
+        {
+            System.Drawing.Size size = _viewport.Size;
+            MouseDriver.SetClientSize(size.Width, size.Height);
         }
 
         protected abstract void InitializeWindowRenderer();
@@ -207,72 +219,51 @@ namespace Ryujinx.Library
 
             _ranFirstFrame = false;
 
+            _renderLoopEntered = true;
             Device.Gpu.Renderer.RunLoop(() =>
             {
-                Device.Gpu.SetGpuThread();
-                Device.Gpu.InitializeShaderCache(_gpuCancellationTokenSource.Token);
-
-                while (_isActive)
+                try
                 {
-                    if (_isStopped)
+                    Device.Gpu.SetGpuThread();
+                    Device.Gpu.InitializeShaderCache(_gpuCancellationTokenSource.Token);
+
+                    while (_isActive && _scheduler.WaitForRender())
                     {
-                        return;
-                    }
+                        if (_isStopped || !_isActive) break;
 
-                    _pauseEvent.WaitOne();
-
-                    _ticks += _chrono.ElapsedTicks;
-
-                    _chrono.Restart();
-
-                    if (Device.WaitFifo())
-                    {
-                        Device.Statistics.RecordFifoStart();
-                        Device.ProcessFrame();
-                        Device.Statistics.RecordFifoEnd();
-                    }
-
-                    if (Device.PresentLoop(SwapBuffers))
-                    {
-                        if (!_ranFirstFrame)
-                        { 
-                            _ranFirstFrame = true;
-                            SendStatistics(false);
-                         }
-                        
-                    }
-
-                    if (_ticks >= _ticksPerFrame)
-                    {
-                        string dockedMode = Device.System.State.DockedMode ? "Docked" : "Handheld";
-                        float scale = GraphicsConfig.ResScale;
-                        if (scale != 1)
+                        if (Device.WaitFifo())
                         {
-                            dockedMode += $" ({scale}x)";
+                            Device.Statistics.RecordFifoStart();
+                            Device.ProcessFrame();
+                            Device.Statistics.RecordFifoEnd();
                         }
 
-                        
-                        SendStatistics();
+                        if (Device.PresentLoop(SwapBuffers) && _statisticsGate.TryPublishFirstFrame(Stopwatch.GetTimestamp()))
+                        {
+                            _ranFirstFrame = true;
+                            SendStatistics(false);
+                        }
 
-                        /*
-                            Device.EnableDeviceVsync,
-                            dockedMode,
-                            Device.Configuration.AspectRatio.ToText(),
-                            $"Game: {Device.Statistics.GetGameFrameRate():00.00} FPS ({Device.Statistics.GetGameFrameTime():00.00} ms)",
-                            $"FIFO: {Device.Statistics.GetFifoPercent():0.00} %",
-                            $"GPU: {_gpuDriverName}"));
-                        */
-                        
-                        _ticks = Math.Min(_ticks - _ticksPerFrame, _ticksPerFrame);
+                        if (_statisticsGate.TryPublishStatistics(Stopwatch.GetTimestamp())) SendStatistics();
                     }
                 }
-
-                if (Device.Gpu.Renderer is ThreadedRenderer threaded)
+                catch (Exception exception)
                 {
-                    threaded.FlushThreadedCommands();
+                    _renderFailure = ExceptionDispatchInfo.Capture(exception);
+                    RequestStop();
                 }
-
-                _gpuDoneEvent.Set();
+                finally
+                {
+                    try
+                    {
+                        if (Device.Gpu.Renderer is ThreadedRenderer threaded) threaded.FlushThreadedCommands();
+                    }
+                    finally
+                    {
+                        // 必须由 GPU 回调释放此门；等整个 ThreadedRenderer.RunLoop 返回会与 Dispose 相互等待。
+                        _gpuDoneEvent.Set();
+                    }
+                }
             });
 
             FinalizeWindowRenderer();
@@ -283,25 +274,42 @@ namespace Ryujinx.Library
             // UI 停止与模拟器循环可能同时退出，资源只能由首次调用者释放。
             if (Interlocked.Exchange(ref _exitStarted, 1) != 0)
             {
+                WaitForExitCompletion();
                 return;
             }
+            try
+            {
+                bool waitForMainLoop = _isActive;
+                // 窗口退出也可能来自来宾或渲染循环，必须先关闭宿主的虚拟标签会话。
+                Library.EndAmiiboSession(Device);
+                RequestStop();
+                if (waitForMainLoop) _exitEvent.WaitOne();
+                UnsubscribeInputEvents();
+            }
+            finally
+            {
+                lock (_exitCompletionLock)
+                {
+                    _exitCompleted = true;
+                    Monitor.PulseAll(_exitCompletionLock);
+                }
+            }
+        }
 
-            bool waitForMainLoop = _isActive;
-            // 窗口退出也可能来自来宾或渲染循环，必须先关闭宿主的虚拟标签会话。
-            Library.EndAmiiboSession(Device);
+        private void WaitForExitCompletion()
+        {
+            lock (_exitCompletionLock)
+            {
+                while (!_exitCompleted) Monitor.Wait(_exitCompletionLock);
+            }
+        }
+
+        private void RequestStop()
+        {
             _gpuCancellationTokenSource.Cancel();
-
             _isStopped = true;
             _isActive = false;
-            _pauseEvent.Set();
-            _inputUpdatedEvent.Set();
-
-            if (waitForMainLoop)
-            {
-                _exitEvent.WaitOne();
-            }
-
-            NativeGamepadDriver.OnInputUpdated -= SignalInputUpdated;
+            _scheduler.Stop();
         }
 
         public static void ProcessMainThreadQueue()
@@ -314,16 +322,20 @@ namespace Ryujinx.Library
 
         public void MainLoop()
         {
-            while (_isActive)
+            try
             {
-                UpdateFrame();
-
-                ProcessMainThreadQueue();
-
-                _inputUpdatedEvent.WaitOne(1);
+                while (_isActive)
+                {
+                    // 暂停期间仍须处理 SDL/宿主控制任务，否则等待这些任务的线程无法恢复或退出。
+                    ProcessMainThreadQueue();
+                    if (_scheduler.CanUpdateInput) UpdateFrame();
+                    if (!_scheduler.WaitForWork()) break;
+                }
             }
-
-            _exitEvent.Set();
+            finally
+            {
+                _exitEvent.Set();
+            }
         }
 
         private bool UpdateFrame()
@@ -340,16 +352,8 @@ namespace Ryujinx.Library
 
             NpadManager.Update();
 
-            bool hasTouch;
-
-            MouseDriver.SetClientSize(Width, Height);
-
-            hasTouch = TouchScreenManager.UpdateMultiTouch(_inputManager.MouseDriver.GetGamepad("") as ITouchScreen, true);
-
-            if (!hasTouch)
-            {
-                TouchScreenManager.Update(false);
-            }
+            UpdateTouchClientSize();
+            TouchScreenManager.UpdateMultiTouch(_touchScreen, true);
 
             Device.Hid.DebugPad.Update();
 
@@ -362,25 +366,37 @@ namespace Ryujinx.Library
         {
             if (Volatile.Read(ref _exitStarted) != 0)
             {
+                WaitForExitCompletion();
                 return;
             }
-            _chrono.Restart();
             _isActive = true;
 
             InitializeWindow();
 
-            Thread renderLoopThread = new(Render)
+            _renderLoopThread = new(() =>
+            {
+                try { Render(); }
+                catch (Exception exception) when (!_renderLoopEntered)
+                {
+                    // 初始化阶段可能尚未进入 GPU 回调，仍须释放宿主退出等待并传播失败。
+                    _renderFailure = ExceptionDispatchInfo.Capture(exception);
+                    RequestStop();
+                    _gpuDoneEvent.Set();
+                }
+            })
             {
                 Name = "GUI.RenderLoop",
             };
-            renderLoopThread.Start();
-
-            MainLoop();
-
-            _gpuDoneEvent.WaitOne();
-            _gpuDoneEvent.Dispose();
-
+            _renderLoopThread.Start();
+            try { MainLoop(); }
+            finally
+            {
+                // UpdateFrame 或控制队列抛异常也不能越过 GPU 完成门直接释放核心。
+                RequestStop();
+                _gpuDoneEvent.WaitOne();
+            }
             Exit();
+            _renderFailure?.Throw();
         }
 
         public bool DisplayInputDialog(SoftwareKeyboardUIArgs args, out string userText)
@@ -411,6 +427,7 @@ namespace Ryujinx.Library
                 double.IsFinite(v) ? Math.Round(v, 2) : 0.0;
 
             Span<byte> bytes = stackalloc byte[33];
+            bytes.Clear();
 
             double fps = before ? Sanitize(Device.Statistics.GetGameFrameRate()) : 0d;
             double frameTime = before ? Sanitize(Device.Statistics.GetGameFrameTime()) : 0d;
@@ -528,10 +545,18 @@ namespace Ryujinx.Library
             if (disposing && Interlocked.Exchange(ref _windowDisposed, 1) == 0)
             {
                 _isActive = false;
-                _inputUpdatedEvent.Set();
-                NativeGamepadDriver.OnInputUpdated -= SignalInputUpdated;
+                _scheduler.Stop();
+                UnsubscribeInputEvents();
+                // Library 在调用前已完成 Device.Dispose/DisposeGpu；后端退出后才能销毁宿主等待门。
+                if (_renderLoopThread != null && _renderLoopThread != Thread.CurrentThread) _renderLoopThread.Join();
                 TouchScreenManager?.Dispose();
                 NpadManager.Dispose();
+                _keyboardInterface.Dispose();
+                MouseDriver.Dispose();
+                _scheduler.Dispose();
+                _gpuCancellationTokenSource.Dispose();
+                _exitEvent.Dispose();
+                _gpuDoneEvent.Dispose();
             }
         }
 

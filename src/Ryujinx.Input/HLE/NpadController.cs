@@ -3,6 +3,7 @@ using Ryujinx.Common.Configuration.Hid;
 using Ryujinx.Common.Configuration.Hid.Controller;
 using Ryujinx.Common.Configuration.Hid.Controller.Motion;
 using Ryujinx.Common.Logging;
+using Ryujinx.Common.Memory;
 using Ryujinx.HLE.HOS.Services.Hid;
 using System;
 using System.Buffers;
@@ -460,7 +461,7 @@ namespace Ryujinx.Input.HLE
 
         public SixAxisInput GetHLEMotionState(bool isJoyconRightPair = false)
         {
-            float[] orientationForHLE = new float[9];
+            Array9<float> orientationForHLE = default;
             Vector3 gyroscope;
             Vector3 accelerometer;
             Vector3 rotation;
@@ -522,17 +523,11 @@ namespace Ryujinx.Input.HLE
             return value;
         }
 
-        public static KeyboardInput GetHLEKeyboardInput(IGamepadDriver KeyboardDriver)
+        /// <summary>读取调用方拥有的原始键盘；不修改其映射，也不转移设备所有权。</summary>
+        public static KeyboardInput GetHLEKeyboardInput(IKeyboard keyboard)
         {
-            IKeyboard keyboard = KeyboardDriver.GetGamepad("0") as IKeyboard;
-
             KeyboardStateSnapshot keyboardState = keyboard.GetKeyboardStateSnapshot();
-
-            KeyboardInput hidKeyboard = new()
-            {
-                Modifier = 0,
-                Keys = new ulong[0x4],
-            };
+            KeyboardInput hidKeyboard = default;
 
             foreach (HLEKeyboardMappingEntry entry in _keyMapping)
             {

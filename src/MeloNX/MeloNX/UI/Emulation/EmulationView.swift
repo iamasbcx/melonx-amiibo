@@ -19,7 +19,7 @@ struct EmulationView: View {
     @EnvironmentObject var ryujinxController: RyujinxController
     @ObservedObject var menuViewHandler: InGameConfigView_MenuView = .shared
     @StateObject var controllerManager: ControllerManager = .shared
-    @StateObject var statisticsHandler: StatisticsHandler = .init()
+    @StateObject var statisticsHandler: StatisticsHandler = .shared
     @StateObject private var nativeSettingsManager: NativeSettingsManager = .shared
     
     @State var isConnected = false
@@ -31,6 +31,7 @@ struct EmulationView: View {
     @State private var manuallyPausedBeforeEditing = false
     @State private var layoutRevision = 0
     @State private var didConfigurePresentation = false
+    @State private var presentationVisible = false
     @Environment(\.scenePhase) private var scenePhase
 
     /// 未知标题（空值或 0）统一使用全局，避免布局和输入配置写入不同范围。
@@ -59,6 +60,11 @@ struct EmulationView: View {
 
     private var touchLookInvertY: Bool {
         nativeSettingsManager.setting(forKey: "TouchLookInvertY", default: false).value
+    }
+
+    private var shouldCollectStatistics: Bool {
+        presentationVisible && scenePhase == .active && !editingInput &&
+        !ryujinxController.isPaused && isCurrentGameRunning && nativeSettingsManager.performacehud(false).bool
     }
     
     @ViewBuilder
@@ -97,18 +103,21 @@ struct EmulationView: View {
         Group {
             emulationView()
                 .onAppear() {
-                    // 轮询绑定整个游戏页面；Amiibo 选择 sheet 关闭后仍能自动提交。
+                    presentationVisible = true
+                    // 会话绑定游戏页面；只在菜单可见或自动使用时轮询。
                     AmiiboService.shared.start(titleId: game.titleId)
+                    AmiiboService.shared.setApplicationActive(scenePhase == .active)
                     self.isConnected = Air.shared.connected
                     // 全屏编辑返回会再次出现；不要重复注册回调或重建外接屏渲染视图。
                     if !didConfigurePresentation {
                         didConfigurePresentation = true
-                        statisticsHandler.registerPush()
                         Air.shared.connectionCallbacks.append { self.isConnected = $0 }
                         Air.play(AnyView(emulationView(true)))
                     }
                 }
                 .onDisappear {
+                    presentationVisible = false
+                    statisticsHandler.setCollectionEnabled(false)
                     AmiiboService.shared.stop()
                     // 全屏编辑器呈现也可能触发消失；只有实际退出游戏时才清理会话。
                     if !isCurrentGameRunning { finishInputEditing(resume: false) }
@@ -128,6 +137,9 @@ struct EmulationView: View {
                                 }
                         }
                 }
+        }
+        .onChange(of: shouldCollectStatistics) { enabled in
+            statisticsHandler.setCollectionEnabled(enabled)
         }
         // 等待 @Published 的实际状态提交后再消费，避免在 willSet 发布期间重入 setter。
         .onChange(of: menuViewHandler.settingsRequest) { request in
@@ -175,6 +187,7 @@ struct EmulationView: View {
         pausedBeforeEditing = ryujinxController.isPaused
         manuallyPausedBeforeEditing = ryujinxController.wasManuallyPaused
         InGameInputSession.shared.setSuspended(true)
+        controllerManager.setInputEditing(true)
         controllerManager.allControllers.forEach { $0.releaseInputs() }
         (Ryujinx.emulationView as? MetalView)?.resetTouchTracking()
         editingInput = true
@@ -205,6 +218,7 @@ struct EmulationView: View {
         // 运行态视图重新加载横/竖屏布局，不能继续使用打开编辑器前的缓存。
         layoutRevision += 1
         editingInput = false
+        controllerManager.setInputEditing(false)
         guard resume, isCurrentGameRunning else { return }
         InGameInputSession.shared.setSuspended(false)
         ryujinxController.wasManuallyPaused = manuallyPausedBeforeEditing

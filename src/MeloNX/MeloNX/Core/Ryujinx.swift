@@ -156,6 +156,10 @@ final class Ryujinx {
         MeloNX.set_view_size(Int32(rect.width), Int32(rect.height))
     }
 
+    static func setStatisticsEnabled(_ enabled: Bool) {
+        MeloNX.set_statistics_enabled(enabled ? 1 : 0)
+    }
+
     static func setUnboundedPresentTargetFps(for screen: UIScreen?) {
         let targetFps = max(1, screen?.maximumFramesPerSecond ?? Air.shared.airScreen?.maximumFramesPerSecond ?? UIScreen.main.maximumFramesPerSecond)
         set_unbounded_present_target_fps(Int32(targetFps))

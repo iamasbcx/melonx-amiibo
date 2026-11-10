@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import GameController
 import SwiftUI
+import UIKit
 
 class ControllerManager: ObservableObject {
     static var shared = ControllerManager()
@@ -42,12 +43,23 @@ class ControllerManager: ObservableObject {
 
     private var menuListeners: [(id: UUID, handler: (MenuNavigation) -> Void)] = []
     private var menuNavigator: MenuNavigator?
+    private var applicationActive = true
+    private var editingInput = false
+    private var powerObservers = Set<AnyCancellable>()
 
 
     func initAll() {
         refreshControllersList()
         initControllerObservers()
         SteamControllerBackend.shared.start()
+        if powerObservers.isEmpty {
+            applicationActive = UIApplication.shared.applicationState == .active
+            NotificationCenter.default.publisher(for: UserDefaults.didChangeNotification)
+                .receive(on: RunLoop.main)
+                .sink { [weak self] _ in self?.refreshInputResources() }
+                .store(in: &powerObservers)
+        }
+        refreshInputResources()
     }
 
     private init() {
@@ -237,6 +249,48 @@ class ControllerManager: ObservableObject {
             }
             attachedControllers = desired
         }
+        DispatchQueue.main.async { [weak self] in self?.refreshInputResources() }
+    }
+
+    /// 编辑入口由宿主成对调用；设置页跳转布局页时保持 true，最终离开时恢复 false。
+    func setInputEditing(_ value: Bool) {
+        precondition(Thread.isMainThread)
+        editingInput = value
+        refreshInputResources()
+    }
+
+    func setApplicationActive(_ value: Bool) {
+        precondition(Thread.isMainThread)
+        applicationActive = value
+        refreshInputResources()
+    }
+
+    /// 主线程事件更新快照，不在每个传感器回调中访问窗口或 UserDefaults。
+    func refreshInputResources(interfaceOrientation: UIInterfaceOrientation? = nil) {
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in self?.refreshInputResources(interfaceOrientation: interfaceOrientation) }
+            return
+        }
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role == .windowApplication }
+        let scene = scenes.first { $0.activationState == .foregroundActive && $0.windows.contains(where: { $0.isKeyWindow }) }
+            ?? scenes.first { $0.activationState == .foregroundActive }
+            ?? scenes.first { $0.activationState == .foregroundInactive }
+        let rawOrientation = interfaceOrientation ?? scene?.interfaceOrientation
+        let orientation: PhoneMotionTransform.Orientation?
+        switch rawOrientation {
+        case .portrait?: orientation = .portrait
+        case .portraitUpsideDown?: orientation = .portraitUpsideDown
+        case .landscapeLeft?: orientation = .landscapeLeft
+        case .landscapeRight?: orientation = .landscapeRight
+        default: orientation = nil
+        }
+        PhoneMotionContextStore.shared.update(orientation: orientation, controls: PhoneMotionControls.read(from: NativeSettingsManager.shared))
+        let running = RyujinxController.shared.isRunning.isRunning() && !RyujinxController.shared.isStopping
+        let allowed = InputPowerPolicy.resourcesAllowed(gameRunning: running,
+            paused: RyujinxController.shared.isPaused, applicationActive: applicationActive, editing: editingInput)
+        let attached = controllerQueue.sync { attachedControllers.values.map(\.controller) }
+        for controller in attached { controller.refreshInputResources(allowed: allowed) }
     }
 
     /// 在模拟线程完成退出后解绑所有输入设备，避免旧窗口已销毁时仍向 native 层发送输入。

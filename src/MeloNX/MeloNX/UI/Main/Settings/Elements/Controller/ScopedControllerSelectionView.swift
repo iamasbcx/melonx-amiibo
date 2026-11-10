@@ -6,6 +6,7 @@ struct ScopedControllerSelectionView: View {
     @ObservedObject private var controllerManager = ControllerManager.shared
     @StateObject private var settings: NativeSettingsManager
     @State private var showingKeyboard = false
+    @State private var showingSteamPairing = false
 
     init(gameId: String?) {
         let normalizedGameId = ControllerInputProfile.normalizedGameId(gameId)
@@ -35,6 +36,8 @@ struct ScopedControllerSelectionView: View {
             }
             Button("Map Keyboard") { showingKeyboard = true }
                 .sheet(isPresented: $showingKeyboard) { KeyboardConfigView(gameId: gameId) }
+            Button("配对 Steam 手柄") { showingSteamPairing = true }
+                .sheet(isPresented: $showingSteamPairing) { SteamControllerDiscoveryView() }
         } header: {
             Text("手柄选择")
         } footer: {

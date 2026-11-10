@@ -15,19 +15,21 @@ class MetalView: MTKView {
     private var activeTouches: [ObjectIdentifier: Int] = [:]
     private var freeTouchIndices: [Int] = []
     private var nextTouchIndex: Int = 0
+    private var reportedConfiguration = MetalViewConfigurationState()
 
     func setAspectRatio() {
-        Ryujinx.setViewSize(bounds)
-        updateUnboundedPresentTargetFps()
-    }
-
-    private func updateUnboundedPresentTargetFps() {
-        Ryujinx.setUnboundedPresentTargetFps(for: window?.screen)
+        let screen = window?.screen ?? Air.shared.airScreen ?? UIScreen.main
+        let update = reportedConfiguration.update(size: bounds.size, frameRate: screen.maximumFramesPerSecond)
+        if let size = update.size {
+            Ryujinx.setViewSize(CGRect(origin: .zero, size: size))
+        }
+        if update.frameRate != nil {
+            Ryujinx.setUnboundedPresentTargetFps(for: screen)
+        }
     }
 
     override func didMoveToWindow() {
         super.didMoveToWindow()
-        updateUnboundedPresentTargetFps()
         setAspectRatio()
         if window == nil {
             resetTouchTracking()
@@ -36,7 +38,6 @@ class MetalView: MTKView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
-        updateUnboundedPresentTargetFps()
         setAspectRatio()
     }
     
@@ -132,6 +133,11 @@ struct MetalViewRepresentable: UIViewRepresentable {
     
     func makeUIView(context: Context) -> UIView {
         let view = showView ? Self.createView() : MetalView()
+        // Vulkan/MoltenVK 独占 CAMetalLayer 的提交；MTKView 仅提供宿主，不需要自身显示定时器。
+        if let metalView = view as? MTKView {
+            metalView.isPaused = true
+            metalView.enableSetNeedsDisplay = false
+        }
         view.isMultipleTouchEnabled = true
         return view
     }
@@ -142,6 +148,9 @@ struct MetalViewRepresentable: UIViewRepresentable {
     static func createView() -> UIView {
         if Ryujinx.emulationView == nil {
             let view = MetalView()
+            // 应用启动会先创建宿主；此时也停用 MTKView 自身调度，避免进入游戏前空刷新。
+            view.isPaused = true
+            view.enableSetNeedsDisplay = false
             
             guard let metalLayer = view.layer as? CAMetalLayer else {
                 fatalError("[Swift] Error: MTKView's layer is not a CAMetalLayer")
@@ -165,7 +174,7 @@ struct MetalViewRepresentable: UIViewRepresentable {
             let layerPtr = Unmanaged.passUnretained(metalLayer).toOpaque()
             
             Ryujinx.setNativeWindow(layerPtr)
-            Ryujinx.setUnboundedPresentTargetFps(for: view.window?.screen)
+            view.setAspectRatio()
             
             Ryujinx.emulationView = view
             return view

@@ -161,10 +161,7 @@ namespace Ryujinx.HLE.HOS.Services.Hid
 
             // Initialize entries to avoid issues with some games.
 
-            KeyboardInput emptyInput = new()
-            {
-                Keys = new ulong[4],
-            };
+            KeyboardInput emptyInput = default;
 
             for (int entry = 0; entry < Hid.SharedMemEntryCount; entry++)
             {
@@ -896,8 +893,6 @@ namespace Ryujinx.HLE.HOS.Services.Hid
 
                 gamepadInput.PlayerId = (PlayerIndex)player;
                 sixaxisInput.PlayerId = (PlayerIndex)player;
-
-                sixaxisInput.Orientation = new float[9];
 
                 emptyGamepadInputs.Add(gamepadInput);
                 emptySixAxisInputs.Add(sixaxisInput);

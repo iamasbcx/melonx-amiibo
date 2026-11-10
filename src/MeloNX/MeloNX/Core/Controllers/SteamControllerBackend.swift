@@ -6,12 +6,21 @@
 //
 
 import CoreBluetooth
+import Foundation
 import UIKit
+import Combine
+
+/// 配对页状态只在主线程发布；蓝牙状态机仍由专用串行队列持有。
+@MainActor final class SteamControllerDiscoveryState: ObservableObject {
+    @Published var isDiscovering = false
+    @Published var message = "点击搜索，将 Steam 手柄置于蓝牙配对模式。"
+}
 
 nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelegate, @unchecked Sendable {
-    @MainActor static let shared = SteamControllerBackend()
+    @MainActor static let shared = SteamControllerBackend(discovery: SteamControllerDiscoveryState())
     
     @MainActor private(set) var controllers: [SteamController] = []
+    @MainActor let discovery: SteamControllerDiscoveryState
     
     private let queue = DispatchQueue(label: "com.stossy11.melonx.steam-ble", qos: .userInteractive)
     
@@ -20,12 +29,21 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
     private var retryAfter: [UUID: TimeInterval] = [:]
     private var scanWork: DispatchWorkItem?
     private var foreground = true
+    private var discoveryPolicy = SteamDiscoveryPolicy()
+    private var reconnectWork: [UUID: DispatchWorkItem] = [:]
+    private var reconnectAttempts: [UUID: Int] = [:]
     
     @MainActor private var started = false
     @MainActor private var observers: [NSObjectProtocol] = []
     
     private let knownKey = "steamControllerBLEIdentifiers"
     private static let service = CBUUID(string: "100F6C32-1735-4313-B402-38567131E5F3")
+
+    /// 显式在主线程构造发布给 SwiftUI 的状态，蓝牙状态机实例随后仅通过 queue 使用。
+    @MainActor private init(discovery: SteamControllerDiscoveryState) {
+        self.discovery = discovery
+        super.init()
+    }
     
     @MainActor func start() {
         dispatchPrecondition(condition: .onQueue(.main))
@@ -46,50 +64,85 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
             self?.queue.async { [weak self] in
                 guard let self else { return }
                 self.foreground = true
-                self.beginScan()
+                self.discoveryPolicy.foreground = true
+                self.reconnectKnownControllers()
             }
         })
         
         
         queue.async {
             self.foreground = active
+            self.discoveryPolicy.foreground = active
             self.central = CBCentralManager(delegate: self, queue: self.queue,
                                             options: [CBCentralManagerOptionShowPowerAlertKey: false])
         }
     }
     
-    private func beginScan() {
-        guard foreground, let central, central.state == .poweredOn else { return }
-        scanWork?.cancel()
-        
+    /// 自动路径只连接缓存标识；没有用户发起配对时不扫描周围所有广播。
+    private func reconnectKnownControllers() {
         let known = (UserDefaults.standard.stringArray(forKey: knownKey) ?? []).compactMap(UUID.init(uuidString:))
+        guard discoveryPolicy.shouldReconnect(knownDeviceCount: known.count), let central else { return }
         for peripheral in central.retrievePeripherals(withIdentifiers: known) { connect(peripheral) }
-        
         for peripheral in central.retrieveConnectedPeripherals(withServices: [Self.service]) {
-            connect(peripheral)
+            if known.contains(peripheral.identifier) { connect(peripheral) }
         }
-        
-        for peripheral in central.retrieveConnectedPeripherals(withServices: [CBUUID(string: "180A")]) {
-            if peripheral.name?.lowercased().hasPrefix("steam") == true { connect(peripheral) }
-        }
-        
-        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: true])
-        let stop = DispatchWorkItem { [weak self] in
+    }
+
+    @MainActor func beginPairing() {
+        start()
+        queue.async { [weak self] in
             guard let self else { return }
-            self.central?.stopScan()
-            let restart = DispatchWorkItem { [weak self] in self?.beginScan() }
-            self.scanWork = restart
-            self.queue.asyncAfter(deadline: .now() + 15, execute: restart)
+            self.discoveryPolicy.pairingRequested = true
+            self.beginScan()
         }
-        
+    }
+
+    @MainActor func endPairing() {
+        queue.async { [weak self] in self?.stopDiscovery(message: "搜索已停止，已连接手柄仍可使用。") }
+    }
+
+    private func publishDiscovery(_ scanning: Bool, _ message: String) {
+        Task { @MainActor [weak self] in
+            self?.discovery.isDiscovering = scanning
+            self?.discovery.message = message
+        }
+    }
+
+    private func stopDiscovery(message: String) {
+        discoveryPolicy.pairingRequested = false
+        scanWork?.cancel()
+        scanWork = nil
+        central?.stopScan()
+        publishDiscovery(false, message)
+    }
+
+    private func beginScan() {
+        guard discoveryPolicy.shouldScan, let central else {
+            if central == nil || central?.state == .unknown || central?.state == .resetting {
+                publishDiscovery(true, "正在初始化蓝牙，请稍候；可以随时停止搜索。")
+            } else {
+                discoveryPolicy.pairingRequested = false
+                publishDiscovery(false, "请开启蓝牙并允许此应用访问蓝牙，然后重试搜索。")
+            }
+            return
+        }
+        scanWork?.cancel()
+        // 显式发现仍兼容不广播 Valve 服务的设备，但禁止重复广播回调。
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+        publishDiscovery(true, "正在搜索 Steam 手柄，请保持手柄处于蓝牙配对模式。")
+        let stop = DispatchWorkItem { [weak self] in
+            self?.stopDiscovery(message: "本次搜索已结束。未找到时可再次搜索，并确认手柄处于配对模式。")
+        }
         scanWork = stop
-        queue.asyncAfter(deadline: .now() + 15, execute: stop)
+        queue.asyncAfter(deadline: .now() + 30, execute: stop)
     }
     
     private func suspend() {
         foreground = false
-        scanWork?.cancel()
-        central?.stopScan()
+        discoveryPolicy.foreground = false
+        stopDiscovery(message: "应用进入后台，搜索已停止。")
+        for work in reconnectWork.values { work.cancel() }
+        reconnectWork.removeAll()
         for session in Array(sessions.values) {
             removeController(session)
             session.shutdown { [weak self, weak session] in
@@ -117,6 +170,9 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
                 known.append(peripheral.identifier.uuidString)
                 UserDefaults.standard.set(Array(known.suffix(8)), forKey: self.knownKey)
             }
+            self.reconnectAttempts[peripheral.identifier] = nil
+            self.reconnectWork.removeValue(forKey: peripheral.identifier)?.cancel()
+            if self.discoveryPolicy.pairingRequested { self.stopDiscovery(message: "Steam 手柄已连接，可在手柄选择中添加。") }
             
             let identifier = peripheral.identifier
             
@@ -126,6 +182,8 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
                     self.queue.async { [weak session] in session?.setMotion(enabled) }
                 }, sendRumble: { [weak session] data in
                     self.queue.async { [weak session] in session?.rumble(data) }
+                }, stopRumble: { [weak session] in
+                    self.queue.async { [weak session] in session?.stopRumble() }
                 })
                 
                 self.controllers.append(controller)
@@ -171,9 +229,22 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
     func centralManagerDidUpdateState(_ central: CBCentralManager) {
         NSLog("Steam Controller BLE: central state %ld.", central.state.rawValue)
         if central.state == .poweredOn {
-            beginScan()
+            discoveryPolicy.bluetoothReady = true
+            reconnectKnownControllers()
+            if discoveryPolicy.pairingRequested { beginScan() }
         } else {
-            scanWork?.cancel()
+            discoveryPolicy.bluetoothReady = false
+            // 初始化/重置是过渡态，保留用户刚发起的请求，poweredOn 后自动开始本次搜索。
+            if central.state == .unknown || central.state == .resetting {
+                scanWork?.cancel()
+                scanWork = nil
+                central.stopScan()
+                publishDiscovery(discoveryPolicy.pairingRequested, "正在初始化蓝牙，请稍候。")
+            } else {
+                stopDiscovery(message: central.state == .unauthorized ? "蓝牙权限未允许，请在系统设置中开启。" : "蓝牙不可用，请开启蓝牙后重新搜索。")
+            }
+            for work in reconnectWork.values { work.cancel() }
+            reconnectWork.removeAll()
             
             for session in sessions.values {
                 session.invalidate()
@@ -189,6 +260,7 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
     }
     
     func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
+        guard discoveryPolicy.shouldScan else { return }
         let names = [advertisementData[CBAdvertisementDataLocalNameKey] as? String, peripheral.name].compactMap { $0 }
         let services = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
         
@@ -222,6 +294,23 @@ nonisolated final class SteamControllerBackend: NSObject, CBCentralManagerDelega
         session.invalidate()
         removeController(session)
         retryAfter[peripheral.identifier] = ProcessInfo.processInfo.systemUptime + 5
+        scheduleKnownReconnect(peripheral.identifier)
+    }
+
+    private func scheduleKnownReconnect(_ id: UUID) {
+        let known = UserDefaults.standard.stringArray(forKey: knownKey) ?? []
+        guard known.contains(id.uuidString), discoveryPolicy.shouldReconnect(knownDeviceCount: known.count) else { return }
+        reconnectWork[id]?.cancel()
+        let attempt = reconnectAttempts[id, default: 0]
+        reconnectAttempts[id] = attempt + 1
+        let delay = SteamDiscoveryPolicy.reconnectDelay(attempt: attempt)
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.discoveryPolicy.shouldReconnect(knownDeviceCount: 1), let central = self.central else { return }
+            self.reconnectWork[id] = nil
+            if let peripheral = central.retrievePeripherals(withIdentifiers: [id]).first { self.connect(peripheral) }
+        }
+        reconnectWork[id] = work
+        queue.asyncAfter(deadline: .now() + delay, execute: work)
     }
 }
 
@@ -241,14 +330,14 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
     private var rumbleOutput: CBCharacteristic?
     private var configuring = false
     private var configured = false
-    private var motionEnabled = true
+    private var motionEnabled = false
     private var loggedInput = false
     private var loggedRumbleError = false
     private var timeout: DispatchWorkItem?
     private var writeTimeout: DispatchWorkItem?
     private var closeCompletion: (() -> Void)?
-    private var outputTimer: DispatchSourceTimer?
-    private var nextLizardUpdate: TimeInterval = 0
+    private var keepAliveTimer: DispatchSourceTimer?
+    private var rumbleTimer: DispatchSourceTimer?
     private var rumbleUntil: TimeInterval = 0
     private var rumblePayload: Data?
     
@@ -287,8 +376,10 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
         timeout?.cancel()
         writeTimeout?.cancel()
         
-        outputTimer?.cancel()
-        outputTimer = nil
+        keepAliveTimer?.cancel()
+        keepAliveTimer = nil
+        rumbleTimer?.cancel()
+        rumbleTimer = nil
         
         writes.removeAll()
         
@@ -304,8 +395,10 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
         stopping = true
         timeout?.cancel()
         
-        outputTimer?.cancel()
-        outputTimer = nil
+        keepAliveTimer?.cancel()
+        keepAliveTimer = nil
+        rumbleTimer?.cancel()
+        rumbleTimer = nil
         
         writes.removeAll()
         
@@ -387,7 +480,8 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
         // Triton uses raw feature payloads
         writes = [
             Write(characteristic: output, data: SteamControllerProtocol.disableLizardMode, purpose: .lizard),
-            Write(characteristic: output, data: SteamControllerProtocol.setting(48, value: 0x18), purpose: .motion),
+            // 初次连接只启用按键；当前游戏实际绑定且需要运动时才打开传感器。
+            Write(characteristic: output, data: SteamControllerProtocol.setting(48, value: 0), purpose: .motion),
         ]
         
         writeNext()
@@ -428,7 +522,7 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
                 
                 timeout?.cancel()
                 
-                startOutputTimer()
+                startKeepAliveTimer()
                 onReady?()
             }
             return
@@ -464,6 +558,8 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
                 
                 loggedRumbleError = true
                 rumblePayload = nil
+                rumbleTimer?.cancel()
+                rumbleTimer = nil
                 
                 writes.removeAll { $0.purpose == .rumble }
             } else {
@@ -480,35 +576,43 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
         writeNext()
     }
     
-    private func startOutputTimer() {
-        nextLizardUpdate = ProcessInfo.processInfo.systemUptime + 3
+    private func startKeepAliveTimer() {
+        keepAliveTimer?.cancel()
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now() + .milliseconds(40), repeating: .milliseconds(40), leeway: .milliseconds(2))
-        timer.setEventHandler { [weak self] in self?.updateOutput() }
-        outputTimer = timer
+        timer.schedule(deadline: .now() + 3, repeating: 3, leeway: .milliseconds(100))
+        timer.setEventHandler { [weak self] in
+            guard let self, self.configured, !self.stopping, let output = self.output else { return }
+            self.enqueue(SteamControllerProtocol.disableLizardMode, on: output, purpose: .lizard)
+        }
+        keepAliveTimer = timer
         timer.resume()
     }
-    
-    private func updateOutput() {
-        guard configured, !stopping else { return }
-        let now = ProcessInfo.processInfo.systemUptime
-        
-        if now >= nextLizardUpdate, let output {
-            nextLizardUpdate = now + 3
-            enqueue(SteamControllerProtocol.disableLizardMode, on: output, purpose: .lizard)
-        }
-        
-        if let payload = rumblePayload, let rumbleOutput {
-            if now < rumbleUntil {
-                // Triton rumble expires unless resent every 40 ms.
-                enqueue(payload, on: rumbleOutput, purpose: .rumble)
-            } else {
-                rumblePayload = nil
-                enqueue(SteamControllerProtocol.rumble(left: 0, right: 0), on: rumbleOutput, purpose: .rumble)
-            }
-        }
+
+    private func startRumbleTimer() {
+        guard rumbleTimer == nil else { return }
+        let timer = DispatchSource.makeTimerSource(queue: queue)
+        timer.schedule(deadline: .now() + .milliseconds(40), repeating: .milliseconds(40), leeway: .milliseconds(2))
+        timer.setEventHandler { [weak self] in self?.updateRumble() }
+        rumbleTimer = timer
+        timer.resume()
     }
-    
+
+    private func updateRumble() {
+        guard configured, !stopping else { return }
+        guard let payload = rumblePayload, let rumbleOutput,
+              ProcessInfo.processInfo.systemUptime < rumbleUntil else { stopRumble(); return }
+        enqueue(payload, on: rumbleOutput, purpose: .rumble)
+    }
+
+    func stopRumble() {
+        let wasActive = rumblePayload != nil || rumbleTimer != nil
+        rumblePayload = nil
+        rumbleTimer?.cancel()
+        rumbleTimer = nil
+        guard wasActive, configured, !stopping, !loggedRumbleError, let rumbleOutput else { return }
+        enqueue(SteamControllerProtocol.rumble(left: 0, right: 0), on: rumbleOutput, purpose: .rumble)
+    }
+
     func setMotion(_ enabled: Bool) {
         guard configured, !stopping, enabled != motionEnabled, let output else { return }
         motionEnabled = enabled
@@ -519,10 +623,11 @@ private nonisolated final class SteamBLESession: NSObject, CBPeripheralDelegate,
         guard configured, !stopping, !loggedRumbleError, let rumbleOutput else { return }
         
         let payload = SteamControllerProtocol.rumble(left: data.lowFrequency, right: data.highFrequency)
-        let active = data.durationMs > 0 && (data.lowFrequency > 0 || data.highFrequency > 0)
+        let active = InputPowerPolicy.hasVibration(durationMs: data.durationMs, amplitudes: [data.lowFrequency, data.highFrequency])
         
         rumbleUntil = ProcessInfo.processInfo.systemUptime + Double(data.durationMs) / 1000
         rumblePayload = active ? payload : nil
+        if active { startRumbleTimer() } else { rumbleTimer?.cancel(); rumbleTimer = nil }
         
         enqueue(active ? payload : SteamControllerProtocol.rumble(left: 0, right: 0), on: rumbleOutput, purpose: .rumble)
     }

@@ -56,6 +56,8 @@ public final class AmiiboService: ObservableObject {
     private var autoRetryTask: Task<Void, Never>?
     private var refreshInProgress = false
     private var generation: UInt64 = 0
+    private var pollGeneration: UInt64 = 0
+    private var abiValidated = false
     private var applicationIsActive = true
     private var selectionMenuVisible = true
     private var automaticRoundKey: String?
@@ -87,10 +89,11 @@ public final class AmiiboService: ObservableObject {
         }
     }
 
-    /// 开始一个游戏会话。每次调用都会使旧轮询和旧提交结果失效。
+    /// 同一游戏重复出现时保留会话；轮询关闭不表示游戏已经结束。
     public func start(titleId: String) {
         let normalized = Self.normalizeTitleId(titleId)
-        if AmiiboCatalogParser.validId(normalized), activeTitleId == normalized, pollTask != nil {
+        if AmiiboCatalogParser.validId(normalized), activeTitleId == normalized {
+            updatePolling()
             return
         }
         stopInternal(clearSelection: true)
@@ -126,14 +129,7 @@ public final class AmiiboService: ObservableObject {
         // 目录加载后再校验保存的 ID，避免偏好指向已删除的项目。
         clearInvalidSelectionIfNeeded()
 
-        let currentGeneration = generation
-        pollTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                guard let self, self.generation == currentGeneration else { return }
-                await self.refreshState()
-                try? await Task.sleep(nanoseconds: 250_000_000)
-            }
-        }
+        updatePolling()
     }
 
     /// 统一游戏 Title ID 的输入形式；只接受最终 16 位十六进制 ID。
@@ -157,17 +153,39 @@ public final class AmiiboService: ObservableObject {
         catalogError = nil
     }
 
-    /// 兼容旧调用方。菜单关闭不应调用此方法；游戏生命周期应使用 stop()。
-    public func stopPolling() {
-        pollTask?.cancel()
-        pollTask = nil
+    /// 菜单和自动使用共享一个轮询任务；关闭需求时立即取消，不保留空转定时器。
+    private func updatePolling(refreshImmediately: Bool = false) {
+        let needed = AmiiboPollingPolicy.needsPolling(hasSession: activeTitleId != nil,
+            applicationActive: applicationIsActive, menuVisible: selectionMenuVisible,
+            automaticUse: automaticUseEnabled)
+        guard needed else {
+            pollGeneration &+= 1
+            pollTask?.cancel()
+            pollTask = nil
+            return
+        }
+        if pollTask != nil {
+            guard refreshImmediately else { return }
+            pollTask?.cancel()
+            pollTask = nil
+        }
+        pollGeneration &+= 1
+        let token = pollGeneration
+        let session = generation
+        pollTask = Task { @MainActor [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.generation == session, self.pollGeneration == token else { return }
+                await self.refreshState()
+                do { try await Task.sleep(nanoseconds: 250_000_000) }
+                catch { return }
+            }
+        }
     }
 
     public func setApplicationActive(_ active: Bool) {
         applicationIsActive = active
-        if active {
-            coordinateAutomaticUse()
-        } else if autoRetryTask != nil {
+        updatePolling()
+        if !active && autoRetryTask != nil {
             // 后台期间不保留延迟重试，并清除待重试本轮标记；回到前台后由当前快照重新协调。
             autoRetryTask?.cancel()
             autoRetryTask = nil
@@ -177,7 +195,9 @@ public final class AmiiboService: ObservableObject {
     }
 
     public func setSelectionMenuVisible(_ visible: Bool) {
+        let opening = visible && !selectionMenuVisible
         selectionMenuVisible = visible
+        updatePolling(refreshImmediately: opening)
         if visible {
             // 菜单打开期间暂停延迟重试；关闭菜单后从当前检测轮次重新协调。
             let hadRetry = autoRetryTask != nil
@@ -212,15 +232,15 @@ public final class AmiiboService: ObservableObject {
     public func setAutomaticUseEnabled(_ enabled: Bool) {
         guard !enabled || (selectedEntry != nil && catalogError == nil) else {
             automaticUseEnabled = false
+            updatePolling()
             if let activeTitleId { storeAutomaticUse(false, for: activeTitleId) }
             lastMessage = "请先选择一个有效的 Amiibo，再开启自动使用。"
             return
         }
         automaticUseEnabled = enabled
+        updatePolling(refreshImmediately: enabled)
         if let activeTitleId { storeAutomaticUse(enabled, for: activeTitleId) }
-        if enabled {
-            coordinateAutomaticUse()
-        } else {
+        if !enabled {
             autoRetryTask?.cancel()
             autoRetryTask = nil
         }
@@ -276,13 +296,15 @@ public final class AmiiboService: ObservableObject {
         let expectedGeneration = generation
         refreshInProgress = true
         defer { refreshInProgress = false }
-        let snapshot = await Task.detached(priority: .utility) { Self.readNativeState() }.value
+        let checkABI = !abiValidated
+        let snapshot = await Task.detached(priority: .utility) { Self.readNativeState(checkABI: checkABI) }.value
         guard !Task.isCancelled,
               generation == expectedGeneration,
               activeTitleId == title else { return }
         if snapshot.result == 0 {
+            abiValidated = true
             let previous = state
-            state = snapshot.state
+            if state != snapshot.state { state = snapshot.state }
             if previous.sessionId != state.sessionId || previous.detectionEpoch != state.detectionEpoch {
                 automaticRoundKey = nil
                 automaticBusyRetries = 0
@@ -291,17 +313,21 @@ public final class AmiiboService: ObservableObject {
             }
             coordinateAutomaticUse()
         } else if snapshot.result != 9 {
-            state = .unavailable
-            lastMessage = message(for: snapshot.result)
+            abiValidated = false
+            if state != .unavailable { state = .unavailable }
+            let nextMessage = message(for: snapshot.result)
+            if lastMessage != nextMessage { lastMessage = nextMessage }
         }
     }
 
-    nonisolated private static func readNativeState() -> AmiiboQueryResult {
-        var version: UInt32 = 0
-        var capabilities: UInt32 = 0
-        guard mlx_amiibo_get_abi(&version, &capabilities) == 0,
-              version == abiVersion, capabilities & 1 != 0 else {
-            return AmiiboQueryResult(result: 1, state: .unavailable)
+    nonisolated private static func readNativeState(checkABI: Bool) -> AmiiboQueryResult {
+        if checkABI {
+            var version: UInt32 = 0
+            var capabilities: UInt32 = 0
+            guard mlx_amiibo_get_abi(&version, &capabilities) == 0,
+                  version == abiVersion, capabilities & 1 != 0 else {
+                return AmiiboQueryResult(result: 1, state: .unavailable)
+            }
         }
         var native = MlxAmiiboState()
         let result = mlx_amiibo_get_state(&native, UInt32(MemoryLayout<MlxAmiiboState>.size))
@@ -347,6 +373,7 @@ public final class AmiiboService: ObservableObject {
         }
         guard automaticBusyRetries < Self.autoBusyRetryLimit else {
             automaticUseEnabled = false
+            updatePolling()
             storeAutomaticUse(false, for: title)
             lastMessage = "核心持续忙碌，已暂停自动使用；可手动重试。"
             return
@@ -446,6 +473,7 @@ public final class AmiiboService: ObservableObject {
 
     private func disableAutomaticUse(for title: String?) {
         automaticUseEnabled = false
+        updatePolling()
         if let title { storeAutomaticUse(false, for: title) }
     }
 
@@ -580,6 +608,8 @@ public final class AmiiboService: ObservableObject {
 
     private func stopInternal(clearSelection: Bool) {
         generation &+= 1
+        pollGeneration &+= 1
+        abiValidated = false
         pollTask?.cancel(); pollTask = nil
         submitTask?.cancel(); submitTask = nil
         autoRetryTask?.cancel(); autoRetryTask = nil

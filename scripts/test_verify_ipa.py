@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from zipfile import ZipFile
 
-from verify_ipa import AMIIBO_SYMBOLS, APP_PREFIX, ARM64, CORE_SYMBOLS, MOTION_SYMBOLS, parse_macho, read_export_trie, verify
+from verify_ipa import AMIIBO_SYMBOLS, APP_PREFIX, ARM64, CORE_SYMBOLS, MOTION_SYMBOLS, PERFORMANCE_SYMBOLS, parse_macho, read_export_trie, verify
 
 
 def make_macho(filetype: int = 6, dependencies: tuple[str, ...] = (), symbols: tuple[str, ...] = (),
@@ -80,6 +80,7 @@ class IpaVerificationTests(unittest.TestCase):
         self.assertEqual(report["macho_files_checked"], 8)
         self.assertEqual(report["amiibo_symbols"], sorted(AMIIBO_SYMBOLS))
         self.assertEqual(report["motion_symbols"], sorted(MOTION_SYMBOLS))
+        self.assertEqual(report["performance_symbols"], sorted(PERFORMANCE_SYMBOLS))
 
     def test_missing_motion_export_even_when_core_matches(self) -> None:
         # 两份核心摘要一致也不能放过旧 ABI，必须拒绝缺少完整采样接口的交付。
@@ -124,6 +125,16 @@ class IpaVerificationTests(unittest.TestCase):
         self.core_path.write_bytes(self.core)
         self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
         with self.assertRaisesRegex(ValueError, "缺少必需导出.*_suspend_gamepad_motion"):
+            self.check(self.entries)
+
+    def test_missing_statistics_export(self) -> None:
+        self.core = make_macho(
+            dependencies=("/usr/lib/libicucore.A.dylib", "/System/Library/Frameworks/Foundation.framework/Foundation"),
+            symbols=tuple(sorted(CORE_SYMBOLS - PERFORMANCE_SYMBOLS)),
+        )
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_set_statistics_enabled"):
             self.check(self.entries)
 
     def test_valid_package_without_icu_dat(self) -> None:

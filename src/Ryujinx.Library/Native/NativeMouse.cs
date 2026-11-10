@@ -8,7 +8,7 @@ namespace Ryujinx.Library
 {
     class NativeMouse : ITouchScreen
     {
-        private NativeTouchDriver _driver;
+        private readonly NativeTouchDriver _driver;
 
         public GamepadFeaturesFlag Features => throw new NotImplementedException();
 
@@ -28,9 +28,9 @@ namespace Ryujinx.Library
         }
         
 
-        public Vector2[] GetPositions()
+        public int CopyTouches(Span<TouchSnapshot> destination)
         {
-            return _driver.CurrentPosition;
+            return _driver.CopyTouches(destination);
         }
 
         public Vector2 GetScroll()
@@ -90,7 +90,7 @@ namespace Ryujinx.Library
 
         public void Dispose()
         {
-            _driver = null;
+            // 此对象是驱动拥有的共享只读入口，状态资源只由 NativeTouchDriver.Dispose 释放。
         }
     }
 }

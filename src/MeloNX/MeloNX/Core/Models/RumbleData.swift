@@ -7,8 +7,9 @@
 
 import Foundation
 
-struct RumbleData {
-    struct VibrationValue {
+/// 核心回调复制出的震动值，不持有指针或硬件资源，可从回调线程传到专用输出队列。
+nonisolated struct RumbleData: Sendable {
+    nonisolated struct VibrationValue: Sendable {
         var amplitudeLow: Float
         var frequencyLow: Float
         var amplitudeHigh: Float

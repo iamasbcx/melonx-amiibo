@@ -114,7 +114,9 @@ class MainSceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
+        ControllerManager.shared.setApplicationActive(true)
         let controller = RyujinxController.shared
+        guard !controller.isStopping else { return }
         if controller.isRunning.isRunning() {
             if !controller.wasManuallyPaused { controller.isPaused = false }
         } else {
@@ -123,17 +125,27 @@ class MainSceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
+        ControllerManager.shared.setApplicationActive(false)
         pauseEmulation()
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
+        ControllerManager.shared.setApplicationActive(false)
         RyujinxController.shared.flushPendingSettingsSaves()
         pauseEmulation()
     }
 
+    /// 使用界面方向完成更新事件，避免 UIDevice 的 faceUp/unknown 或外接显示器覆盖手机方向。
+    func windowScene(_ windowScene: UIWindowScene, didUpdate previousCoordinateSpace: UICoordinateSpace,
+                     interfaceOrientation previousInterfaceOrientation: UIInterfaceOrientation,
+                     traitCollection previousTraitCollection: UITraitCollection) {
+        guard windowScene.session.role == .windowApplication else { return }
+        ControllerManager.shared.refreshInputResources(interfaceOrientation: windowScene.interfaceOrientation)
+    }
+
     private func pauseEmulation() {
         let controller = RyujinxController.shared
-        if controller.isRunning.isRunning(), !controller.wasManuallyPaused {
+        if controller.isRunning.isRunning(), !controller.isStopping, !controller.wasManuallyPaused {
             controller.isPaused = true
         }
     }

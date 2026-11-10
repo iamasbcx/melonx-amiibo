@@ -30,11 +30,12 @@ namespace Ryujinx.Graphics.GAL.Multithreading
         private readonly IRenderer _baseRenderer;
         private Thread _gpuThread;
         private Thread _backendThread;
-        private bool _running;
+        private volatile bool _running;
 
         private readonly AutoResetEvent _frameComplete = new(true);
 
         private readonly ManualResetEventSlim _galWorkAvailable;
+        private readonly ManualResetEventSlim _renderLoopExited = new(true);
         private readonly CircularSpanPool _spanPool;
 
         private readonly ManualResetEventSlim _invokeRun;
@@ -101,6 +102,7 @@ namespace Ryujinx.Graphics.GAL.Multithreading
 
         public void RunLoop(ThreadStart gpuLoop)
         {
+            _renderLoopExited.Reset();
             _running = true;
 
             _backendThread = Thread.CurrentThread;
@@ -116,6 +118,12 @@ namespace Ryujinx.Graphics.GAL.Multithreading
         }
 
         public void RenderLoop()
+        {
+            try { RenderCommands(); }
+            finally { _renderLoopExited.Set(); }
+        }
+
+        private void RenderCommands()
         {
             // Power through the render queue until the Gpu thread work is done.
 
@@ -525,7 +533,11 @@ namespace Ryujinx.Graphics.GAL.Multithreading
         {
             GC.SuppressFinalize(this);
 
-            // Dispose must happen from the render thread, after all commands have completed.
+            // 外部宿主先结束 GPU 提交及 HLE，再释放后端；清理产生的最后一批命令仍需由后端执行。
+            if (Thread.CurrentThread != _backendThread && _running)
+            {
+                FlushThreadedCommands();
+            }
 
             // Stop the GPU thread.
             _running = false;
@@ -536,12 +548,20 @@ namespace Ryujinx.Graphics.GAL.Multithreading
                 _gpuThread.Join();
             }
 
+            // 唤醒后不能立即释放事件：后端可能尚未从 Wait 返回，或即将执行 Reset。
+            if (_backendThread != null && Thread.CurrentThread != _backendThread)
+            {
+                // 只等待本模块拥有的循环；宿主线程在 RunLoop 返回后还有自己的清理，不能在此 Join。
+                _renderLoopExited.Wait();
+            }
+
             // Dispose the renderer.
             _baseRenderer.Dispose();
 
             // Dispose events.
             _frameComplete.Dispose();
             _galWorkAvailable.Dispose();
+            _renderLoopExited.Dispose();
             _invokeRun.Dispose();
             _interruptRun.Dispose();
 

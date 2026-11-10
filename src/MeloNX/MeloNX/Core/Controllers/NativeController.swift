@@ -53,7 +53,8 @@ class NativeController: BaseController {
         DispatchQueue.main.async { [weak self] in
             guard let self, self.activeInputAttachment == attachment else { return }
             self.stopInputSensors()
-            self.setupMotion(expectedAttachment: attachment)
+            self.performIfInputAttached(generation: attachment) { Ryujinx.suspendGamepadMotion(self.pointer) }
+            self.refreshMotionIfNeeded()
         }
     }
     

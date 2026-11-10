@@ -1,6 +1,4 @@
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
 using System.Numerics;
 using System;
 
@@ -11,15 +9,17 @@ namespace Ryujinx.Input
     /// </summary>
     public interface ITouchScreen : IGamepad
     {
+        public const int MaxTouches = 16;
 #pragma warning disable IDE0051 // Remove unused private member
         private const int SwitchPanelWidth = 1280;
 #pragma warning restore IDE0051
         private const int SwitchPanelHeight = 720;
 
         /// <summary>
-        /// Get the position of touches in the client.
+        /// 将完整触点状态写入调用方缓冲区并返回数量；缓冲区必须至少容纳 MaxTouches 项。
+        /// Id 在一次触摸生命周期内稳定，目标缓冲区不会被设备保留。
         /// </summary>
-        Vector2[] GetPositions();
+        int CopyTouches(Span<TouchSnapshot> destination);
 
         /// <summary>
         /// Get the client size.
@@ -47,17 +47,14 @@ namespace Ryujinx.Input
         /// <param name="clientSize">The size of the client</param>
         /// <param name="aspectRatio">The aspect ratio of the view</param>
         /// <returns>A snaphost of the state of the mouse.</returns>
-        public static Vector2[] GetScreenPositionTouch(IReadOnlyList<Vector2> mousePosition, Size clientSize)
-        {
-            return mousePosition.Select(vector => GetTouchPosition(vector, clientSize)).ToArray();
-        }
-
         public static Vector2 GetTouchPosition(Vector2 mousePosition, Size clientSize)
         {
             float mouseX = mousePosition.X;
             float mouseY = mousePosition.Y;
 
-            if (mouseX < 0 || mouseX >= clientSize.Width ||
+            if (clientSize.Width <= 0 || clientSize.Height <= 0 ||
+                !float.IsFinite(mouseX) || !float.IsFinite(mouseY) ||
+                mouseX < 0 || mouseX >= clientSize.Width ||
                 mouseY < 0 || mouseY >= clientSize.Height)
             {
                 return new();

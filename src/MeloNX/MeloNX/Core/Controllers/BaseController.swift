@@ -32,13 +32,7 @@ class BaseController: Equatable, Identifiable {
     
     // Motion
     var orientation: UIDeviceOrientation = UIDevice.current.orientation == .unknown ? .landscapeLeft : UIDevice.current.orientation
-    /// 最近一次有效的界面方向。传感器回调不能依赖 UIDeviceOrientation 的瞬时 faceUp/unknown 状态。
-    var motionInterfaceOrientation: UIInterfaceOrientation = .unknown
-    let motionOrientationLock = NSLock()
     let motionOperation = OperationQueue()
-    var lastAccel = SIMD3<Float>(repeating: 0)
-    var lastGyro = SIMD3<Float>(repeating: 0)
-    let filterAlpha: Float = 0.05
     let motionSubmitInterval: UInt64 = 10_000_000 // 100Hz, in nanoseconds
     var lastMotionSubmit: UInt64 = 0
     
@@ -51,6 +45,7 @@ class BaseController: Equatable, Identifiable {
     private let lifecycleLock = NSLock()
     private var _isActive: Bool = true
     private let inputAttachment = InputAttachmentState()
+    let inputResourceActivity = InputResourceActivity()
 
     /// 传感器/设备回调必须在注册时捕获令牌，不能在旧事件最终写入时重新获取令牌。
     var activeInputAttachment: UInt64? { inputAttachment.activeGeneration }
@@ -68,9 +63,13 @@ class BaseController: Equatable, Identifiable {
 
     /// 先使排队输入失效，再异步停止传感器；旧停止任务不能关闭重新绑定后的采样。
     func endInputAttachment() {
+        inputResourceActivity.setAllowed(false)
         inputAttachment.end()
         // 保留设备直到停止任务完成，避免断开后资源释放先于传感器关闭。
         DispatchQueue.main.async { [self] in
+            // 同一对象可立即重绑；先清除旧震动，再由后续主线程资源刷新/新回调开启新输出。
+            // 传感器仍需绑定检查，防止旧停止任务撤销新注册。
+            stopHaptics()
             guard activeInputAttachment == nil else { return }
             stopInputSensors()
         }
@@ -78,6 +77,37 @@ class BaseController: Equatable, Identifiable {
 
     /// 仅主线程调用；子类可同时关闭外设传感器，不改变可复用设备对象的有效状态。
     func stopInputSensors() { stopMotion() }
+
+    /// 主线程按当前游戏/界面需求管理资源；运动停用时冻结核心姿态，恢复首帧由核心重新计时。
+    func refreshInputResources(allowed: Bool) {
+        precondition(Thread.isMainThread)
+        inputResourceActivity.setAllowed(allowed)
+        if allowed {
+            refreshMotionIfNeeded()
+        } else {
+            stopInputSensors()
+            stopHaptics()
+            if let attachment = activeInputAttachment {
+                performIfInputAttached(generation: attachment) { Ryujinx.suspendGamepadMotion(pointer) }
+            }
+        }
+    }
+
+    func refreshMotionIfNeeded() {
+        guard inputResourceActivity.activeGeneration != nil else { return }
+        let usesNativeMotion = nativeController?.motion != nil && !usesDeviceHandlers
+        let mappingEnabled = virtual || ControllerMappingStore.shared.runtimeMapping(for: self).motionEnabled
+        let enabled = mappingEnabled && (usesNativeMotion ||
+            InputPowerPolicy.phoneMotionEnabled(PhoneMotionContextStore.shared.snapshot.controls))
+        if enabled {
+            if activeMotionRegistration == nil { setupMotion() }
+        } else if activeMotionRegistration != nil {
+            stopInputSensors()
+            if let attachment = activeInputAttachment {
+                performIfInputAttached(generation: attachment) { Ryujinx.suspendGamepadMotion(pointer) }
+            }
+        }
+    }
     
     var isActive: Bool {
         lifecycleLock.lock()
@@ -118,7 +148,7 @@ class BaseController: Equatable, Identifiable {
     }
     
     public func setupController() {
-        // 注册与停止均串到主线程；不要同步等待内部需要读取主线程方向的采样队列。
+        // 注册与停止均串到主线程；采样队列只读取独立快照，不反向同步等待主线程。
         guard let attachment = activeInputAttachment else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self, self.activeInputAttachment == attachment else { return }
@@ -194,7 +224,16 @@ class BaseController: Equatable, Identifiable {
     }
 
     func rumble(data: RumbleData) {
-        rumbleController?.rumble(data: data)
+        guard let attachment = activeInputAttachment,
+              let generation = inputResourceActivity.activeGeneration else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.activeInputAttachment == attachment,
+                  self.inputResourceActivity.activeGeneration == generation else { return }
+            let active = InputPowerPolicy.hasVibration(durationMs: data.durationMs,
+                amplitudes: [data.left.amplitudeLow, data.left.amplitudeHigh, data.right.amplitudeLow, data.right.amplitudeHigh])
+            if active { self.createHapticsIfNeeded() }
+            self.rumbleController?.rumble(data: data)
+        }
     }
     
     func cool() {
@@ -209,65 +248,64 @@ class BaseController: Equatable, Identifiable {
     
     func setupHaptics() {
         DispatchQueue.main.async { [weak self] in
-            guard let self = self else { return }
-            
-            let registerRumbleCallback = {
-                let userData = Unmanaged.passUnretained(self).toOpaque()
-                
-                RegisterCallback(
-                    "rumble-\(self.id)",
-                    self.rumbleCallback,
-                    userData
-                )
-            }
-            
-            if let nativeController = self.nativeController,
-               !self.usesDeviceHandlers,
-               let haptics = nativeController.haptics {
-                let localities = haptics.supportedLocalities
-                
-                if localities.contains(.leftHandle), localities.contains(.rightHandle) {
-                    self.rumbleController = RumbleController(
-                        leftEngine: haptics.createEngine(withLocality: .leftHandle),
-                        rightEngine: haptics.createEngine(withLocality: .rightHandle),
-                        fallbackEngine: haptics.createEngine(withLocality: .default),
-                        rumbleMultiplier: 2.5
-                    )
-                } else if localities.contains(.handles) {
-                    self.rumbleController = RumbleController(
-                        engine: haptics.createEngine(withLocality: .handles),
-                        rumbleMultiplier: 2.5
-                    )
-                } else if localities.contains(.default) {
-                    self.rumbleController = RumbleController(
-                        engine: haptics.createEngine(withLocality: .default),
-                        rumbleMultiplier: 2.5
-                    )
-                } else if localities.contains(.all) {
-                    self.rumbleController = RumbleController(
-                        engine: haptics.createEngine(withLocality: .all),
-                        rumbleMultiplier: 2.5
-                    )
-                } else {
-                    self.rumbleController = nil
-                }
-            } else {
-                let deviceEngine: CHHapticEngine?
-                
-                if CHHapticEngine.capabilitiesForHardware().supportsHaptics {
-                    deviceEngine = try? CHHapticEngine()
-                } else {
-                    deviceEngine = nil
-                }
-                
-                self.rumbleController = RumbleController(
-                    engine: deviceEngine,
-                    rumbleMultiplier: 2.0
-                )
-            }
-            
-            registerRumbleCallback()
+            guard let self, self.isActive, self.activeInputAttachment != nil else { return }
+            self.cool()
         }
+    }
+
+    /// 只有收到有效震动时才创建引擎；所有资源所有权由主线程维护。
+    private func createHapticsIfNeeded() {
+        precondition(Thread.isMainThread)
+        guard rumbleController == nil else { return }
+        if let nativeController = self.nativeController,
+           !self.usesDeviceHandlers,
+           let haptics = nativeController.haptics {
+            let localities = haptics.supportedLocalities
+            
+            if localities.contains(.leftHandle), localities.contains(.rightHandle) {
+                self.rumbleController = RumbleController(
+                    leftEngine: haptics.createEngine(withLocality: .leftHandle),
+                    rightEngine: haptics.createEngine(withLocality: .rightHandle),
+                    fallbackEngine: haptics.createEngine(withLocality: .default),
+                    rumbleMultiplier: 2.5
+                )
+            } else if localities.contains(.handles) {
+                self.rumbleController = RumbleController(
+                    engine: haptics.createEngine(withLocality: .handles),
+                    rumbleMultiplier: 2.5
+                )
+            } else if localities.contains(.default) {
+                self.rumbleController = RumbleController(
+                    engine: haptics.createEngine(withLocality: .default),
+                    rumbleMultiplier: 2.5
+                )
+            } else if localities.contains(.all) {
+                self.rumbleController = RumbleController(
+                    engine: haptics.createEngine(withLocality: .all),
+                    rumbleMultiplier: 2.5
+                )
+            } else {
+                self.rumbleController = nil
+            }
+        } else {
+            let deviceEngine: CHHapticEngine?
+            
+            if CHHapticEngine.capabilitiesForHardware().supportsHaptics {
+                deviceEngine = try? CHHapticEngine()
+            } else {
+                deviceEngine = nil
+            }
+            
+            self.rumbleController = RumbleController(
+                engine: deviceEngine,
+                rumbleMultiplier: 2.0
+            )
+        }
+    }
+
+    func stopHaptics() {
+        rumbleController?.stop()
+        rumbleController = nil
     }
     
     func cleanup() {
@@ -277,7 +315,6 @@ class BaseController: Equatable, Identifiable {
         callbackName.withCString { UnregisterCallback($0) }
         
         endInputAttachment()
-        rumbleController = nil
         
         let pointer = self.pointer
 
