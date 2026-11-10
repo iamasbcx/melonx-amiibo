@@ -34,6 +34,7 @@ struct LayoutEditorView: View {
 
     @Binding var selectedButton: String?
     @Binding var selectedJoystick: String?
+    @Binding var selectedTouchLook: Bool
 
     @State private var showingLayoutOptions = false
     @State private var showingResetAlert = false
@@ -52,7 +53,7 @@ struct LayoutEditorView: View {
     private var isWide: Bool { verticalSizeClass == .compact || UIDevice.current.userInterfaceIdiom == .pad }
 
     private var selectionKey: String {
-        "\(selectedButton ?? "-")|\(selectedJoystick ?? "-")"
+        "\(selectedButton ?? "-")|\(selectedJoystick ?? "-")|\(selectedTouchLook)"
     }
 
     private func syncDpadHandler() {
@@ -66,6 +67,7 @@ struct LayoutEditorView: View {
     private func clearSelection() {
         selectedButton = nil
         selectedJoystick = nil
+        selectedTouchLook = false
     }
 
     var body: some View {
@@ -161,7 +163,10 @@ struct LayoutEditorView: View {
 
     @ViewBuilder
     private var inspector: some View {
-        if let selectedButton = selectedButton {
+        if selectedTouchLook {
+            touchLookControls
+                .transition(.move(edge: .leading).combined(with: .opacity))
+        } else if let selectedButton = selectedButton {
             buttonControls(for: selectedButton)
                 .transition(.move(edge: .leading).combined(with: .opacity))
         } else if let selectedJoystick = selectedJoystick {
@@ -191,6 +196,16 @@ struct LayoutEditorView: View {
                 isOn: $buttonSlide
             )
 
+            Button {
+                selectedButton = nil
+                selectedJoystick = nil
+                selectedTouchLook = true
+            } label: {
+                Label("编辑滑动视角区域", systemImage: "hand.draw")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.bordered)
+
             EditorToggleRow(
                 title: "\u{7F51}\u{683C}\u{5438}\u{9644}",
                 subtitle: "\u{62D6}\u{52A8}\u{7ED3}\u{675F}\u{548C}\u{65B9}\u{5411}\u{5FAE}\u{8C03}\u{90FD}\u{4F1A}\u{5BF9}\u{9F50}\u{5230}\u{7F51}\u{683C}\u{3002}",
@@ -216,6 +231,69 @@ struct LayoutEditorView: View {
                     range: 8...64,
                     step: 4
                 )
+            }
+        }
+    }
+
+    private var touchLookControls: some View {
+        EditorCard {
+            EditorCardHeader(title: "滑动视角区域", subtitle: "空白区域滑动时控制右摇杆视角") {
+                EditorResetButton {
+                    layout.touchLook = TouchLookLayout()
+                    selectedTouchLook = false
+                }
+            }
+
+            EditorSliderRow(
+                title: "区域宽度",
+                value: Binding(
+                    get: { layout.touchLook.width },
+                    set: { value in
+                        var item = layout.touchLook
+                        item.width = value
+                        item.clamp()
+                        layout.touchLook = item
+                    }
+                ),
+                range: 0.1...1.0,
+                step: 0.05
+            )
+
+            EditorSliderRow(
+                title: "区域高度",
+                value: Binding(
+                    get: { layout.touchLook.height },
+                    set: { value in
+                        var item = layout.touchLook
+                        item.height = value
+                        item.clamp()
+                        layout.touchLook = item
+                    }
+                ),
+                range: 0.1...1.0,
+                step: 0.05
+            )
+
+            EditorToggleRow(
+                title: "隐藏滑动视角",
+                subtitle: "隐藏后仍可通过设置开关恢复。",
+                isOn: Binding(
+                    get: { layout.touchLook.hidden },
+                    set: { value in
+                        var item = layout.touchLook
+                        item.hidden = value
+                        layout.touchLook = item
+                    }
+                )
+            )
+
+            EditorNudgePad { dx, dy in
+                var item = layout.touchLook
+                let step = layout.gridEnabled ? layout.gridSpacing : 8
+                item.centerX += CGFloat(dx) * step / 320
+                item.centerY += CGFloat(dy) * step / 180
+                item.clamp()
+                layout.touchLook = item
             }
         }
     }

@@ -53,6 +53,7 @@ public struct ControllerView: View {
     @State private var hideABXY = false
     @State private var selectedButton: String?
     @State private var selectedJoystick: String?
+    @State private var selectedTouchLook = false
     @Environment(\.verticalSizeClass) var verticalSizeClass
     @State private var showEditControls = true
     @State var isEditing: Bool = false
@@ -121,6 +122,19 @@ public struct ControllerView: View {
                     .transition(.opacity)
             }
 
+            EditableTouchLookView(
+                layout: $layout,
+                isSelected: $selectedTouchLook,
+                isEditing: isEditing,
+                onSelect: {
+                    selectedTouchLook = true
+                    selectedButton = nil
+                    selectedJoystick = nil
+                }
+            )
+            // 编辑区域始终低于实体按键和摇杆，避免大范围视角区域挡住控件选择。
+            .zIndex(-0.5)
+
             Group {
                 let isPad = UIDevice.current.userInterfaceIdiom == .pad
                 if let customControllerLayout {
@@ -152,6 +166,7 @@ public struct ControllerView: View {
                         layout: $layout,
                         selectedButton: $selectedButton,
                         selectedJoystick: $selectedJoystick,
+                        selectedTouchLook: $selectedTouchLook,
                         gameId: gameId,
                         gameName: gameName
                     )
@@ -382,7 +397,8 @@ public struct ControllerView: View {
                 gameId: gameId,
                 isEditing: isEditing,
                 selectedButton: $selectedButton,
-                selectedJoystick: $selectedJoystick
+                selectedJoystick: $selectedJoystick,
+                selectedTouchLook: $selectedTouchLook
             )
         )
     }
@@ -402,6 +418,7 @@ public struct ControllerView: View {
                 isEditing: isEditing,
                 selectedJoystick: $selectedJoystick,
                 selectedButton: $selectedButton,
+                selectedTouchLook: $selectedTouchLook,
             )
         )
     }

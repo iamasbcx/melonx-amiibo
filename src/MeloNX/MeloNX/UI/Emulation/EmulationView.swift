@@ -36,8 +36,8 @@ struct EmulationView: View {
     
     @ViewBuilder
     func emulationView(_ airplay: Bool = false) -> some View {
-        if airplay { MetalViewRepresentable(showView: true).ignoresSafeArea().frame(maxWidth: .infinity, maxHeight: .infinity) } else {
-            MetalViewContainer(showView: !isConnected, airplay: airplay, ryujinxController: ryujinxController, statisticsHandler: statisticsHandler, nativeSettingsManager: nativeSettingsManager)
+        if airplay { MetalViewRepresentable(showView: true, gameId: game.titleId).ignoresSafeArea().frame(maxWidth: .infinity, maxHeight: .infinity) } else {
+            MetalViewContainer(showView: !isConnected, airplay: airplay, gameId: game.titleId, ryujinxController: ryujinxController, statisticsHandler: statisticsHandler, nativeSettingsManager: nativeSettingsManager)
                 .overlay {
                     if controllerManager.hasVirtualController() && !airplay {
                         ControllerView(controller: VirtualControllerManager.shared, isEditing: false, gameId: game.titleId, gameName: game.titleName)

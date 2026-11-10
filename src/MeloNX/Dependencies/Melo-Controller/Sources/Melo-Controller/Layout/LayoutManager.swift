@@ -33,8 +33,8 @@ public class LayoutExporter {
                                    conformingTo: .data)
 }
 
-class LayoutManager {
-    static let shared = LayoutManager()
+public final class LayoutManager {
+    public static let shared = LayoutManager()
     private init() {}
 
     private var baseURL: URL {
@@ -66,6 +66,18 @@ class LayoutManager {
             return LayoutConfig()
         }
         return config
+    }
+
+    /// 返回游戏对应的滑动视角区域；单游戏没有独立布局时自动回退全局布局。
+    public static func touchLookRect(for gameId: String? = nil) -> CGRect {
+        touchLookLayout(for: gameId).rect
+    }
+
+    /// 返回游戏对应的滑动视角布局，供宿主输入层读取隐藏状态和归一化尺寸。
+    public static func touchLookLayout(for gameId: String? = nil) -> TouchLookLayout {
+        var layout = shared.load(for: gameId).touchLook
+        layout.clamp()
+        return layout
     }
 
     func loadLegacy(for gameId: String? = nil) -> [String: ButtonLayout] {

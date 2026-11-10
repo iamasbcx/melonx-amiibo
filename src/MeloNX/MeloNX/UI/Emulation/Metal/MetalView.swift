@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MetalKit
+import Melo_Controller
 
 class MetalView: MTKView {
     @ObservedObject var menuViewShower: InGameConfigView_MenuView = .shared
@@ -21,6 +22,7 @@ class MetalView: MTKView {
     var touchLookDeadZone: CGFloat = 0.5
     var touchLookInvertX: Bool = false
     var touchLookInvertY: Bool = false
+    var touchLookGameId: String?
     /// 归一化视角区域，默认是右半屏；区域外仍发送游戏触摸事件。
     var touchLookActivationRect: CGRect = CGRect(x: 0.5, y: 0, width: 0.5, height: 1)
     /// 视角输入的短暂保持时间，避免单个移动事件被游戏采样遗漏。
@@ -29,6 +31,17 @@ class MetalView: MTKView {
     private var touchLookResetWorkItem: DispatchWorkItem?
 
     private var aspectRatio: AspectRatio = .fixed16x9
+
+    /// 切换游戏布局时清理旧触点，并立即应用对应的全局/单游戏视角区域。
+    func configureTouchLook(gameId: String?) {
+        guard touchLookGameId != gameId else {
+            syncTouchLookSettings()
+            return
+        }
+        resetTouchTracking()
+        touchLookGameId = gameId
+        setAspectRatio()
+    }
 
     func setAspectRatio() {
         self.aspectRatio = RyujinxController.shared.currentSettings.aspectRatio
@@ -47,6 +60,9 @@ class MetalView: MTKView {
         touchLookDeadZone = deadZone.isFinite ? min(20, max(0, deadZone)) : 0.5
         touchLookInvertX = settings.setting(forKey: "TouchLookInvertX", default: false).value
         touchLookInvertY = settings.setting(forKey: "TouchLookInvertY", default: false).value
+        let touchLookLayout = LayoutManager.touchLookLayout(for: touchLookGameId)
+        touchLookActivationRect = touchLookLayout.rect
+        touchLookEnabled = touchLookEnabled && !touchLookLayout.hidden
     }
 
     private func updateUnboundedPresentTargetFps() {
@@ -100,6 +116,25 @@ class MetalView: MTKView {
         let rect = touchLookActivationRect
         let normalized = rect.minX >= 0 && rect.minY >= 0 && rect.maxX <= 1 && rect.maxY <= 1
         if normalized {
+            // 布局编辑器以整个游戏页面为坐标系；MetalView 可能因宽高比留黑边，
+            // 因此先换算到窗口坐标，再映射回 MetalView，保证编辑框与实际触摸区域一致。
+            if let window = window {
+                let viewFrame = convert(bounds, to: window)
+                let pageRect = CGRect(
+                    x: window.bounds.minX + rect.minX * window.bounds.width,
+                    y: window.bounds.minY + rect.minY * window.bounds.height,
+                    width: rect.width * window.bounds.width,
+                    height: rect.height * window.bounds.height
+                )
+                let localRect = pageRect.intersection(viewFrame)
+                guard !localRect.isNull, !localRect.isEmpty else { return .zero }
+                return CGRect(
+                    x: localRect.minX - viewFrame.minX,
+                    y: localRect.minY - viewFrame.minY,
+                    width: localRect.width,
+                    height: localRect.height
+                )
+            }
             return CGRect(
                 x: bounds.minX + rect.minX * bounds.width,
                 y: bounds.minY + rect.minY * bounds.height,
@@ -277,19 +312,27 @@ class MetalView: MTKView {
 
 struct MetalViewRepresentable: UIViewRepresentable {
     var showView: Bool
+    var gameId: String?
     
-    init(showView: Bool = true) {
+    init(showView: Bool = true, gameId: String? = nil) {
         self.showView = showView
+        self.gameId = gameId
     }
     
     func makeUIView(context: Context) -> UIView {
         if showView {
-            return Self.createView()
-        } else { return MetalView() }
+            let view = Self.createView()
+            (view as? MetalView)?.configureTouchLook(gameId: gameId)
+            return view
+        } else {
+            let view = MetalView()
+            view.configureTouchLook(gameId: gameId)
+            return view
+        }
     }
     
     func updateUIView(_ uiView: UIView, context: Context) {
-        
+        (uiView as? MetalView)?.configureTouchLook(gameId: gameId)
     }
     
     @discardableResult

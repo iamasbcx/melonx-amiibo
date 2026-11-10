@@ -81,6 +81,7 @@ struct EditableButtonView: View {
     var isEditing: Bool
     @Binding var selectedButton: String?
     @Binding var selectedJoystick: String?
+    @Binding var selectedTouchLook: Bool
     @GestureState private var dragOffset = CGSize.zero
 
     var body: some View {
@@ -97,6 +98,7 @@ struct EditableButtonView: View {
                     .onTapGesture {
                         selectedButton = selectedButton == button.id ? nil : button.id
                         selectedJoystick = nil
+                        selectedTouchLook = false
                         Haptics.shared.play(.light)
                     }
                     .gesture(
@@ -105,6 +107,7 @@ struct EditableButtonView: View {
                                 state = value.translation
                                 selectedButton = button.id
                                 selectedJoystick = nil
+                                selectedTouchLook = false
                             }
                             .onEnded { value in
                                 var item = layout.buttons[button.id, default: ButtonLayout()]

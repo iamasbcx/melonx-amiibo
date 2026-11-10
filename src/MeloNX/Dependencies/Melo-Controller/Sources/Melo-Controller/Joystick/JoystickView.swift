@@ -16,6 +16,7 @@ struct EditableJoystickView: View {
     var isEditing: Bool
     @Binding var selectedJoystick: String?
     @Binding var selectedButton: String?
+    @Binding var selectedTouchLook: Bool
     @GestureState private var dragOffset = CGSize.zero
     @AppStorage("On-ScreenControllerScale") var controllerScale: Double = 1.0
 
@@ -58,6 +59,7 @@ struct EditableJoystickView: View {
                 .onTapGesture {
                     selectedJoystick = selectedJoystick == id ? nil : id
                     selectedButton = nil
+                    selectedTouchLook = false
                     Haptics.shared.play(.light)
                 }
                 .gesture(
@@ -66,6 +68,7 @@ struct EditableJoystickView: View {
                             state = value.translation
                             selectedJoystick = id
                             selectedButton = nil
+                            selectedTouchLook = false
                         }
                         .onEnded { value in
                             var item = layout.joysticks[id, default: JoystickLayout()]
@@ -80,6 +83,8 @@ struct EditableJoystickView: View {
                 .frame(width: 160, height: 160)
                 .scaleEffect((layout.joysticks[id]?.scale ?? 1.0) * controllerScale)
                 .offset(layout.joysticks[id]?.offset ?? .zero)
+                .opacity(layout.joysticks[id]?.hidden ?? false ? 0 : 1)
+                .allowsHitTesting(!(layout.joysticks[id]?.hidden ?? false))
         }
     }
 }

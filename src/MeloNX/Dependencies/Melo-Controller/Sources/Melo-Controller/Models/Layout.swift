@@ -23,9 +23,38 @@ public struct JoystickLayout: Codable, Equatable {
     var hidden: Bool = false
 }
 
+/// 屏幕滑动视角区域的归一化布局。位置和尺寸相对于游戏画面保存，避免分辨率或旋转变化后偏移。
+public struct TouchLookLayout: Codable, Equatable {
+    public var centerX: CGFloat = 0.75
+    public var centerY: CGFloat = 0.5
+    public var width: CGFloat = 0.5
+    public var height: CGFloat = 1.0
+    public var hidden: Bool = false
+
+    public init() {}
+
+    public var rect: CGRect {
+        CGRect(
+            x: centerX - width / 2,
+            y: centerY - height / 2,
+            width: width,
+            height: height
+        )
+    }
+
+    /// 限制区域在归一化画面内，避免编辑器拖动后生成不可用区域。
+    public mutating func clamp() {
+        width = min(1, max(0.1, width.isFinite ? width : 0.5))
+        height = min(1, max(0.1, height.isFinite ? height : 1.0))
+        centerX = min(1 - width / 2, max(width / 2, centerX.isFinite ? centerX : 0.75))
+        centerY = min(1 - height / 2, max(height / 2, centerY.isFinite ? centerY : 0.5))
+    }
+}
+
 public struct LayoutConfig: Codable, Equatable {
     var buttons: [String: ButtonLayout] = [:]
     var joysticks: [String: JoystickLayout] = [:]
+    public var touchLook: TouchLookLayout = TouchLookLayout()
 
     /// 编辑器网格开关。该字段随布局保存，便于每个游戏单独使用不同的对齐习惯。
     var gridEnabled: Bool = false
@@ -35,7 +64,7 @@ public struct LayoutConfig: Codable, Equatable {
     public init() {}
 
     private enum CodingKeys: String, CodingKey {
-        case buttons, joysticks, gridEnabled, gridSpacing
+        case buttons, joysticks, touchLook, gridEnabled, gridSpacing
     }
 
     /// 兼容已有布局文件：网格字段缺失时使用关闭及 16 点间距的默认值。
@@ -43,6 +72,8 @@ public struct LayoutConfig: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         buttons = try container.decodeIfPresent([String: ButtonLayout].self, forKey: .buttons) ?? [:]
         joysticks = try container.decodeIfPresent([String: JoystickLayout].self, forKey: .joysticks) ?? [:]
+        touchLook = try container.decodeIfPresent(TouchLookLayout.self, forKey: .touchLook) ?? TouchLookLayout()
+        touchLook.clamp()
         gridEnabled = try container.decodeIfPresent(Bool.self, forKey: .gridEnabled) ?? false
         let spacing = try container.decodeIfPresent(CGFloat.self, forKey: .gridSpacing) ?? 16
         gridSpacing = min(64, max(8, spacing))
@@ -70,6 +101,13 @@ public struct LayoutConfig: Codable, Equatable {
             guard var item = joysticks[id] else { continue }
             item.offset = snapped(item.offset)
             joysticks[id] = item
+        }
+        if gridEnabled {
+            let stepX = gridSpacing / 320
+            let stepY = gridSpacing / 180
+            touchLook.centerX = (touchLook.centerX / stepX).rounded() * stepX
+            touchLook.centerY = (touchLook.centerY / stepY).rounded() * stepY
+            touchLook.clamp()
         }
     }
 }
