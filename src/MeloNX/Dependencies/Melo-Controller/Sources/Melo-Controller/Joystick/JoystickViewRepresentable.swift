@@ -12,11 +12,14 @@ struct JoystickViewRepresentable: UIViewRepresentable {
     var right: Bool
     @Binding var showBackground: Bool
     var controller: any Controller
+    var visualOpacity: Double = 1.0
 
-    init(controller: any Controller, right: Bool, showBackground: Binding<Bool>) {
+    /// 创建摇杆输入视图。透明度只应用于摇杆的视觉子视图，不能作用于承载触摸的 UIView。
+    init(controller: any Controller, right: Bool, showBackground: Binding<Bool>, visualOpacity: Double = 1.0) {
         self.right = right
         self._showBackground = showBackground
         self.controller = controller
+        self.visualOpacity = visualOpacity
     }
 
     func makeUIView(context: Context) -> JoystickView {
@@ -34,6 +37,7 @@ struct JoystickViewRepresentable: UIViewRepresentable {
         let right = right
         let showBackground = _showBackground
         view.right = right
+        view.visualOpacity = CGFloat(visualOpacity.isFinite ? min(1, max(0.05, visualOpacity)) : 1)
 
         view.onPositionChanged = { newPosition in
             controller.joystickMoved(position: newPosition, right: right)

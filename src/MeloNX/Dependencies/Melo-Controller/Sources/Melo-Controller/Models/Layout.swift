@@ -7,6 +7,11 @@
 
 import Foundation
 
+public enum LayoutOrientation: String, Codable, Hashable {
+    case portrait
+    case landscape
+}
+
 public struct ButtonLayout: Codable, Equatable {
     var offset: CGSize = .zero
     var scale: CGFloat = 1.0
@@ -91,7 +96,8 @@ public struct LayoutConfig: Codable, Equatable {
     }
 
     /// 对布局中已有控件执行一次网格吸附，用于打开网格后统一整理旧布局。
-    mutating func snapAllOffsets() {
+    /// 视角区域使用编辑器实际画布尺寸换算网格，不依赖固定分辨率常数。
+    mutating func snapAllOffsets(in canvasSize: CGSize = .zero) {
         for id in buttons.keys {
             guard var item = buttons[id] else { continue }
             item.offset = snapped(item.offset)
@@ -102,9 +108,9 @@ public struct LayoutConfig: Codable, Equatable {
             item.offset = snapped(item.offset)
             joysticks[id] = item
         }
-        if gridEnabled {
-            let stepX = gridSpacing / 320
-            let stepY = gridSpacing / 180
+        if gridEnabled, canvasSize.width > 0, canvasSize.height > 0 {
+            let stepX = gridSpacing / canvasSize.width
+            let stepY = gridSpacing / canvasSize.height
             touchLook.centerX = (touchLook.centerX / stepX).rounded() * stepX
             touchLook.centerY = (touchLook.centerY / stepY).rounded() * stepY
             touchLook.clamp()

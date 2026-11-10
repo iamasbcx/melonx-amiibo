@@ -15,6 +15,7 @@ extension UTType {
 struct LayoutOptionsView: View {
     let gameId: String?
     var gameName: String? = nil
+    let orientation: LayoutOrientation
     @Binding var layout: LayoutConfig
     @Environment(\.presentationMode) var presentationMode
 
@@ -41,7 +42,7 @@ struct LayoutOptionsView: View {
                             Text(gameName ?? gameId)
                                 .font(.subheadline)
                             Spacer()
-                            if LayoutManager.shared.hasCustomLayout(for: gameId) {
+                            if LayoutManager.shared.hasCustomLayout(for: gameId, orientation: orientation) {
                                 HStack {
                                     Image(systemName: "checkmark.circle.fill")
                                         .foregroundColor(.green)
@@ -115,7 +116,7 @@ struct LayoutOptionsView: View {
                     }
 
                     Button(action: {
-                        layout = LayoutManager.shared.load(for: nil)
+                        layout = LayoutManager.shared.load(for: nil, orientation: orientation)
                     }) {
                         HStack {
                             Image(systemName: "arrow.clockwise")
@@ -155,8 +156,8 @@ struct LayoutOptionsView: View {
         .alert("删除自定义布局", isPresented: $showingResetAlert) {
             Button("取消", role: .cancel) {}
             Button("删除", role: .destructive) {
-                LayoutManager.shared.reset(for: gameId)
-                layout = LayoutManager.shared.load(for: gameId)
+                LayoutManager.shared.reset(for: gameId, orientation: orientation)
+                layout = LayoutManager.shared.load(for: gameId, orientation: orientation)
             }
         } message: {
             Text("这将删除当前游戏的自定义布局并恢复默认布局。")
@@ -167,7 +168,7 @@ struct LayoutOptionsView: View {
             Text(alertMessage)
         }
         .sheet(isPresented: $showingCopySheet) {
-            CopyLayoutView(targetGameId: gameId, layout: $layout)
+            CopyLayoutView(targetGameId: gameId, orientation: orientation, layout: $layout)
         }
     }
 
@@ -177,7 +178,7 @@ struct LayoutOptionsView: View {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
             let data = try encoder.encode(layout)
 
-            let fileName = LayoutManager.shared.exportFileName(for: gameId)
+            let fileName = LayoutManager.shared.exportFileName(for: gameId, orientation: orientation)
             let tmpURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileName)
             try data.write(to: tmpURL, options: .atomic)
             exportItem = LayoutExportItem(url: tmpURL)
@@ -205,7 +206,7 @@ struct LayoutOptionsView: View {
 
             do {
                 let data = try Data(contentsOf: url)
-                let imported = try LayoutManager.shared.importLayout(from: data, for: gameId)
+                let imported = try LayoutManager.shared.importLayout(from: data, for: gameId, orientation: orientation)
                 layout = imported
                 alertTitle = "导入成功"
                 alertMessage = "布局已应用\(gameId.map { "到 \($0)" } ?? "")。"

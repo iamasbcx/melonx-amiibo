@@ -42,8 +42,9 @@ public final class LayoutManager {
         return docDir.appendingPathComponent("controller_layouts")
     }
 
-    private func fileURL(for gameId: String?) -> URL {
-        let fileName = gameId?.isEmpty == false ? "\(gameId!).json" : "default.json"
+    private func fileURL(for gameId: String?, orientation: LayoutOrientation) -> URL {
+        let baseName = gameId?.isEmpty == false ? gameId! : "default"
+        let fileName = "\(baseName)-\(orientation.rawValue).json"
         return baseURL.appendingPathComponent(fileName)
     }
 
@@ -51,17 +52,24 @@ public final class LayoutManager {
         try? FileManager.default.createDirectory(at: baseURL, withIntermediateDirectories: true)
     }
 
-    func save(_ layout: LayoutConfig, for gameId: String? = nil) {
+    @discardableResult
+    func save(_ layout: LayoutConfig, for gameId: String?, orientation: LayoutOrientation) -> Bool {
         ensureDirectoryExists()
-        try? JSONEncoder().encode(layout).write(to: fileURL(for: gameId))
+        do {
+            let data = try JSONEncoder().encode(layout)
+            try data.write(to: fileURL(for: gameId, orientation: orientation), options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 
-    func load(for gameId: String? = nil) -> LayoutConfig {
-        let url = fileURL(for: gameId)
+    func load(for gameId: String?, orientation: LayoutOrientation) -> LayoutConfig {
+        let url = fileURL(for: gameId, orientation: orientation)
         guard let data = try? Data(contentsOf: url),
               let config = try? JSONDecoder().decode(LayoutConfig.self, from: data) else {
             if gameId != nil {
-                return load(for: nil)
+                return load(for: nil, orientation: orientation)
             }
             return LayoutConfig()
         }
@@ -69,40 +77,26 @@ public final class LayoutManager {
     }
 
     /// 返回游戏对应的滑动视角区域；单游戏没有独立布局时自动回退全局布局。
-    public static func touchLookRect(for gameId: String? = nil) -> CGRect {
-        touchLookLayout(for: gameId).rect
-    }
-
-    /// 返回游戏对应的滑动视角布局，供宿主输入层读取隐藏状态和归一化尺寸。
-    public static func touchLookLayout(for gameId: String? = nil) -> TouchLookLayout {
-        var layout = shared.load(for: gameId).touchLook
+    public static func touchLookLayout(for gameId: String?, orientation: LayoutOrientation) -> TouchLookLayout {
+        var layout = shared.load(for: gameId, orientation: orientation).touchLook
         layout.clamp()
         return layout
     }
 
-    func loadLegacy(for gameId: String? = nil) -> [String: ButtonLayout] {
-        let url = fileURL(for: gameId)
-        guard let data = try? Data(contentsOf: url),
-              let legacyConfig = try? JSONDecoder().decode([String: ButtonLayout].self, from: data) else {
-            return [:]
-        }
-        return legacyConfig
-    }
-
-    func reset(for gameId: String? = nil) {
-        try? FileManager.default.removeItem(at: fileURL(for: gameId))
+    func reset(for gameId: String?, orientation: LayoutOrientation) {
+        try? FileManager.default.removeItem(at: fileURL(for: gameId, orientation: orientation))
     }
 
     func resetAll() {
         try? FileManager.default.removeItem(at: baseURL)
     }
 
-    func hasCustomLayout(for gameId: String) -> Bool {
-        FileManager.default.fileExists(atPath: fileURL(for: gameId).path)
+    func hasCustomLayout(for gameId: String, orientation: LayoutOrientation) -> Bool {
+        FileManager.default.fileExists(atPath: fileURL(for: gameId, orientation: orientation).path)
     }
 
-    func copyLayout(from sourceGameId: String?, to targetGameId: String?) {
-        save(load(for: sourceGameId), for: targetGameId)
+    func copyLayout(from sourceGameId: String?, to targetGameId: String?, orientation: LayoutOrientation) {
+        save(load(for: sourceGameId, orientation: orientation), for: targetGameId, orientation: orientation)
     }
 
     func getAllGameLayouts() -> [String] {
@@ -114,12 +108,17 @@ public final class LayoutManager {
         return files.compactMap { url in
             let filename = url.lastPathComponent
             guard filename.hasSuffix(".json"), filename != "default.json" else { return nil }
-            return String(filename.dropLast(5))
+            let base = String(filename.dropLast(5))
+            guard !base.hasPrefix("default-"), base.hasSuffix("-portrait") || base.hasSuffix("-landscape") else { return nil }
+            return base.replacingOccurrences(of: "-portrait", with: "")
+                .replacingOccurrences(of: "-landscape", with: "")
         }
+        .reduce(into: Set<String>()) { $0.insert($1) }
+        .sorted()
     }
 
-    func exportLayout(for gameId: String? = nil) throws -> Data {
-        let layout = load(for: gameId)
+    func exportLayout(for gameId: String? = nil, orientation: LayoutOrientation) throws -> Data {
+        let layout = load(for: gameId, orientation: orientation)
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         guard let data = try? encoder.encode(layout) else {
@@ -129,15 +128,19 @@ public final class LayoutManager {
     }
 
     func exportFileName(for gameId: String? = nil) -> String {
+        exportFileName(for: gameId, orientation: .landscape)
+    }
+
+    func exportFileName(for gameId: String? = nil, orientation: LayoutOrientation) -> String {
         let base = gameId?.isEmpty == false ? gameId! : "default"
-        return "\(base).\(LayoutExporter.fileType)"
+        return "\(base)-\(orientation.rawValue).\(LayoutExporter.fileType)"
     }
 
     @discardableResult
-    func importLayout(from data: Data, for gameId: String? = nil) throws -> LayoutConfig {
+    func importLayout(from data: Data, for gameId: String? = nil, orientation: LayoutOrientation) throws -> LayoutConfig {
         do {
             let layout = try JSONDecoder().decode(LayoutConfig.self, from: data)
-            save(layout, for: gameId)
+            save(layout, for: gameId, orientation: orientation)
             return layout
         } catch {
             throw LayoutTransferError.decodingFailed(underlying: error)

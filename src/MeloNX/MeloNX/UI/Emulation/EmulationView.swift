@@ -33,6 +33,23 @@ struct EmulationView: View {
         guard raw.isFinite else { return 1.0 }
         return min(1.0, max(0.05, raw))
     }
+
+    private var touchLookEnabled: Bool {
+        nativeSettingsManager.setting(forKey: "TouchLookEnabled", default: false).value
+    }
+
+    private var touchLookSensitivity: CGFloat {
+        let value = CGFloat(nativeSettingsManager.setting(forKey: "TouchLookSensitivity", default: 0.012).value)
+        return value.isFinite ? min(0.05, max(0.001, value)) : 0.012
+    }
+
+    private var touchLookInvertX: Bool {
+        nativeSettingsManager.setting(forKey: "TouchLookInvertX", default: false).value
+    }
+
+    private var touchLookInvertY: Bool {
+        nativeSettingsManager.setting(forKey: "TouchLookInvertY", default: false).value
+    }
     
     @ViewBuilder
     func emulationView(_ airplay: Bool = false) -> some View {
@@ -40,8 +57,17 @@ struct EmulationView: View {
             MetalViewContainer(showView: !isConnected, airplay: airplay, gameId: game.titleId, ryujinxController: ryujinxController, statisticsHandler: statisticsHandler, nativeSettingsManager: nativeSettingsManager)
                 .overlay {
                     if controllerManager.hasVirtualController() && !airplay {
-                        ControllerView(controller: VirtualControllerManager.shared, isEditing: false, gameId: game.titleId, gameName: game.titleName)
-                            .opacity(controllerOpacity)
+                        ControllerView(
+                            controller: VirtualControllerManager.shared,
+                            isEditing: false,
+                            gameId: game.titleId,
+                            gameName: game.titleName,
+                            touchLookEnabled: touchLookEnabled,
+                            touchLookSensitivity: touchLookSensitivity,
+                            touchLookInvertX: touchLookInvertX,
+                            touchLookInvertY: touchLookInvertY,
+                            visualOpacity: controllerOpacity
+                        )
                             .ignoresSafeArea(.all, edges: .vertical)
                     }
                 }

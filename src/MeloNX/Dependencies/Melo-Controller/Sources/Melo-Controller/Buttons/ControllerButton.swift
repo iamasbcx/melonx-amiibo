@@ -24,6 +24,23 @@ final class ControllerTouchRouter {
 
     private var tracked: Set<ObjectIdentifier> = []
 
+    /// 判断坐标是否落在现有实体虚拟控件上，供滑动视角层让出按钮和摇杆的命中优先级。
+    func hasControl(at point: CGPoint, in window: UIWindow?) -> Bool {
+        for box in targets.values {
+            guard let candidate = box.view,
+                  let candidateWindow = candidate.window,
+                  window == nil || candidateWindow === window,
+                  !candidate.isHidden,
+                  candidate.isUserInteractionEnabled,
+                  candidate.alpha > 0.01 else { continue }
+            let localPoint = candidate.convert(point, from: window)
+            if candidate.point(inside: localPoint, with: nil) {
+                return true
+            }
+        }
+        return false
+    }
+
     // MARK: Registration
 
     func register(_ view: ControllerTouchView) {

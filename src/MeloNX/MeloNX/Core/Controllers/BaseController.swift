@@ -32,6 +32,9 @@ class BaseController: Equatable, Identifiable {
     
     // Motion
     var orientation: UIDeviceOrientation = UIDevice.current.orientation == .unknown ? .landscapeLeft : UIDevice.current.orientation
+    /// 最近一次有效的界面方向。传感器回调不能依赖 UIDeviceOrientation 的瞬时 faceUp/unknown 状态。
+    var motionInterfaceOrientation: UIInterfaceOrientation = .unknown
+    let motionOrientationLock = NSLock()
     let motionOperation = OperationQueue()
     var lastAccel = SIMD3<Float>(repeating: 0)
     var lastGyro = SIMD3<Float>(repeating: 0)

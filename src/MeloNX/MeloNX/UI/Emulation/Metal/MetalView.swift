@@ -32,6 +32,10 @@ class MetalView: MTKView {
 
     private var aspectRatio: AspectRatio = .fixed16x9
 
+    private var layoutOrientation: LayoutOrientation {
+        bounds.height > bounds.width ? .portrait : .landscape
+    }
+
     /// 切换游戏布局时清理旧触点，并立即应用对应的全局/单游戏视角区域。
     func configureTouchLook(gameId: String?) {
         guard touchLookGameId != gameId else {
@@ -60,7 +64,7 @@ class MetalView: MTKView {
         touchLookDeadZone = deadZone.isFinite ? min(20, max(0, deadZone)) : 0.5
         touchLookInvertX = settings.setting(forKey: "TouchLookInvertX", default: false).value
         touchLookInvertY = settings.setting(forKey: "TouchLookInvertY", default: false).value
-        let touchLookLayout = LayoutManager.touchLookLayout(for: touchLookGameId)
+        let touchLookLayout = LayoutManager.touchLookLayout(for: touchLookGameId, orientation: layoutOrientation)
         touchLookActivationRect = touchLookLayout.rect
         touchLookEnabled = touchLookEnabled && !touchLookLayout.hidden
     }
@@ -81,6 +85,7 @@ class MetalView: MTKView {
     override func layoutSubviews() {
         super.layoutSubviews()
         updateUnboundedPresentTargetFps()
+        syncTouchLookSettings()
     }
     
     private func transformToTargetCoordinates(_ point: CGPoint) -> CGPoint {
@@ -116,28 +121,9 @@ class MetalView: MTKView {
         let rect = touchLookActivationRect
         let normalized = rect.minX >= 0 && rect.minY >= 0 && rect.maxX <= 1 && rect.maxY <= 1
         if normalized {
-            // 布局编辑器以整个游戏页面为坐标系；MetalView 可能因宽高比留黑边，
-            // 因此先换算到窗口坐标，再映射回 MetalView，保证编辑框与实际触摸区域一致。
-            if let window = window {
-                let viewFrame = convert(bounds, to: window)
-                let pageRect = CGRect(
-                    x: window.bounds.minX + rect.minX * window.bounds.width,
-                    y: window.bounds.minY + rect.minY * window.bounds.height,
-                    width: rect.width * window.bounds.width,
-                    height: rect.height * window.bounds.height
-                )
-                let localRect = pageRect.intersection(viewFrame)
-                guard !localRect.isNull, !localRect.isEmpty else { return .zero }
-                return CGRect(
-                    x: localRect.minX - viewFrame.minX,
-                    y: localRect.minY - viewFrame.minY,
-                    width: localRect.width,
-                    height: localRect.height
-                )
-            }
             return CGRect(
-                x: bounds.minX + rect.minX * bounds.width,
-                y: bounds.minY + rect.minY * bounds.height,
+                x: rect.minX * bounds.width,
+                y: rect.minY * bounds.height,
                 width: rect.width * bounds.width,
                 height: rect.height * bounds.height
             )

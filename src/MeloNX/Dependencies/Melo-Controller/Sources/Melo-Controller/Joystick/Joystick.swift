@@ -13,9 +13,16 @@ import SwiftUI
 final class JoystickView: UIView {
     var right: Bool = true
     var background: Bool = false {
-        didSet { if activeTouch == nil { backgroundView.alpha = background ? 1 : 0 } }
+        didSet {
+            if activeTouch == nil {
+                backgroundView.alpha = background ? clampedVisualOpacity : 0
+            }
+        }
     }
     var sensitivity: CGFloat = 1.2
+    var visualOpacity: CGFloat = 1 {
+        didSet { updateVisualOpacity() }
+    }
 
     var deadZone: CGFloat = 0.08
 
@@ -69,6 +76,7 @@ final class JoystickView: UIView {
 
         joystickBackgroundView.backgroundColor = UIColor.gray.withAlphaComponent(0.3)
         joystickView.backgroundColor = UIColor.white.withAlphaComponent(0.5)
+        updateVisualOpacity()
 
         joystickView.layer.shadowColor = UIColor.black.cgColor
         joystickView.layer.shadowOpacity = 0.18
@@ -258,8 +266,19 @@ final class JoystickView: UIView {
     private func animateBackground(show: Bool) {
         if !background {
             UIView.animate(withDuration: 0.15) {
-                self.backgroundView.alpha = show ? 1 : 0
+                self.backgroundView.alpha = show ? self.visualOpacity : 0
             }
         }
+    }
+
+    private func updateVisualOpacity() {
+        let value = clampedVisualOpacity
+        backgroundView.alpha = background ? value : 0
+        joystickBackgroundView.alpha = value
+        joystickView.alpha = value
+    }
+
+    private var clampedVisualOpacity: CGFloat {
+        max(0.05, min(1, visualOpacity.isFinite ? visualOpacity : 1))
     }
 }

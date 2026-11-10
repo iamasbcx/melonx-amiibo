@@ -46,6 +46,11 @@ public struct ControllerView: View {
     var gameId: String?
     var gameName: String?
     var controller: any Controller
+    private let touchLookEnabled: Bool
+    private let touchLookSensitivity: CGFloat
+    private let touchLookInvertX: Bool
+    private let touchLookInvertY: Bool
+    private let visualOpacity: Double
     @StateObject var controllerHandler = ControllerHandler()
     @AppStorage("On-ScreenControllerScale") private var controllerScale: Double = 1.0
     @AppStorage("stickButton") private var stickButton = false
@@ -58,6 +63,11 @@ public struct ControllerView: View {
     @State private var showEditControls = true
     @State var isEditing: Bool = false
     private var isEditingInput: Bool
+    @State private var loadedLayoutOrientation: LayoutOrientation?
+
+    private var layoutOrientation: LayoutOrientation {
+        controllerHandler.isPortrait ? .portrait : .landscape
+    }
 
     /// An optional closure that replaces the built-in portrait/landscape layouts.
     ///
@@ -88,6 +98,11 @@ public struct ControllerView: View {
         isEditing: Bool,
         gameId: String? = nil,
         gameName: String? = nil,
+        touchLookEnabled: Bool = false,
+        touchLookSensitivity: CGFloat = 0.012,
+        touchLookInvertX: Bool = false,
+        touchLookInvertY: Bool = false,
+        visualOpacity: Double = 1.0,
         @ViewBuilder customControllerLayout: @escaping (@escaping SubView, @escaping JoystickSubView, Bool) -> V
     ) {
         self.isEditingInput = isEditing
@@ -95,6 +110,11 @@ public struct ControllerView: View {
         self.gameId = gameId
         self.gameName = gameName
         self.controller = controller
+        self.touchLookEnabled = touchLookEnabled
+        self.touchLookSensitivity = touchLookSensitivity
+        self.touchLookInvertX = touchLookInvertX
+        self.touchLookInvertY = touchLookInvertY
+        self.visualOpacity = min(1, max(0.05, visualOpacity.isFinite ? visualOpacity : 1))
         self._customControllerLayout = State(initialValue: { s1, s2, s3 in AnyView(customControllerLayout(s1, s2, s3)) })
     }
 
@@ -102,13 +122,23 @@ public struct ControllerView: View {
         controller: any Controller,
         isEditing: Bool,
         gameId: String? = nil,
-        gameName: String? = nil
+        gameName: String? = nil,
+        touchLookEnabled: Bool = false,
+        touchLookSensitivity: CGFloat = 0.012,
+        touchLookInvertX: Bool = false,
+        touchLookInvertY: Bool = false,
+        visualOpacity: Double = 1.0
     ) {
         self.isEditingInput = isEditing
         self._isEditing = State(initialValue: isEditing)
         self.gameId = gameId
         self.gameName = gameName
         self.controller = controller
+        self.touchLookEnabled = touchLookEnabled
+        self.touchLookSensitivity = touchLookSensitivity
+        self.touchLookInvertX = touchLookInvertX
+        self.touchLookInvertY = touchLookInvertY
+        self.visualOpacity = min(1, max(0.05, visualOpacity.isFinite ? visualOpacity : 1))
     }
 
 
@@ -132,8 +162,22 @@ public struct ControllerView: View {
                     selectedJoystick = nil
                 }
             )
-            // 编辑区域始终低于实体按键和摇杆，避免大范围视角区域挡住控件选择。
-            .zIndex(-0.5)
+            // 未选中时让实体控件优先；选中后提升区域，便于拖动覆盖到控件附近。
+            .zIndex(selectedTouchLook ? 0.6 : -0.5)
+
+            if !isEditing && touchLookEnabled {
+                TouchLookInputView(
+                    controller: controller,
+                    layout: layout.touchLook,
+                    enabled: true,
+                    sensitivity: touchLookSensitivity,
+                    invertX: touchLookInvertX,
+                    invertY: touchLookInvertY
+                )
+                .allowsHitTesting(true)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .zIndex(0.2)
+            }
 
             Group {
                 let isPad = UIDevice.current.userInterfaceIdiom == .pad
@@ -149,9 +193,20 @@ public struct ControllerView: View {
             }
             .padding()
             .onChange(of: verticalSizeClass) { _ in controllerHandler.updateOrientation() }
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+                controllerHandler.updateOrientation()
+            }
             .onChange(of: isEditingInput) { isEditing = $0 }
+            .onChange(of: controllerHandler.isPortrait) { _ in
+                if let loadedLayoutOrientation {
+                    LayoutManager.shared.save(layout, for: gameId, orientation: loadedLayoutOrientation)
+                }
+                loadedLayoutOrientation = layoutOrientation
+                loadLayout()
+            }
             .onAppear {
                 controllerHandler.updateOrientation()
+                loadedLayoutOrientation = layoutOrientation
                 loadLayout()
             }
 
@@ -167,6 +222,7 @@ public struct ControllerView: View {
                         selectedButton: $selectedButton,
                         selectedJoystick: $selectedJoystick,
                         selectedTouchLook: $selectedTouchLook,
+                        orientation: layoutOrientation,
                         gameId: gameId,
                         gameName: gameName
                     )
@@ -200,13 +256,8 @@ public struct ControllerView: View {
     }
 
     private func loadLayout() {
-        layout = LayoutManager.shared.load(for: gameId)
+        layout = LayoutManager.shared.load(for: gameId, orientation: layoutOrientation)
 
-        let legacyLayout = LayoutManager.shared.loadLegacy(for: gameId)
-        if !legacyLayout.isEmpty && layout.buttons.isEmpty {
-            layout.buttons = legacyLayout
-            LayoutManager.shared.save(layout, for: gameId)
-        }
     }
 
     private var portraitLayout: some View {
@@ -395,6 +446,7 @@ public struct ControllerView: View {
                 controller: controller,
                 layout: $layout,
                 gameId: gameId,
+                visualOpacity: isEditing ? 1 : visualOpacity,
                 isEditing: isEditing,
                 selectedButton: $selectedButton,
                 selectedJoystick: $selectedJoystick,
@@ -415,6 +467,7 @@ public struct ControllerView: View {
                 controller: controller,
                 showBackground: showBackground,
                 layout: $layout,
+                visualOpacity: isEditing ? 1 : visualOpacity,
                 isEditing: isEditing,
                 selectedJoystick: $selectedJoystick,
                 selectedButton: $selectedButton,

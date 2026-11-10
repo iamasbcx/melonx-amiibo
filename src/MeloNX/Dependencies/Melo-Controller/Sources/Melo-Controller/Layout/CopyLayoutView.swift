@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CopyLayoutView: View {
     let targetGameId: String?
+    let orientation: LayoutOrientation
     @Binding var layout: LayoutConfig
     @Environment(\.presentationMode) var presentationMode
     @State private var availableLayouts: [String] = []
@@ -66,9 +67,9 @@ struct CopyLayoutView: View {
     }
 
     private func copyLayout(from sourceGameId: String?) {
-        let sourceLayout = LayoutManager.shared.load(for: sourceGameId)
+        let sourceLayout = LayoutManager.shared.load(for: sourceGameId, orientation: orientation)
         layout = sourceLayout
-        LayoutManager.shared.save(layout, for: targetGameId)
+        LayoutManager.shared.save(layout, for: targetGameId, orientation: orientation)
         presentationMode.wrappedValue.dismiss()
     }
 }
@@ -78,6 +79,7 @@ struct EditableButtonView: View {
     var controller: any Controller
     @Binding var layout: LayoutConfig
     var gameId: String?
+    var visualOpacity: Double = 1.0
     var isEditing: Bool
     @Binding var selectedButton: String?
     @Binding var selectedJoystick: String?
@@ -119,12 +121,12 @@ struct EditableButtonView: View {
                     )
             } else {
                 if layout.buttons[button.id, default: ButtonLayout()].hidden {
-                    ButtonView(controller: controller, button: button, layout: $layout, gameId: gameId)
+                    ButtonView(controller: controller, button: button, opacity: visualOpacity, layout: $layout, gameId: gameId)
                         .scaleEffect(layout.buttons[button.id]?.scale ?? 1.0)
                         .offset(layout.buttons[button.id]?.offset ?? .zero)
                         .opacity(0)
                 } else {
-                    ButtonView(controller: controller, button: button, layout: $layout, gameId: gameId)
+                    ButtonView(controller: controller, button: button, opacity: visualOpacity, layout: $layout, gameId: gameId)
                         .scaleEffect(layout.buttons[button.id]?.scale ?? 1.0)
                         .offset(layout.buttons[button.id]?.offset ?? .zero)
                 }

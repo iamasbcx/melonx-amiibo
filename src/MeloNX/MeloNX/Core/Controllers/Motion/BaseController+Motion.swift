@@ -47,9 +47,7 @@ extension BaseController {
             guard self.motionManager.isDeviceMotionAvailable else { return }
             
             self.motionManager.deviceMotionUpdateInterval = 1.0 / 60.0 // 60Hz
-            // 只在启动采样时读取一次界面方向。不能在每个传感器回调中读取
-            // UIDeviceOrientation，否则设备短暂处于 faceUp/portrait 时会切换坐标矩阵。
-            let interfaceOrientation = self.captureMotionInterfaceOrientation()
+            _ = self.currentMotionInterfaceOrientation()
             self.motionManager.startDeviceMotionUpdates(to: self.motionOperation) { [weak self] (data, error) in
                 guard let self = self, let m = data else { return }
                 guard self.shouldSubmitMotion() else { return }
@@ -66,13 +64,14 @@ extension BaseController {
                     -Float(m.rotationRate.z)
                 ) * (180.0 / .pi)
                 
+                let interfaceOrientation = self.currentMotionInterfaceOrientation()
                 let (mappedAccel, mappedGyro) = self.remapToSwitchCoords(
                     accel: rawAccel,
                     gyro: rawGyro,
                     interfaceOrientation: interfaceOrientation
                 )
-                // NpadController 仍会把 GamepadDriver 坐标转换为 Switch 坐标，
-                // 这里传入其逆变换，避免手机路径重复换轴。
+                // NpadController 会继续执行固定的 GamepadDriver→Switch 换轴，
+                // 这里先还原为 driver 坐标，避免同一方向矩阵被重复应用。
                 let driverAccel = SIMD3<Float>(mappedAccel.x, mappedAccel.z, -mappedAccel.y)
                 let driverGyro = SIMD3<Float>(mappedGyro.x, mappedGyro.z, -mappedGyro.y)
                 self.submitMotion(accelerometer: driverAccel, gyroscope: driverGyro)
@@ -143,26 +142,35 @@ extension BaseController {
         return (finalAccel, finalGyro)
     }
     
-    /// 在采样开始时获取稳定的界面方向。这里显式把设备方向转换为界面方向，
-    /// 后续采样不再根据设备物理姿态切换矩阵，避免游戏锁定横屏时坐标轴跳变。
-    private func captureMotionInterfaceOrientation() -> UIInterfaceOrientation {
-        let deviceOrientation = UIDevice.current.orientation.isValidInterfaceOrientation
-            ? UIDevice.current.orientation
-            : orientation
+    /// 获取当前窗口的界面方向。方向变化后下一帧立即使用新矩阵，未知方向沿用上次有效值。
+    private func currentMotionInterfaceOrientation() -> UIInterfaceOrientation {
+        let sceneOrientation: UIInterfaceOrientation?
+        if Thread.isMainThread {
+            sceneOrientation = UIApplication.shared.connectedScenes
+                .compactMap { ($0 as? UIWindowScene)?.interfaceOrientation }
+                .first(where: { self.isUsableInterfaceOrientation($0) })
+        } else {
+            sceneOrientation = DispatchQueue.main.sync {
+                UIApplication.shared.connectedScenes
+                    .compactMap { ($0 as? UIWindowScene)?.interfaceOrientation }
+                    .first(where: { self.isUsableInterfaceOrientation($0) })
+            }
+        }
 
-        switch deviceOrientation {
-        case .portrait:
-            return .portrait
-        case .portraitUpsideDown:
-            return .portraitUpsideDown
-        case .landscapeLeft:
-            // UIDeviceOrientation.landscapeLeft 对应 UIInterfaceOrientation.landscapeRight。
-            return .landscapeRight
-        case .landscapeRight:
-            // UIDeviceOrientation.landscapeRight 对应 UIInterfaceOrientation.landscapeLeft。
-            return .landscapeLeft
+        motionOrientationLock.lock()
+        defer { motionOrientationLock.unlock() }
+        if let sceneOrientation {
+            motionInterfaceOrientation = sceneOrientation
+        }
+        return isUsableInterfaceOrientation(motionInterfaceOrientation) ? motionInterfaceOrientation : .portrait
+    }
+
+    private func isUsableInterfaceOrientation(_ orientation: UIInterfaceOrientation) -> Bool {
+        switch orientation {
+        case .portrait, .portraitUpsideDown, .landscapeLeft, .landscapeRight:
+            return true
         default:
-            return .landscapeRight
+            return false
         }
     }
 }

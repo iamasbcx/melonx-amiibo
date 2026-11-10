@@ -50,11 +50,11 @@ public struct ButtonView: View {
                     .scaledToFit()
                     .frame(width: size.width, height: size.height)
                     .foregroundStyle(.white)
-                    .opacity(isPressed ? 0.6 : 0.8)
+                    .opacity((isPressed ? 0.6 : 0.8) * visualOpacity)
                     .allowsHitTesting(false)
             }
             .frame(width: size.width, height: size.height)
-            .background(buttonBackground)
+            .background(buttonBackground.opacity(visualOpacity))
             .onAppear {
                 size = calculateButtonSize()
             }
@@ -81,7 +81,10 @@ public struct ButtonView: View {
                     .frame(width: size.width * 1.25, height: size.height * 1.25)
                 }
             }
-            .opacity(opacity)
+    }
+
+    private var visualOpacity: Double {
+        opacity.isFinite ? min(1, max(0.05, opacity)) : 1
     }
 
     private var buttonBackground: some View {
