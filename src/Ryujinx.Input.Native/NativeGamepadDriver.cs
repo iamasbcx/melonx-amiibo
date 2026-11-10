@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Ryujinx.Input.Native
@@ -130,6 +131,20 @@ namespace Ryujinx.Input.Native
             if (_instance != null && _instance._gamepads.TryGetValue(idPtr, out var gamepad))
             {
                 if (gamepad.SetMotionDataInternal(motionType, x, y, z))
+                {
+                    NotifyInputUpdated();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 提交手机同一帧的完整运动采样；发布事件前已原子替换全部运动字段。
+        /// </summary>
+        public static void SetMotionSample(nint idPtr, Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity)
+        {
+            if (_instance != null && _instance._gamepads.TryGetValue(idPtr, out var gamepad))
+            {
+                if (gamepad.SetMotionSampleInternal(accelerometer, gyroscope, gravity))
                 {
                     NotifyInputUpdated();
                 }

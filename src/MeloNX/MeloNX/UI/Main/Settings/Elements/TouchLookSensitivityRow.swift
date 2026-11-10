@@ -37,7 +37,7 @@ struct TouchLookSensitivityRow: View {
         case .invalidNumber:
             return "Enter a valid decimal number, such as 2.5."
         case .outOfRange:
-            return "Enter a multiplier from 0.25 to 10."
+            return "Enter a multiplier from 0.25 to 100."
         case nil:
             return nil
         }
@@ -68,7 +68,7 @@ struct TouchLookSensitivityRow: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            Text("Range: 0.25–10x. Tap Apply to save. The game's right-stick speed limit still applies.")
+            Text("Range: 0.25–100x. Tap Apply to save. High values reach the game's right-stick speed limit sooner; 100x does not mean 100 times the turning speed.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

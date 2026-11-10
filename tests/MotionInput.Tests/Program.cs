@@ -10,6 +10,7 @@ const ulong SamplePeriodUs = 16_666;
 
 var failures = new List<string>();
 RunSyntheticRegression(failures);
+RunTranslationRegression(failures);
 
 if (args.Length > 0)
 {
@@ -88,9 +89,8 @@ static void RunJsonRegression(string path, List<string> failures)
         int count = 0;
         foreach (JsonElement traceElement in root.EnumerateArray())
         {
-            string name = traceElement.TryGetProperty("name", out JsonElement nameElement)
-                ? nameElement.GetString() ?? $"trace-{count}"
-                : $"trace-{count}";
+            string name = traceElement.GetProperty("name").GetString() ?? throw new InvalidDataException("缺少轨迹名称");
+            string kind = traceElement.GetProperty("kind").GetString() ?? throw new InvalidDataException("缺少轨迹类型");
             List<Sample> samples = ParseSamples(traceElement.GetProperty("samples"));
             if (samples.Count < 3)
             {
@@ -99,7 +99,18 @@ static void RunJsonRegression(string path, List<string> failures)
 
             TraceResult result = Replay(samples);
             Console.WriteLine($"Swift 轨迹 {name}：samples={samples.Count}，运动末端 pitch={result.MovingEndPitch:F2}°，静止末端 pitch={result.FinalPitch:F2}°，积分={result.IntegratedRotation.X:F2}°");
-            ValidatePitchTrace($"Swift 轨迹 {name}", result, failures);
+            if (kind == "pitch")
+            {
+                ValidatePitchTrace($"Swift 轨迹 {name}", result, failures);
+            }
+            else if (kind == "translation")
+            {
+                ValidateTranslationTrace($"Swift 轨迹 {name}", result, failures);
+            }
+            else
+            {
+                throw new InvalidDataException($"未知轨迹类型：{kind}");
+            }
             count++;
         }
 
@@ -122,7 +133,8 @@ static List<Sample> ParseSamples(JsonElement samplesElement)
         samples.Add(new Sample(
             ReadVector(sample.GetProperty("acceleration")),
             ReadVector(sample.GetProperty("gyroscope")),
-            sample.GetProperty("timestamp").GetUInt64()));
+            sample.GetProperty("timestamp").GetUInt64(),
+            ReadVector(sample.GetProperty("gravity"))));
     }
     return samples;
 }
@@ -171,6 +183,7 @@ static List<Sample> CreateStaticTrace()
 static TraceResult Replay(IReadOnlyList<Sample> samples)
 {
     var input = new MotionInput();
+    var baseline = new MotionInput();
     int lastMovingIndex = -1;
     for (int index = 0; index < samples.Count; index++)
     {
@@ -185,6 +198,9 @@ static TraceResult Replay(IReadOnlyList<Sample> samples)
     float minStablePitch = float.PositiveInfinity;
     ulong lastTimestamp = 0;
     float stableDuration = 0f;
+    float maxOrientationDegrees = 0f;
+    float maxBaselineDeviation = 0f;
+    bool totalAccelerationPreserved = true;
     for (int index = 0; index < samples.Count; index++)
     {
         Sample sample = samples[index];
@@ -196,10 +212,22 @@ static TraceResult Replay(IReadOnlyList<Sample> samples)
         {
             throw new InvalidDataException($"样本 {index} 缺少有效重力方向");
         }
-        input.Update(sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone);
+        if (sample.Gravity is Vector3 gravity && (!VectorFinite(gravity) || gravity.LengthSquared() < 0.01f))
+        {
+            throw new InvalidDataException($"样本 {index} 包含非法独立重力");
+        }
+        input.Update(sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone, sample.Gravity);
+        // 同一姿态和角速度、没有平移加速度的对照。允许竖直/倾斜持握的初始重力对齐过程。
+        baseline.Update(sample.Gravity ?? sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone, sample.Gravity);
         Matrix4x4 orientation = input.GetOrientation();
         float pitch = PitchDegrees(orientation);
         allFinite &= MatrixFinite(orientation) && float.IsFinite(pitch) && VectorFinite(input.Rotation);
+        maxOrientationDegrees = MathF.Max(maxOrientationDegrees, OrientationDifference(orientation, Matrix4x4.Identity));
+        maxBaselineDeviation = MathF.Max(maxBaselineDeviation, OrientationDifference(orientation, baseline.GetOrientation()));
+        if (index > 0)
+        {
+            totalAccelerationPreserved &= input.Accelerometer == -sample.Acceleration;
+        }
         if (index == lastMovingIndex)
         {
             movingEndPitch = pitch;
@@ -218,7 +246,63 @@ static TraceResult Replay(IReadOnlyList<Sample> samples)
         stableDuration,
         input.Rotation,
         input.Gyroscrope == Vector3.Zero,
-        allFinite);
+        allFinite,
+        maxOrientationDegrees,
+        maxBaselineDeviation,
+        totalAccelerationPreserved);
+}
+
+static void RunTranslationRegression(List<string> failures)
+{
+    foreach (float direction in new[] { -1f, 1f })
+    {
+        List<Sample> samples = Enumerable.Range(1, 240).Select(index =>
+        {
+            float acceleration = index is >= 30 and < 90 ? direction * 0.6f : index is >= 90 and < 150 ? -direction * 0.6f : 0f;
+            return new Sample(new Vector3(acceleration, 0f, 1f), Vector3.Zero, (ulong)index * SamplePeriodUs, Vector3.UnitZ);
+        }).ToList();
+        TraceResult corrected = Replay(samples);
+        TraceResult wrong = Replay(samples.Select(sample => sample with { Gravity = null }).ToList());
+        Console.WriteLine($"纯平移 {direction:+0;-0}：原总加速度融合最大假转角={wrong.MaxOrientationDegrees:F2}°，分离重力后相对基线偏差={corrected.MaxBaselineDeviation:F4}°");
+        ValidateTranslationTrace("合成纯平移", corrected, failures);
+        if (wrong.MaxOrientationDegrees < 5f)
+        {
+            failures.Add("原总加速度融合对照未复现平移产生假转向");
+        }
+    }
+
+    List<Sample> tiltAndTranslation = CreatePitchTrace(invertAcceleration: false).Select((sample, index) => sample with
+    {
+        Gravity = sample.Acceleration,
+        Acceleration = sample.Acceleration + new Vector3(index is >= 30 and < 150 ? 0.6f : 0f, 0f, 0f),
+    }).ToList();
+    TraceResult tilted = Replay(tiltAndTranslation);
+    ValidatePitchTrace("真实俯仰叠加平移", tilted, failures);
+    if (tilted.MaxBaselineDeviation > 0.05f || !tilted.TotalAccelerationPreserved)
+    {
+        failures.Add("真实俯仰叠加平移改变了基线姿态，或丢失真实总加速度");
+    }
+    Console.WriteLine($"真实俯仰叠加平移：末端 pitch={tilted.FinalPitch:F2}°，相对基线偏差={tilted.MaxBaselineDeviation:F4}°");
+}
+
+static void ValidateTranslationTrace(string name, TraceResult result, List<string> failures)
+{
+    if (!result.AllFinite || result.MaxBaselineDeviation > 0.05f || result.IntegratedRotation != Vector3.Zero || !result.LastGyroscopeIsZero || !result.TotalAccelerationPreserved)
+    {
+        failures.Add($"{name} 平移污染姿态或运动数据：相对基线偏差={result.MaxBaselineDeviation:F4}°，rotation={result.IntegratedRotation}，总加速度保留={result.TotalAccelerationPreserved}");
+    }
+}
+
+static float OrientationDifference(Matrix4x4 first, Matrix4x4 second)
+{
+    Quaternion left = Quaternion.Normalize(Quaternion.CreateFromRotationMatrix(first));
+    Quaternion right = Quaternion.Normalize(Quaternion.CreateFromRotationMatrix(second));
+    // 相同矩阵直接归零，避免 acos 在 float 单位四元数舍入误差附近放大为假角差。
+    if (first == second)
+    {
+        return 0f;
+    }
+    return 2f * MathF.Acos(Math.Clamp(MathF.Abs(Quaternion.Dot(left, right)), 0f, 1f)) * 180f / MathF.PI;
 }
 
 static void ValidatePitchTrace(string name, TraceResult result, List<string> failures)
@@ -252,6 +336,6 @@ static bool MatrixFinite(Matrix4x4 value) =>
     float.IsFinite(value.M31) && float.IsFinite(value.M32) && float.IsFinite(value.M33) && float.IsFinite(value.M34) &&
     float.IsFinite(value.M41) && float.IsFinite(value.M42) && float.IsFinite(value.M43) && float.IsFinite(value.M44);
 
-readonly record struct Sample(Vector3 Acceleration, Vector3 Gyroscope, ulong Timestamp);
+readonly record struct Sample(Vector3 Acceleration, Vector3 Gyroscope, ulong Timestamp, Vector3? Gravity = null);
 
-readonly record struct TraceResult(float MovingEndPitch, float FinalPitch, float MinStablePitch, float StableDuration, Vector3 IntegratedRotation, bool LastGyroscopeIsZero, bool AllFinite);
+readonly record struct TraceResult(float MovingEndPitch, float FinalPitch, float MinStablePitch, float StableDuration, Vector3 IntegratedRotation, bool LastGyroscopeIsZero, bool AllFinite, float MaxOrientationDegrees, float MaxBaselineDeviation, bool TotalAccelerationPreserved);

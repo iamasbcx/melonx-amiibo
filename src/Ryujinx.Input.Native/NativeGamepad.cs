@@ -8,12 +8,13 @@ using System.Runtime.InteropServices;
 
 namespace Ryujinx.Input.Native
 {
-    public class NativeGamepad : IGamepad, IHighDefinitionRumbleGamepad
+    public class NativeGamepad : IGamepad, IHighDefinitionRumbleGamepad, IMotionSampleGamepad
     {
         private readonly object _stateLock = new object();
         private readonly bool[] _buttonStates;
         private readonly float[] _stickStates; 
         private readonly Vector3[] _motionStates; 
+        private Vector3? _motionGravity;
 
         private static readonly GamepadButtonInputId[] ButtonMapping = new GamepadButtonInputId[17]
         {
@@ -118,11 +119,20 @@ namespace Ryujinx.Input.Native
             {
                 Vector3 value = new Vector3(x, y, z);
 
+                if (motionType != (int)MotionInputId.Accelerometer && motionType != (int)MotionInputId.Gyroscope)
+                {
+                    return false;
+                }
+
+                // 实体手柄逐轴提交不带独立重力；即使数值相同，也必须清除手机采样遗留的重力。
+                bool clearedGravity = _motionGravity.HasValue;
+                _motionGravity = null;
+
                 if (motionType == (int)MotionInputId.Accelerometer)
                 {
                     if (_motionStates[0] == value)
                     {
-                        return false;
+                        return clearedGravity;
                     }
 
                     _motionStates[0] = value;
@@ -132,7 +142,7 @@ namespace Ryujinx.Input.Native
                 {
                     if (_motionStates[1] == value)
                     {
-                        return false;
+                        return clearedGravity;
                     }
 
                     _motionStates[1] = value;
@@ -141,6 +151,33 @@ namespace Ryujinx.Input.Native
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 手机完整采样在同一把锁内替换，消费者不会看到总加速度、角速度和重力分属不同帧。
+        /// </summary>
+        internal bool SetMotionSampleInternal(Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity)
+        {
+            lock (_stateLock)
+            {
+                if (_motionStates[0] == accelerometer && _motionStates[1] == gyroscope && _motionGravity == gravity)
+                {
+                    return false;
+                }
+
+                _motionStates[0] = accelerometer;
+                _motionStates[1] = gyroscope;
+                _motionGravity = gravity;
+                return true;
+            }
+        }
+
+        public GamepadMotionSample GetMotionSample()
+        {
+            lock (_stateLock)
+            {
+                return new GamepadMotionSample(_motionStates[0], _motionStates[1], _motionGravity);
+            }
         }
 
         public GamepadStateSnapshot GetStateSnapshot()
@@ -192,6 +229,7 @@ namespace Ryujinx.Input.Native
                 Array.Clear(_buttonStates, 0, _buttonStates.Length);
                 Array.Clear(_stickStates, 0, _stickStates.Length);
                 Array.Clear(_motionStates, 0, _motionStates.Length);
+                _motionGravity = null;
             }
         }
 

@@ -4284,12 +4284,12 @@
         }
       }
     },
-    "Range: 0.25–10x. Tap Apply to save. The game's right-stick speed limit still applies.": {
+    "Range: 0.25–100x. Tap Apply to save. High values reach the game's right-stick speed limit sooner; 100x does not mean 100 times the turning speed.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "范围：0.25～10 倍，点击“应用”保存。最终转向速度仍受游戏自身的右摇杆上限限制。"
+            "value": "范围：0.25～100 倍，点击“应用”保存。高倍率更容易达到游戏的右摇杆速度上限，100 倍不代表转向速度变成 100 倍。"
           }
         }
       }
@@ -4314,12 +4314,12 @@
         }
       }
     },
-    "Enter a multiplier from 0.25 to 10.": {
+    "Enter a multiplier from 0.25 to 100.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请输入 0.25～10 之间的倍数。"
+            "value": "请输入 0.25～100 之间的倍数。"
           }
         }
       }

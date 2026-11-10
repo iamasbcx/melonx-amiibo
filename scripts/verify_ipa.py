@@ -18,7 +18,10 @@ from zipfile import ZipFile
 
 ARM64 = 0x0100000C
 DYLIB_COMMANDS = {0x0C, 0x80000018, 0x8000001F, 0x20, 0x80000023}
-SYMBOLS = {"_mlx_amiibo_get_abi", "_mlx_amiibo_get_state", "_mlx_amiibo_scan"}
+AMIIBO_SYMBOLS = frozenset({"_mlx_amiibo_get_abi", "_mlx_amiibo_get_state", "_mlx_amiibo_scan"})
+# 手机采样必须整帧传递；只包含旧逐轴接口的核心不能承接独立重力。
+MOTION_SYMBOLS = frozenset({"_set_gamepad_motion_sample"})
+CORE_SYMBOLS = AMIIBO_SYMBOLS | MOTION_SYMBOLS
 # Apple 平台由系统 ICU 与 Foundation 提供全球化和基础运行时能力。
 SYSTEM_ICU_DEPENDENCIES = frozenset({
     "/usr/lib/libicucore.A.dylib",
@@ -248,8 +251,11 @@ def _validate_system_foundation(macho: MachO) -> str:
 def verify_core(data: bytes) -> MachO:
     """校验本次 NativeAOT 核心，并返回解析结果供 IPA 核心复核。"""
     macho = parse_macho(data)
-    if macho.filetype != 6 or macho.signed or not SYMBOLS <= macho.exports:
-        raise ValueError("本次核心应为未签名 iOS dylib，且必须导出 3 个 Amiibo ABI 函数")
+    if macho.filetype != 6 or macho.signed:
+        raise ValueError("本次核心应为未签名 iOS dylib")
+    missing = sorted(CORE_SYMBOLS - macho.exports)
+    if missing:
+        raise ValueError("NativeAOT 核心缺少必需导出：" + ", ".join(missing))
     validate_system_icu(macho)
     _validate_system_foundation(macho)
     return macho
@@ -352,7 +358,8 @@ def verify(path: Path, expected_core: Path) -> dict:
         "architecture": "arm64-ios-device",
         "signed": False,
         "core_sha256": sha256(core),
-        "amiibo_symbols": sorted(SYMBOLS),
+        "amiibo_symbols": sorted(AMIIBO_SYMBOLS),
+        "motion_symbols": sorted(MOTION_SYMBOLS),
         "extension": extension_info["CFBundleIdentifier"],
         "macho_files_checked": len(macho_files),
         "globalization": {

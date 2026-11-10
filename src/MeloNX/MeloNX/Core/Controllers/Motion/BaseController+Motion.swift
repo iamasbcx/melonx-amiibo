@@ -55,10 +55,11 @@ extension BaseController {
                 let interfaceOrientation = self.currentMotionInterfaceOrientation()
                 guard let transformOrientation = self.phoneMotionOrientation(interfaceOrientation) else { return }
                 let sample = PhoneMotionTransform.driverSample(
-                    acceleration: SIMD3<Float>(
-                        Float(m.gravity.x + m.userAcceleration.x),
-                        Float(m.gravity.y + m.userAcceleration.y),
-                        Float(m.gravity.z + m.userAcceleration.z)
+                    gravity: SIMD3<Float>(
+                        Float(m.gravity.x), Float(m.gravity.y), Float(m.gravity.z)
+                    ),
+                    userAcceleration: SIMD3<Float>(
+                        Float(m.userAcceleration.x), Float(m.userAcceleration.y), Float(m.userAcceleration.z)
                     ),
                     rotationRate: SIMD3<Float>(
                         Float(m.rotationRate.x),
@@ -67,7 +68,7 @@ extension BaseController {
                     ),
                     orientation: transformOrientation
                 )
-                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope)
+                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope, gravity: sample.gravity)
             }
         }
     }
@@ -91,7 +92,8 @@ extension BaseController {
         return true
     }
     
-    private func submitMotion(accelerometer: SIMD3<Float>, gyroscope: SIMD3<Float>) {
+    /// 手机携带独立重力，完整采样在核心中原子保存；实体手柄没有该数据时继续提交自身传感器。
+    private func submitMotion(accelerometer: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>? = nil) {
         guard isActive else { return }
         
         let pointer = self.pointer
@@ -99,8 +101,12 @@ extension BaseController {
         motionQueue.async { [weak self] in
             guard self?.isActive == true else { return }
             
-            Ryujinx.setGamepadMotion(pointer, motionType: 1, axis: accelerometer)
-            Ryujinx.setGamepadMotion(pointer, motionType: 2, axis: gyroscope)
+            if let gravity {
+                Ryujinx.setGamepadMotionSample(pointer, acceleration: accelerometer, gyroscope: gyroscope, gravity: gravity)
+            } else {
+                Ryujinx.setGamepadMotion(pointer, motionType: 1, axis: accelerometer)
+                Ryujinx.setGamepadMotion(pointer, motionType: 2, axis: gyroscope)
+            }
         }
     }
     

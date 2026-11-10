@@ -48,6 +48,10 @@ if [[ "${XCODE_VERSION}" != "26.2" ]]; then
 fi
 xcodebuild -version
 xcrun --sdk iphoneos --show-sdk-version
+# 运动桥接头使用标准 C 标量 ABI；先以严格告警检查，再交由 Swift 导入。
+xcrun clang -x c -std=c11 -Wall -Wextra -Werror -fsyntax-only \
+  src/MeloNX/MeloNX/Core/Models/MotionBridge.h \
+  2>&1 | tee "${LOG_DIR}/motion-bridge-header.log"
 xcrun swiftc -parse-as-library \
   src/MeloNX/MeloNX/Core/Amiibo/AmiiboCatalogParser.swift \
   tests/AmiiboCatalogParserTests.swift \
@@ -74,6 +78,8 @@ DOTNET="${DOTNET_ROOT}/dotnet"
 "${DOTNET}" run --project tests/MotionInput.Tests/MotionInput.Tests.csproj \
   -c Release -- "${BUILD_DIR}/controller-motion-traces.json" \
   2>&1 | tee "${LOG_DIR}/controller-motion-tests.log"
+"${DOTNET}" run --project tests/NativeMotion.Tests/NativeMotion.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/native-motion-tests.log"
 "${DOTNET}" run --project tests/AmiiboContract.Tests/AmiiboContract.Tests.csproj \
   -c Release 2>&1 | tee "${LOG_DIR}/amiibo-contract-tests.log"
 "${DOTNET}" run --project tests/HleAmiibo.Tests/HleAmiibo.Tests.csproj \
@@ -125,7 +131,7 @@ touch "${CORE_PUBLISH_STAMP}"
 test -s "${CORE_DYLIB}"
 test "${CORE_DYLIB}" -nt "${CORE_PUBLISH_STAMP}"
 nm -gU "${CORE_DYLIB}" > "${LOG_DIR}/core-symbols.log"
-for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan; do
+for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_motion_sample; do
   if ! awk '{print $NF}' "${LOG_DIR}/core-symbols.log" | grep -qx "_${symbol}"; then
     echo "新核心缺少导出：${symbol}" >&2
     exit 1
@@ -143,11 +149,13 @@ xcrun otool -L "${CORE_NORMALIZED}" | tee "${LOG_DIR}/core-dependencies.log"
 python3 - "${SCRIPT_DIR}" "${CORE_NORMALIZED}" "${ARTIFACT_DIR}/core-verification.json" <<'PY'
 import json, pathlib, sys
 sys.path.insert(0, sys.argv[1])
-from verify_ipa import sha256, validate_system_icu, verify_core
+from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, sha256, validate_system_icu, verify_core
 data = pathlib.Path(sys.argv[2]).read_bytes()
 core = verify_core(data)
 report = {
     "core_sha256": sha256(data),
+    "amiibo_symbols": sorted(AMIIBO_SYMBOLS),
+    "motion_symbols": sorted(MOTION_SYMBOLS),
     "dependencies": list(core.dependencies),
     "globalization": {"mode": "apple-system-icu", "dependency": validate_system_icu(core)},
     "scope": "NativeAOT 核心的平台、导出与依赖结构；未完成真机运行验证",

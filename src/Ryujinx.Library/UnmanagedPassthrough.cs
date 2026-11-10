@@ -184,6 +184,18 @@ namespace Ryujinx.Library
         {
             NativeGamepadDriver.SetMotionData(idPtr, motionType, x, y, z);
         }
+
+        // 手机完整采样 ABI：九个分量依次为总加速度、角速度、独立重力，均为驱动坐标。
+        [UnmanagedCallersOnly(EntryPoint = "set_gamepad_motion_sample")]
+        static void SetMotionSample(IntPtr idPtr,
+            float ax, float ay, float az, float gx, float gy, float gz,
+            float gravityX, float gravityY, float gravityZ)
+        {
+            NativeGamepadDriver.SetMotionSample(idPtr,
+                new System.Numerics.Vector3(ax, ay, az),
+                new System.Numerics.Vector3(gx, gy, gz),
+                new System.Numerics.Vector3(gravityX, gravityY, gravityZ));
+        }
     }
     
 }

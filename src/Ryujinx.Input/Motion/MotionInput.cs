@@ -24,7 +24,11 @@ namespace Ryujinx.Input
             _filter = new MotionSensorFilter(0f);
         }
 
-        public void Update(Vector3 accel, Vector3 gyro, ulong timestamp, int sensitivity, float deadzone)
+        /// <summary>
+        /// 更新运动状态。独立 gravity 只为融合器提供重力方向，避免平移加速度伪装成倾斜；
+        /// Accelerometer 仍保留总加速度，未提供独立重力的设备继续以自身加速度参与融合。
+        /// </summary>
+        public void Update(Vector3 accel, Vector3 gyro, ulong timestamp, int sensitivity, float deadzone, Vector3? gravity = null)
         {
             if (TimeStamp != 0)
             {
@@ -46,7 +50,7 @@ namespace Ryujinx.Input
                 Rotation += deltaGyro;
 
                 _filter.SamplePeriod = deltaTime;
-                _filter.Update(accel, DegreeToRad(gyro));
+                _filter.Update(gravity ?? accel, DegreeToRad(gyro));
             }
 
             TimeStamp = timestamp;

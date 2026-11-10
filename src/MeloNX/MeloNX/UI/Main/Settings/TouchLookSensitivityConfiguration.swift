@@ -11,7 +11,7 @@ import Foundation
 enum TouchLookSensitivityConfiguration {
     static let baseCoefficient: Double = 0.012
     static let defaultMultiplier: Double = 1.0
-    static let range: ClosedRange<Double> = 0.25...10.0
+    static let range: ClosedRange<Double> = 0.25...100.0
 
     enum InputError: Error, Equatable {
         case empty

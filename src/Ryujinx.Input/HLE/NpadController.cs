@@ -299,13 +299,22 @@ namespace Ryujinx.Input.HLE
                     {
                         if ((gamepad.Features & GamepadFeaturesFlag.Motion) != 0)
                         {
-                            Vector3 accelerometer = gamepad.GetMotionData(MotionInputId.Accelerometer);
-                            Vector3 gyroscope = gamepad.GetMotionData(MotionInputId.Gyroscope);
+                            // 手机供应独立重力且按完整样本同步读取；其他设备仍使用自身的运动数据接口。
+                            GamepadMotionSample sample = gamepad is IMotionSampleGamepad sampleGamepad
+                                ? sampleGamepad.GetMotionSample()
+                                : new GamepadMotionSample(gamepad.GetMotionData(MotionInputId.Accelerometer), gamepad.GetMotionData(MotionInputId.Gyroscope), null);
+                            Vector3 accelerometer = sample.Accelerometer;
+                            Vector3 gyroscope = sample.Gyroscope;
+                            Vector3? gravity = sample.Gravity;
 
                             accelerometer = new Vector3(accelerometer.X, -accelerometer.Z, accelerometer.Y);
                             gyroscope = new Vector3(gyroscope.X, -gyroscope.Z, gyroscope.Y);
+                            if (gravity is Vector3 gravityValue)
+                            {
+                                gravity = new Vector3(gravityValue.X, -gravityValue.Z, gravityValue.Y);
+                            }
 
-                            _leftMotionInput.Update(accelerometer, gyroscope, (ulong)PerformanceCounter.ElapsedNanoseconds / 1000, controllerConfig.Motion.Sensitivity, (float)controllerConfig.Motion.GyroDeadzone);
+                            _leftMotionInput.Update(accelerometer, gyroscope, (ulong)PerformanceCounter.ElapsedNanoseconds / 1000, controllerConfig.Motion.Sensitivity, (float)controllerConfig.Motion.GyroDeadzone, gravity);
 
                             if (controllerConfig.ControllerType == ConfigControllerType.JoyconPair)
                             {
