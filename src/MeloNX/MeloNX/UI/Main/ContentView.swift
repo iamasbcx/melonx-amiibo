@@ -55,7 +55,9 @@ struct ContentView: View {
             
             ryujinxController.loadGames()
             
-            try? await Task.sleep(nanoseconds: 100_000_000)
+            do { try await Task.sleep(nanoseconds: 100_000_000) }
+            catch { return }
+            guard !Task.isCancelled, !ryujinxController.isRunning.hasStarted() else { return }
             
             controllerManager.initAll()
             
@@ -65,7 +67,9 @@ struct ContentView: View {
             
             Air.play(AnyView(AirplayView().environmentObject(ryujinxController)))
             
-            try? await Task.sleep(nanoseconds: 500_000_000)
+            do { try await Task.sleep(nanoseconds: 500_000_000) }
+            catch { return }
+            guard !Task.isCancelled, !ryujinxController.isRunning.hasStarted() else { return }
             
             if let gameId = ryujinxController.lastGameLaunched, let game = ryujinxController.games.first(where: { $0.titleId == gameId }) {
                 ryujinxController.startGame(game)

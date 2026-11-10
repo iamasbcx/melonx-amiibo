@@ -1,6 +1,7 @@
 using Ryujinx.Common.Memory;
 using Ryujinx.Graphics.GAL;
 using Ryujinx.Graphics.Gpu.Memory;
+using Ryujinx.Graphics.Shader.Translation;
 using Ryujinx.Graphics.Texture;
 using Ryujinx.Memory;
 using Ryujinx.Memory.Range;
@@ -553,10 +554,65 @@ namespace Ryujinx.Graphics.Gpu.Image
         /// <param name="texture">The specific host texture to flush. Defaults to the storage texture</param>
         private void FlushSliceRange(bool tracked, int sliceStart, int sliceEnd, bool inBuffer, ITexture texture = null)
         {
+            if (!tracked && !inBuffer && TryFlushSliceBatch(sliceStart, sliceEnd, texture)) return;
+
             for (int i = sliceStart; i < sliceEnd; i++)
             {
                 FlushTextureDataSliceToGuest(tracked, i, inBuffer, texture);
             }
+        }
+
+        /// <summary>
+        /// GPU 提交线程上合并未预取的多 slice 读回，只复制请求的 slice 并等待一次写 fence。
+        /// tracked 写入须先触发内存跟踪，继续使用原路径；缩放、深度/模板、多重采样及超预算也不批量化。
+        /// </summary>
+        private bool TryFlushSliceBatch(int sliceStart, int sliceEnd, ITexture texture)
+        {
+            if (sliceEnd - sliceStart < 2 || sliceEnd - sliceStart > TextureReadbackBatch.MaxSlices || !_context.IsGpuThread() ||
+                _context.Capabilities.Api != TargetApi.Vulkan || Storage.ScaleFactor != 1f ||
+                Storage.Info.Samples != 1 || Storage.Info.FormatInfo.Format.IsDepthOrStencil ||
+                !TextureCompatibility.CanTextureFlush(Storage.Info, _context.Capabilities)) return false;
+
+            TextureCreateInfo info = TextureCache.GetCreateInfo(Storage.Info, _context.Capabilities, 1f);
+            if (info.BytesPerPixel <= 0 || (info.BytesPerPixel & (info.BytesPerPixel - 1)) != 0) return false;
+            int alignment = Math.Max(4, info.BytesPerPixel);
+            int count = sliceEnd - sliceStart;
+            var slices = new (int Layer, int Level, int Offset, int Size, int GuestOffset, int GuestSize)[count];
+            int total = 0;
+            for (int index = 0; index < count; index++)
+            {
+                (int layer, int level) = GetLayerLevelForView(sliceStart + index);
+                int size = info.GetMipSize2D(level);
+                if (!TextureReadbackBatch.TryAppend(total, size, alignment, out int offset, out total)) return false;
+                int guestOffset = _allOffsets[sliceStart + index];
+                if (guestOffset < 0 || (ulong)guestOffset >= Storage.Size) return false;
+                int guestSize = (int)Math.Min((ulong)_sliceSizes[level], Storage.Size - (ulong)guestOffset);
+                if (guestSize <= 0) return false;
+                slices[index] = (layer, level, offset, size, guestOffset, guestSize);
+            }
+
+            texture ??= Storage.HostTexture;
+            BufferHandle buffer = _context.Renderer.CreateBuffer(total, BufferAccess.HostMemory);
+            try
+            {
+                foreach (var slice in slices)
+                    texture.CopyTo(new BufferRange(buffer, slice.Offset, slice.Size), slice.Layer, slice.Level, 0);
+
+                using PinnedSpan<byte> data = _context.Renderer.GetBufferData(buffer, 0, total, waitForWrites: true);
+                if (data.Get().Length != total) throw new InvalidOperationException("Incomplete texture batch readback.");
+                foreach (var slice in slices)
+                {
+                    using WritableRegion region = _physicalMemory.GetWritableRegion(
+                        Storage.Range.Slice((ulong)slice.GuestOffset, (ulong)slice.GuestSize), tracked: false);
+                    Storage.ConvertFromHostCompatibleFormat(region.Memory.Span,
+                        data.Get().Slice(slice.Offset, slice.Size), slice.Level, true);
+                }
+            }
+            finally
+            {
+                _context.Renderer.DeleteBuffer(buffer);
+            }
+            return true;
         }
 
         /// <summary>

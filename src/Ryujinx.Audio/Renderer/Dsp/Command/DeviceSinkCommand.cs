@@ -79,34 +79,31 @@ namespace Ryujinx.Audio.Renderer.Dsp.Command
 
                 const int SampleCount = Constants.TargetSampleCount;
 
-                uint inputCount;
-
-                // In case of upmixing to 5.1, we allocate the right amount.
-                if (bufferCount != channelCount && channelCount == 6)
+                // 交错步长与输出声道数必须一致；输入不足时补静音，不能发送半包或留下池内旧样本。
+                int outputLength = checked(channelCount * SampleCount);
+                short[] outputBuffer = ArrayPool<short>.Shared.Rent(outputLength);
+                try
                 {
-                    inputCount = (uint)channelCount;
-                }
-                else
-                {
-                    inputCount = bufferCount;
-                }
-
-                short[] outputBuffer = ArrayPool<short>.Shared.Rent((int)inputCount * SampleCount);
-                Array.Fill(outputBuffer, (short)0, 0, (int)inputCount * SampleCount);
-
-                for (int i = 0; i < bufferCount; i++)
-                {
-                    ReadOnlySpan<float> inputBuffer = GetBuffer(InputBufferIndices[i], SampleCount);
-
-                    for (int j = 0; j < SampleCount; j++)
+                    if (bufferCount != channelCount)
                     {
-                        outputBuffer[i + j * channelCount] = PcmHelper.Saturate(inputBuffer[j]);
+                        Array.Clear(outputBuffer, 0, outputLength);
                     }
-                }
 
-                device.AppendBuffer(outputBuffer.AsSpan(..((int)inputCount * SampleCount)), inputCount);
-                
-                ArrayPool<short>.Shared.Return(outputBuffer);
+                    for (int i = 0; i < bufferCount; i++)
+                    {
+                        ReadOnlySpan<float> inputBuffer = GetBuffer(InputBufferIndices[i], SampleCount);
+                        for (int j = 0; j < SampleCount; j++)
+                        {
+                            outputBuffer[i + j * channelCount] = PcmHelper.Saturate(inputBuffer[j]);
+                        }
+                    }
+
+                    device.AppendBuffer(outputBuffer.AsSpan(0, outputLength), (uint)channelCount);
+                }
+                finally
+                {
+                    ArrayPool<short>.Shared.Return(outputBuffer);
+                }
             }
             else
             {

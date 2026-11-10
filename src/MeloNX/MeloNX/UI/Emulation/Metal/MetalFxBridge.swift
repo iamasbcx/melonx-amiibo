@@ -9,7 +9,7 @@ import MetalFX
 import MetalPerformanceShaders
 
 @available(iOS 16.0, *)
-private struct MetalFxInteropRequest {
+private nonisolated struct MetalFxInteropRequest {
     var device: UnsafeMutableRawPointer?
     var commandQueue: UnsafeMutableRawPointer?
     var inputTexture: UnsafeMutableRawPointer?
@@ -26,8 +26,8 @@ private struct MetalFxInteropRequest {
 }
 
 @available(iOS 16.0, *)
-private final class MetalFxSpatialState {
-    private struct Configuration: Equatable {
+private nonisolated final class MetalFxSpatialState {
+    private nonisolated struct Configuration: Equatable {
         let deviceRegistryID: UInt64
         let inputWidth: Int
         let inputHeight: Int
@@ -272,15 +272,16 @@ private final class MetalFxSpatialState {
 }
 
 @available(iOS 16.0, *)
-enum MetalFxBridge {
+nonisolated enum MetalFxBridge {
     private static let probeCallback = "MetalFxProbe"
     private static let configureCallback = "MetalFxConfigure"
     private static let encodeCallback = "MetalFxEncode"
     private static let resetCallback = "MetalFxReset"
     
     private static let lock = NSLock()
-    private static var registered = false
-    private static var state: MetalFxSpatialState?
+    // 所有注册标记、状态创建/释放及编码均由此锁串行保护；状态对象不跨回调传递或声称 Sendable。
+    private nonisolated(unsafe) static var registered = false
+    private nonisolated(unsafe) static var state: MetalFxSpatialState?
     
     static var isSupported: Bool {
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -300,7 +301,7 @@ enum MetalFxBridge {
         
         registered = true
         
-        CallbackManager.register(name: probeCallback) { callbackData in
+        CallbackManager.register(name: probeCallback) { @Sendable callbackData in
             autoreleasepool {
                 withRequest(callbackData) { request in
                     guard let device = metalDevice(from: request.pointee.device) else {
@@ -313,7 +314,7 @@ enum MetalFxBridge {
             }
         }
         
-        CallbackManager.register(name: configureCallback) { callbackData in
+        CallbackManager.register(name: configureCallback) { @Sendable callbackData in
             autoreleasepool {
                 withRequest(callbackData) { request in
                     configure(request)
@@ -321,7 +322,7 @@ enum MetalFxBridge {
             }
         }
         
-        CallbackManager.register(name: encodeCallback) { callbackData in
+        CallbackManager.register(name: encodeCallback) { @Sendable callbackData in
             autoreleasepool {
                 withRequest(callbackData) { request in
                     encode(request)
@@ -329,7 +330,7 @@ enum MetalFxBridge {
             }
         }
         
-        CallbackManager.register(name: resetCallback) { _ in
+        CallbackManager.register(name: resetCallback) { @Sendable _ in
             autoreleasepool {
                 lock.lock()
                 state = nil
@@ -338,6 +339,7 @@ enum MetalFxBridge {
         }
     }
     
+    /// request 及其外部纹理只在当前 native 回调内借用；必须同步写回 result，不能切换到主线程。
     private static func withRequest(
         _ callbackData: CallbackData,
         _ body: (UnsafeMutablePointer<MetalFxInteropRequest>) -> Void

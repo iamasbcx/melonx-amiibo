@@ -147,6 +147,8 @@ namespace Ryujinx.Library
             };
 
             BlitStruct<ApplicationControlProperty> controlHolder = new(1);
+            // 更新 NCA/控制文件系统会继续借用此流；完整读取元数据和图标后，或任意失败路径结束时统一关闭。
+            FileStream? updateFile = null;
 
             try
             {
@@ -220,7 +222,7 @@ namespace Ryujinx.Library
                                 return null;
                             }
 
-                            if (IsUpdateApplied(virtualFileSystem, gameInfo.TitleId, out IFileSystem? updatedControlFs))
+                            if (IsUpdateApplied(virtualFileSystem, gameInfo.TitleId, out IFileSystem? updatedControlFs, out updateFile))
                                 controlFs = updatedControlFs;
 
                             ReadControlData(controlFs, controlHolder.ByteSpan);
@@ -301,6 +303,10 @@ namespace Ryujinx.Library
             catch (IOException exception)
             {
                 Logger.Warning?.Print(LogClass.Application, exception.Message);
+            }
+            finally
+            {
+                updateFile?.Dispose();
             }
 
             return gameInfo;
@@ -417,14 +423,15 @@ namespace Ryujinx.Library
             return (mainNca, patchNca, controlNca);
         }
 
-        private static bool IsUpdateApplied(VirtualFileSystem virtualFileSystem, string? titleId, out IFileSystem? updatedControlFs)
+        private static bool IsUpdateApplied(VirtualFileSystem virtualFileSystem, string? titleId, out IFileSystem? updatedControlFs, out FileStream? updateFile)
         {
             updatedControlFs = null;
+            updateFile = null;
             string? updatePath = "(unknown)";
 
             try
             {
-                (Nca? patchNca, Nca? controlNca) = GetGameUpdateData(virtualFileSystem, titleId, 0, out updatePath);
+                (Nca? patchNca, Nca? controlNca) = GetGameUpdateData(virtualFileSystem, titleId, 0, out updatePath, out updateFile);
 
                 if (patchNca != null && controlNca != null)
                 {
@@ -444,9 +451,10 @@ namespace Ryujinx.Library
             return false;
         }
 
-        private static (Nca? patch, Nca? control) GetGameUpdateData(VirtualFileSystem fileSystem, string? titleId, int programIndex, out string? updatePath)
+        private static (Nca? patch, Nca? control) GetGameUpdateData(VirtualFileSystem fileSystem, string? titleId, int programIndex, out string? updatePath, out FileStream? updateFile)
         {
             updatePath = "";
+            updateFile = null;
 
             if (ulong.TryParse(titleId, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out ulong titleIdBase))
             {
@@ -462,9 +470,10 @@ namespace Ryujinx.Library
 
                     if (File.Exists(updatePath))
                     {
-                        FileStream file = new(updatePath, FileMode.Open, FileAccess.Read);
+                        // 先交给最外层所有者，再解析分区；即使 Initialize/NCA 解密抛异常也不会泄漏句柄。
+                        updateFile = new FileStream(updatePath, FileMode.Open, FileAccess.Read);
                         PartitionFileSystem nsp = new();
-                        nsp.Initialize(file.AsStorage()).ThrowIfFailure();
+                        nsp.Initialize(updateFile.AsStorage()).ThrowIfFailure();
 
                         return GetGameUpdateDataFromPartition(fileSystem, nsp, titleIdBase.ToString("x16"), programIndex);
                     }

@@ -10,20 +10,8 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
     {
         public static readonly long DefaultTimeIncrementNanoseconds = ConvertGuestTicksToNanoseconds(2);
 
-        private class WaitingObject
-        {
-            public IKFutureSchedulerObject Object { get; }
-            public long TimePoint { get; }
-
-            public WaitingObject(IKFutureSchedulerObject schedulerObj, long timePoint)
-            {
-                Object = schedulerObj;
-                TimePoint = timePoint;
-            }
-        }
-
         private readonly KernelContext _context;
-        private readonly List<WaitingObject> _waitingObjects;
+        private readonly ScheduledObjectQueue<IKFutureSchedulerObject> _waitingObjects;
         private IPreciseSleepEvent _waitEvent;
         private bool _keepRunning;
         private long _enforceWakeupFromSpinWait;
@@ -34,7 +22,9 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
         public KTimeManager(KernelContext context)
         {
             _context = context;
-            _waitingObjects = [];
+            _waitingObjects = new();
+            // 在工作线程启动前创建事件，首次注册不能依赖另一个线程已执行到 using。
+            _waitEvent = PreciseSleepHelper.CreateEvent();
             _keepRunning = true;
 
             Thread work = new(WaitAndCheckScheduledObjects)
@@ -64,36 +54,31 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
 
             lock (_context.CriticalSection.Lock)
             {
-                _waitingObjects.Add(new WaitingObject(schedulerObj, timePoint));
-
-                if (timeout < NanosecondsPerMillisecond)
+                if (_waitingObjects.Add(schedulerObj, timePoint))
                 {
                     Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 1);
+                    _waitEvent.Signal();
                 }
             }
-
-            _waitEvent.Signal();
         }
 
         public void UnscheduleFutureInvocation(IKFutureSchedulerObject schedulerObj)
         {
             lock (_context.CriticalSection.Lock)
             {
-                for (int index = _waitingObjects.Count - 1; index >= 0; index--)
+                if (_waitingObjects.Remove(schedulerObj))
                 {
-                    if (_waitingObjects[index].Object == schedulerObj)
-                    {
-                        _waitingObjects.RemoveAt(index);
-                    }
+                    Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 1);
+                    _waitEvent.Signal();
                 }
             }
         }
 
         private void WaitAndCheckScheduledObjects()
         {
-            WaitingObject next;
+            ScheduledObjectQueue<IKFutureSchedulerObject>.Entry next;
 
-            using (_waitEvent = PreciseSleepHelper.CreateEvent())
+            using (_waitEvent)
             {
                 while (_keepRunning)
                 {
@@ -101,7 +86,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
                     {
                         Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 0);
 
-                        next = GetNextWaitingObject();
+                        next = _waitingObjects.Head;
                     }
 
                     if (next != null)
@@ -122,7 +107,7 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
                         {
                             lock (_context.CriticalSection.Lock)
                             {
-                                if (_waitingObjects.Remove(next))
+                                if (_waitingObjects.TryRemove(next))
                                 {
                                     next.Object.TimeUp();
                                 }
@@ -135,26 +120,6 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
                     }
                 }
             }
-        }
-
-        private WaitingObject GetNextWaitingObject()
-        {
-            WaitingObject selected = null;
-
-            long lowestTimePoint = long.MaxValue;
-
-            for (int index = _waitingObjects.Count - 1; index >= 0; index--)
-            {
-                WaitingObject current = _waitingObjects[index];
-
-                if (current.TimePoint <= lowestTimePoint)
-                {
-                    selected = current;
-                    lowestTimePoint = current.TimePoint;
-                }
-            }
-
-            return selected;
         }
 
         public static long ConvertNanosecondsToMilliseconds(long time)

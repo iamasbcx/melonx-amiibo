@@ -168,20 +168,7 @@ namespace Ryujinx.Library
             _enableKeyboard = true;
             _enableMouse = false;
             
-            AutoResetEvent invoked = new(false);
-
-            SDL3Driver.MainThreadDispatcher = action =>
-            {
-                invoked.Reset();
-
-                WindowBase.QueueMainThreadAction(() =>
-                {
-                    try { action(); }
-                    finally { invoked.Set(); }
-                });
-
-                invoked.WaitOne();
-            };
+            SDL3Driver.MainThreadDispatcher = new HostActionDispatcher(WindowBase.QueueMainThreadAction).Invoke;
 
         }
 

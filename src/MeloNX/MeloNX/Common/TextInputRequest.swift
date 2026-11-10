@@ -7,13 +7,13 @@
 
 import Foundation
 
-struct TextInputRequest: Decodable {
+nonisolated struct TextInputRequest: Decodable, Sendable {
     let title: String
     let message: String
     let placeholder: String
     let callbackId: String
     
-    enum CodingKeys: String, CodingKey {
+    nonisolated enum CodingKeys: String, CodingKey {
         case title = "Title", message = "Message", placeholder = "Placeholder", callbackId = "CallbackId"
     }
 }

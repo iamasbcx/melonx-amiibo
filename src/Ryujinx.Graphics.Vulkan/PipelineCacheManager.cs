@@ -4,6 +4,7 @@ using Silk.NET.Vulkan;
 using System;
 using System.IO;
 using System.IO.MemoryMappedFiles;
+using System.Linq;
 using System.Threading;
 
 namespace Ryujinx.Graphics.Vulkan
@@ -23,6 +24,7 @@ namespace Ryujinx.Graphics.Vulkan
             public readonly string Path;
             public readonly string Description;
             public readonly long Budget;
+            public readonly PipelineCacheGeneration Changes;
 
             public int PipelineCount;
             public int SavedPipelineCount;
@@ -40,6 +42,7 @@ namespace Ryujinx.Graphics.Vulkan
                 Description = description;
                 Budget = budget;
                 _measuredBytes = loadedBytes;
+                Changes = new(loadedBytes > 0);
             }
 
             public long EstimatedBytes => _measuredBytes + Math.Max(0, PipelineCount - _measuredPipelineCount) * _bytesPerPipeline;
@@ -64,6 +67,7 @@ namespace Ryujinx.Graphics.Vulkan
                 SavedPipelineCount = 0;
                 _measuredBytes = 0;
                 _measuredPipelineCount = 0;
+                Changes.MarkChanged();
             }
         }
 
@@ -248,6 +252,7 @@ namespace Ryujinx.Graphics.Vulkan
             CacheState state = _workerStates[workerIndex];
 
             state.PipelineCount++;
+            state.Changes.MarkChanged();
 
             Maintain(state, force: false);
         }
@@ -261,6 +266,7 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             Interlocked.Increment(ref _mainState.PipelineCount);
+            _mainState.Changes.MarkChanged();
 
             if (_mainState.EstimatedBytes >= _mainState.Budget &&
                 Interlocked.Exchange(ref _warnedMainCacheOverBudget, 1) == 0)
@@ -278,17 +284,14 @@ namespace Ryujinx.Graphics.Vulkan
 
             lock (_mainCacheLock)
             {
-                PipelineCache[] workerCaches = new PipelineCache[_workerStates.Length];
-
-                for (int index = 0; index < _workerStates.Length; index++)
+                // 调用方已停止编译 worker；即使 worker 的修改已 checkpoint，仍需合并到主缓存。
+                CacheState[] pending = _workerStates.Where(state => state.Changes.NeedsMerge).ToArray();
+                if (pending.Length != 0 && MergeInto(_mainState.Cache, pending.Select(state => state.Cache).ToArray()))
                 {
-                    workerCaches[index] = _workerStates[index].Cache;
+                    _mainState.Changes.MarkChanged();
+                    foreach (CacheState state in pending) state.Changes.MarkMerged(state.Changes.Current);
                 }
-
-                if (MergeInto(_mainState.Cache, workerCaches))
-                {
-                    Maintain(_mainState, force: true, allowRecycle: false);
-                }
+                Maintain(_mainState, force: true, allowRecycle: false);
             }
 
             foreach (CacheState state in _workerStates)
@@ -300,7 +303,7 @@ namespace Ryujinx.Graphics.Vulkan
 
         private void Maintain(CacheState state, bool force, bool allowRecycle = true)
         {
-            if (state.Frozen)
+            if (state.Frozen || !state.Changes.IsDirty)
             {
                 return;
             }
@@ -328,8 +331,8 @@ namespace Ryujinx.Graphics.Vulkan
                 }
             }
 
-            state.SavedPipelineCount = state.PipelineCount;
             state.LastSaveTimestamp = Environment.TickCount64;
+            long generation = state.Changes.Current;
 
             long size = GetCacheDataSize(state);
 
@@ -357,7 +360,11 @@ namespace Ryujinx.Graphics.Vulkan
                 return;
             }
 
-            SaveCache(state, size, force);
+            if (SaveCache(state, size, force))
+            {
+                state.SavedPipelineCount = state.PipelineCount;
+                state.Changes.MarkSaved(generation);
+            }
         }
 
         private unsafe void Recycle(CacheState state, long size)
@@ -508,11 +515,11 @@ namespace Ryujinx.Graphics.Vulkan
             return (long)dataSize;
         }
 
-        private unsafe void SaveCache(CacheState state, long size, bool final)
+        private unsafe bool SaveCache(CacheState state, long size, bool final)
         {
             if (string.IsNullOrEmpty(state.Path))
             {
-                return;
+                return false;
             }
 
             string temporaryPath = state.Path + ".tmp";
@@ -548,7 +555,7 @@ namespace Ryujinx.Graphics.Vulkan
 
                             Delete(temporaryPath);
 
-                            return;
+                            return false;
                         }
 
                         written = (long)dataSize;
@@ -581,12 +588,14 @@ namespace Ryujinx.Graphics.Vulkan
                 {
                     Logger.Info?.PrintMsg(LogClass.Gpu, message);
                 }
+                return true;
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
                 Logger.Warning?.PrintMsg(LogClass.Gpu, $"Failed to persist Vulkan pipeline cache: {exception.Message}");
 
                 Delete(temporaryPath);
+                return false;
             }
         }
 

@@ -31,6 +31,7 @@ struct EmulationView: View {
     @State private var manuallyPausedBeforeEditing = false
     @State private var layoutRevision = 0
     @State private var didConfigurePresentation = false
+    @State private var connectionToken: UUID?
     @State private var presentationVisible = false
     @Environment(\.scenePhase) private var scenePhase
 
@@ -108,14 +109,18 @@ struct EmulationView: View {
                     AmiiboService.shared.start(titleId: game.titleId)
                     AmiiboService.shared.setApplicationActive(scenePhase == .active)
                     self.isConnected = Air.shared.connected
+                    if connectionToken == nil {
+                        connectionToken = Air.connection { self.isConnected = $0 }
+                    }
                     // 全屏编辑返回会再次出现；不要重复注册回调或重建外接屏渲染视图。
                     if !didConfigurePresentation {
                         didConfigurePresentation = true
-                        Air.shared.connectionCallbacks.append { self.isConnected = $0 }
                         Air.play(AnyView(emulationView(true)))
                     }
                 }
                 .onDisappear {
+                    if let connectionToken { Air.removeConnection(connectionToken) }
+                    connectionToken = nil
                     presentationVisible = false
                     statisticsHandler.setCollectionEnabled(false)
                     AmiiboService.shared.stop()

@@ -661,7 +661,14 @@ namespace Ryujinx.Graphics.Vulkan
             _gd.PipelineInternal.EndRenderPass();
             CommandBufferScoped cbs = _gd.PipelineInternal.CurrentCommandBuffer;
 
-            int outSize = Info.GetMipSize(level);
+            // 此入口只传输一个 layer/z slice，数组或 3D 纹理不能按整个 mip 分配和转换。
+            int outSize = Info.GetMipSize2D(level);
+            if (stride != 0)
+            {
+                int rows = (Math.Max(1, Info.Height >> level) + Info.BlockHeight - 1) / Info.BlockHeight;
+                outSize = checked(stride * (rows - 1) + Info.GetMipStride(level));
+            }
+            if (outSize > range.Size) throw new ArgumentException("Texture slice exceeds destination buffer range.", nameof(range));
             int hostSize = GetBufferDataLength(outSize);
 
             Image image = GetImage().Get(cbs).Value;
@@ -698,7 +705,7 @@ namespace Ryujinx.Graphics.Vulkan
                 PipelineStageFlags.AllCommandsBit,
                 PipelineStageFlags.TransferBit,
                 Info.Format.ConvertAspectFlags(),
-                FirstLayer + layer,
+                FirstLayer + (Info.Target == Target.Texture3D ? 0 : layer),
                 FirstLevel + level,
                 1,
                 1);
@@ -772,8 +779,7 @@ namespace Ryujinx.Graphics.Vulkan
         private void SetData(ReadOnlySpan<byte> data, int layer, int level, int layers, int levels, bool singleSlice, Rectangle<int>? region = null)
         {
             int bufferDataLength = GetBufferDataLength(data.Length);
-
-            using BufferHolder bufferHolder = _gd.BufferManager.Create(_gd, bufferDataLength);
+            if (bufferDataLength == 0) return;
 
             Auto<DisposableImage> imageAuto = GetImage();
 
@@ -788,9 +794,18 @@ namespace Ryujinx.Graphics.Vulkan
                 _gd.PipelineInternal.EndRenderPass();
             }
 
-            CopyDataToBuffer(bufferHolder.GetDataStorage(0, bufferDataLength), data);
+            // 预留区绑定实际承载上传的 command buffer，包括 preload；其 fence 完成前环不会复用数据。
+            int alignment = TextureTransferLayout.UploadAlignment(
+                NeedsD24S8Conversion() ? 8 : Info.BytesPerPixel, (int)_gd.Capabilities.MinResourceAlignment);
+            StagingBufferReserved? reserved = alignment == 0 ? null :
+                _gd.BufferManager.StagingBuffer.TryReserveData(cbs, bufferDataLength, alignment);
+            using BufferHolder ownedBuffer = reserved.HasValue ? null : _gd.BufferManager.Create(_gd, bufferDataLength);
+            BufferHolder bufferHolder = reserved?.Buffer ?? ownedBuffer ?? throw new InvalidOperationException("Texture upload buffer allocation failed.");
+            int bufferOffset = reserved?.Offset ?? 0;
 
-            VkBuffer buffer = bufferHolder.GetBuffer(cbs.CommandBuffer).Get(cbs).Value;
+            CopyDataToBuffer(bufferHolder.GetDataStorage(bufferOffset, bufferDataLength), data);
+
+            VkBuffer buffer = bufferHolder.GetBuffer(cbs.CommandBuffer).Get(cbs, bufferOffset, bufferDataLength).Value;
             Image image = imageAuto.Get(cbs).Value;
 
             if (region.HasValue)
@@ -806,11 +821,12 @@ namespace Ryujinx.Graphics.Vulkan
                     region.Value.X,
                     region.Value.Y,
                     region.Value.Width,
-                    region.Value.Height);
+                    region.Value.Height,
+                    bufferOffset);
             }
             else
             {
-                CopyFromOrToBuffer(cbs.CommandBuffer, buffer, image, bufferDataLength, false, layer, level, layers, levels, singleSlice);
+                CopyFromOrToBuffer(cbs.CommandBuffer, buffer, image, bufferDataLength, false, layer, level, layers, levels, singleSlice, bufferOffset);
             }
         }
 
@@ -818,7 +834,7 @@ namespace Ryujinx.Graphics.Vulkan
         {
             if (NeedsD24S8Conversion())
             {
-                return length * 2;
+                return checked(length * 2);
             }
 
             return length;
@@ -911,6 +927,7 @@ namespace Ryujinx.Graphics.Vulkan
             int layer = is3D ? 0 : dstLayer;
             int layers = dstLayers;
             int levels = dstLevels;
+            int consumed = 0;
 
             for (int level = 0; level < levels; level++)
             {
@@ -918,9 +935,8 @@ namespace Ryujinx.Graphics.Vulkan
                     ? Info.GetMipSize(dstLevel + level)
                     : Info.GetMipSize2D(dstLevel + level) * dstLayers);
 
-                int endOffset = offset + mipSize;
-
-                if ((uint)endOffset > (uint)size)
+                // size 表示本次传输长度，不包含缓冲区前面的 staging/prefetch 区间。
+                if (!TextureTransferLayout.TryGetOffset(offset, size, consumed, mipSize, out int copyOffset))
                 {
                     break;
                 }
@@ -945,7 +961,7 @@ namespace Ryujinx.Graphics.Vulkan
                 int z = is3D ? dstLayer : 0;
 
                 BufferImageCopy region = new(
-                    (ulong)offset,
+                    (ulong)copyOffset,
                     (uint)AlignUpNpot(rowLength, Info.BlockWidth),
                     (uint)AlignUpNpot(height, Info.BlockHeight),
                     sl,
@@ -961,7 +977,7 @@ namespace Ryujinx.Graphics.Vulkan
                     _gd.Api.CmdCopyBufferToImage(commandBuffer, buffer, image, ImageLayout.General, 1, in region);
                 }
 
-                offset += mipSize;
+                consumed += mipSize;
 
                 width = Math.Max(1, width >> 1);
                 height = Math.Max(1, height >> 1);
@@ -984,8 +1000,14 @@ namespace Ryujinx.Graphics.Vulkan
             int x,
             int y,
             int width,
-            int height)
+            int height,
+            int bufferOffset = 0)
         {
+            if (!TextureTransferLayout.TryGetRegionSize(width, height, Info.BlockWidth, Info.BlockHeight,
+                    Info.BytesPerPixel, upload: !to, out int regionSize) ||
+                !TextureTransferLayout.TryGetOffset(bufferOffset, size, 0, GetBufferDataLength(regionSize), out _))
+                throw new ArgumentException("Texture region exceeds its transfer buffer window.", nameof(size));
+
             ImageAspectFlags aspectFlags = Info.Format.ConvertAspectFlags();
 
             if (aspectFlags == (ImageAspectFlags.DepthBit | ImageAspectFlags.StencilBit))
@@ -1006,7 +1028,7 @@ namespace Ryujinx.Graphics.Vulkan
             }
 
             BufferImageCopy region = new(
-                0,
+                (ulong)bufferOffset,
                 (uint)AlignUpNpot(width, rowLengthAlignment),
                 (uint)AlignUpNpot(height, Info.BlockHeight),
                 sl,

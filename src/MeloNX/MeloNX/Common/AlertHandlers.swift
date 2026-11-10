@@ -9,20 +9,23 @@ import UIKit
 import Foundation
 
 
-private struct AlertRequest: Decodable {
+private nonisolated struct AlertRequest: Decodable, Sendable {
     let title: String
     let message: String
     let cancel: Bool
 }
 
 enum AlertHandlers {
+    private static var registered = false
     static func register() {
+        guard !registered else { return }
+        registered = true
         registerTextInput()
         registerAlert()
     }
     
     private static func registerTextInput() {
-        CallbackManager.register(name: "show_text_input") { data in
+        CallbackManager.register(name: "show_text_input") { @Sendable data in
             guard let ptr = data.ptr, data.len > 0 else { return }
             
             let bytes = Data(bytesNoCopy: ptr, count: Int(data.len), deallocator: .none)
@@ -65,7 +68,7 @@ enum AlertHandlers {
     }
     
     private static func registerAlert() {
-        CallbackManager.register(name: "show_alert") { data in
+        CallbackManager.register(name: "show_alert") { @Sendable data in
             guard let ptr = data.ptr, data.len > 0 else { return }
             
             let bytes = Data(bytesNoCopy: ptr, count: Int(data.len), deallocator: .none)

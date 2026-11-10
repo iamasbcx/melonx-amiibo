@@ -45,6 +45,7 @@ namespace Ryujinx.Cpu.LightningJit
         private readonly ConcurrentQueue<KeyValuePair<ulong, TranslatedFunction>> _oldFuncs;
         private readonly NoWxCache _noWxCache;
         private readonly DualMappedNoWxCache _dualMappedNoWxCache;
+        private readonly Aarch64TranslationPipeline _aarch64Pipeline;
         private bool _disposed;
 
         internal TranslatorCache<TranslatedFunction> Functions { get; }
@@ -83,6 +84,17 @@ namespace Ryujinx.Cpu.LightningJit
 
             FunctionTable.Fill = (ulong)Stubs.SlowDispatchStub;
 
+            if (_dualMappedNoWxCache != null)
+            {
+#pragma warning disable CA1416
+                _aarch64Pipeline = new(
+                    _dualMappedNoWxCache.TryGetCachedFunction,
+                    address => Compile(address, ExecutionMode.Aarch64),
+                    (address, function) => _dualMappedNoWxCache.Map(function.Code, address, (ulong)function.GuestCodeLength),
+                    InvalidateJitCacheRegionCore);
+#pragma warning restore CA1416
+            }
+
             if (memory.Type.IsHostMappedOrTracked)
             {
                 NativeSignalHandler.InitializeSignalHandler();
@@ -115,6 +127,7 @@ namespace Ryujinx.Cpu.LightningJit
 
         internal nint GetOrTranslatePointer(nint framePointer, ulong address, ExecutionMode mode)
         {
+            if (mode == ExecutionMode.Aarch64 && _aarch64Pipeline != null) return _aarch64Pipeline.GetOrCompile(address);
             if (_noWxCache != null)
             {
                 if (_noWxCache.TryGetCachedFunction(address, out nint funcPtr))
@@ -188,6 +201,12 @@ namespace Ryujinx.Cpu.LightningJit
 
         public void InvalidateJitCacheRegion(ulong address, ulong size)
         {
+            if (_aarch64Pipeline != null) _aarch64Pipeline.Invalidate(address, size);
+            else InvalidateJitCacheRegionCore(address, size);
+        }
+
+        private void InvalidateJitCacheRegionCore(ulong address, ulong size)
+        {
             ulong[] overlapAddresses = [];
 
             int overlapsCount = Functions.GetOverlaps(address, size, ref overlapAddresses);
@@ -236,6 +255,7 @@ namespace Ryujinx.Cpu.LightningJit
             {
                 if (disposing)
                 {
+                    _aarch64Pipeline?.Dispose();
                     if (_noWxCache != null)
                     {
                         _noWxCache.Dispose();

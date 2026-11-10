@@ -1,18 +1,27 @@
 namespace Ryujinx.Audio.Backends.Apple
 {
-    class AppleAudioBuffer
+    /// <summary>
+    /// 会话拥有的可复用播放槽。字段仅在会话锁内访问；完成回调后才允许再次填充。
+    /// Token 在进程内不复用，关闭后迟到的原生回调无法访问已释放资源。
+    /// </summary>
+    sealed class AppleAudioBuffer
     {
-        public readonly ulong DriverIdentifier;
-        public readonly ulong SampleCount;
+        public readonly AppleHardwareDeviceSession Owner;
+        public readonly long Token;
+        public readonly uint Capacity;
         public readonly nint NativeBuffer;
-        public ulong SamplePlayed;
+        public readonly nint CompletionBlock;
+        public ulong HostTag;
+        public uint FrameCount;
+        public bool Pending;
 
-        public AppleAudioBuffer(ulong driverIdentifier, ulong sampleCount, nint nativeBuffer)
+        public AppleAudioBuffer(AppleHardwareDeviceSession owner, long token, uint capacity, nint nativeBuffer, nint completionBlock)
         {
-            DriverIdentifier = driverIdentifier;
-            SampleCount = sampleCount;
+            Owner = owner;
+            Token = token;
+            Capacity = capacity;
             NativeBuffer = nativeBuffer;
-            SamplePlayed = 0;
+            CompletionBlock = completionBlock;
         }
     }
 }

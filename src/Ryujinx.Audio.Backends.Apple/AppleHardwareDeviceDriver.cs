@@ -82,7 +82,7 @@ namespace Ryujinx.Audio.Backends.Apple
         {
             return sampleFormat switch
             {
-                SampleFormat.PcmFloat => AVFoundation.AVAudioCommonFormat.PcmFormatFloat32,
+                SampleFormat.PcmFloat or SampleFormat.PcmInt16 => AVFoundation.AVAudioCommonFormat.PcmFormatFloat32,
                 _ => throw new ArgumentException($"Unsupported sample format {sampleFormat}"),
             };
         }
@@ -112,7 +112,7 @@ namespace Ryujinx.Audio.Backends.Apple
         public bool SupportsSampleRate(uint sampleRate) => true;
 
         public bool SupportsSampleFormat(SampleFormat sampleFormat)
-            => sampleFormat == SampleFormat.PcmFloat;
+            => sampleFormat is SampleFormat.PcmFloat or SampleFormat.PcmInt16;
 
         public bool SupportsChannelCount(uint channelCount)
             => channelCount is 1 or 2 || (channelCount == 6 && OperatingSystem.IsMacOS());

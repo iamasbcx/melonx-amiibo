@@ -26,7 +26,10 @@ namespace Ryujinx.SDL3.Common
 
         public static Action<Action> MainThreadDispatcher { get; set; }
 
-        private const SDL_InitFlags SdlInitFlags = SDL_InitFlags.SDL_INIT_EVENTS | SDL_InitFlags.SDL_INIT_GAMEPAD | SDL_InitFlags.SDL_INIT_JOYSTICK | SDL_InitFlags.SDL_INIT_AUDIO | SDL_InitFlags.SDL_INIT_VIDEO;
+        // iOS 手柄与声音分别由 NativeGamepad/AppleHardware 驱动；SDL 仅保留键盘、窗口及事件泵。
+        private static SDL_InitFlags SdlInitFlags => OperatingSystem.IsIOS()
+            ? SDL_InitFlags.SDL_INIT_EVENTS | SDL_InitFlags.SDL_INIT_VIDEO
+            : SDL_InitFlags.SDL_INIT_EVENTS | SDL_InitFlags.SDL_INIT_GAMEPAD | SDL_InitFlags.SDL_INIT_JOYSTICK | SDL_InitFlags.SDL_INIT_AUDIO | SDL_InitFlags.SDL_INIT_VIDEO;
 
         private bool _isRunning;
         private uint _refereceCount;
@@ -76,33 +79,37 @@ namespace Ryujinx.SDL3.Common
                     throw new Exception(errorMessage);
                 }
 
-                // First ensure that we only enable joystick events (for connected/disconnected).
-                SDL_SetGamepadEventsEnabled(false);
-                SDL_SetJoystickEventsEnabled(true);
-                if (SDL_GamepadEventsEnabled())
+                if ((SdlInitFlags & SDL_InitFlags.SDL_INIT_JOYSTICK) != 0)
                 {
-                    Logger.Error?.PrintMsg(LogClass.Application, "Couldn't change the state of game controller events.");
-                }
+                    // First ensure that we only enable joystick events (for connected/disconnected).
+                    SDL_SetGamepadEventsEnabled(false);
+                    SDL_SetJoystickEventsEnabled(true);
+                    if (SDL_GamepadEventsEnabled())
+                    {
+                        Logger.Error?.PrintMsg(LogClass.Application, "Couldn't change the state of game controller events.");
+                    }
 
-                if (!SDL_JoystickEventsEnabled())
-                {
-                    Logger.Error?.PrintMsg(LogClass.Application, $"Failed to enable joystick event polling: {SDL_GetError()}");
-                }
+                    if ((SdlInitFlags & SDL_InitFlags.SDL_INIT_JOYSTICK) != 0 && !SDL_JoystickEventsEnabled())
+                    {
+                        Logger.Error?.PrintMsg(LogClass.Application, $"Failed to enable joystick event polling: {SDL_GetError()}");
+                    }
 
-                // Disable all joysticks information, we don't need them no need to flood the event queue for that.
-                SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_AXIS_MOTION, false);
-                SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_BALL_MOTION, false);
-                SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_HAT_MOTION, false);
-                SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_BUTTON_DOWN, false);
-                SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_BUTTON_UP, false);
+                    // Disable all joysticks information, we don't need them no need to flood the event queue for that.
+                    SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_AXIS_MOTION, false);
+                    SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_BALL_MOTION, false);
+                    SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_HAT_MOTION, false);
+                    SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_BUTTON_DOWN, false);
+                    SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_JOYSTICK_BUTTON_UP, false);
 
-                SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_GAMEPAD_SENSOR_UPDATE, false);
+                    SDL_SetEventEnabled((uint)SDL_EventType.SDL_EVENT_GAMEPAD_SENSOR_UPDATE, false);
 
-                string gamepadDbPath = Path.Combine(AppDataManager.BaseDirPath, "SDL_GameControllerDB.txt");
+                    string gamepadDbPath = Path.Combine(AppDataManager.BaseDirPath, "SDL_GameControllerDB.txt");
 
-                if (File.Exists(gamepadDbPath))
-                {
-                    SDL_AddGamepadMappingsFromFile(gamepadDbPath);
+                    if (File.Exists(gamepadDbPath))
+                    {
+                        SDL_AddGamepadMappingsFromFile(gamepadDbPath);
+                    }
+
                 }
 
                 _registeredWindowHandlers = new ConcurrentDictionary<SDL_WindowID, Action<SDL_Event>>();
@@ -163,22 +170,22 @@ namespace Ryujinx.SDL3.Common
         private unsafe void EventWorker()
         {
             const int WaitTimeMs = 10;
+            Action pollEvents = PollEvents;
 
             using ManualResetEventSlim waitHandle = new(false);
 
             while (_isRunning)
             {
-                MainThreadDispatcher?.Invoke(() =>
-                {
-                    SDL_Event evnt = new();
-                    while (SDL_PollEvent(&evnt))
-                    {
-                        HandleSDLEvent(ref evnt);
-                    }
-                });
+                MainThreadDispatcher?.Invoke(pollEvents);
 
                 waitHandle.Wait(WaitTimeMs);
             }
+        }
+
+        private unsafe void PollEvents()
+        {
+            SDL_Event evnt = new();
+            while (SDL_PollEvent(&evnt)) HandleSDLEvent(ref evnt);
         }
 
         protected virtual void Dispose(bool disposing)

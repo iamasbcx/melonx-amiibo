@@ -377,18 +377,19 @@ namespace Ryujinx.Graphics.GAL.Multithreading
             QueueCommand();
         }
 
-        public unsafe PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size)
+        public unsafe PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size, bool waitForWrites = false)
         {
             if (IsGpuThread())
             {
                 ResultBox<PinnedSpan<byte>> box = new();
-                New<BufferGetDataCommand>()->Set(buffer, offset, size, Ref(box));
+                New<BufferGetDataCommand>()->Set(buffer, offset, size, Ref(box), waitForWrites);
                 InvokeCommand();
 
                 return box.Result;
             }
             else
             {
+                if (waitForWrites) throw new InvalidOperationException("Synchronous write readback requires the GPU submission thread.");
                 return _baseRenderer.GetBufferData(Buffers.MapBufferBlocking(buffer), offset, size);
             }
         }

@@ -2,6 +2,8 @@
 
 日期：2026-11-10。修改前基线为 `497ee7e6bc9c38ce5ebef81f1c6409a5354209b8`，审计依据见 [PERFORMANCE_HEAT_AUDIT.md](PERFORMANCE_HEAT_AUDIT.md)。用户已授权落实所有有代码证据、可保持现有游戏语义的优化。
 
+本页记录第一轮交付。后续音频、纹理、编译预算、调度和生命周期优化见 [第二轮实施记录](PERFORMANCE_OPTIMIZATION_ROUND2.md)，以其中的当前实现和验证边界为准。
+
 ## 已实现范围
 
 | 模块 | 当前行为 | 需要保持的契约 |

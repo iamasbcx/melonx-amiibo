@@ -113,6 +113,10 @@ namespace Ryujinx.Cpu.Jit
 
                     Memory<byte> physicalMemory = memory.GetMemory(rangeOffset, (int)copySize);
 
+                    // 常见 IPC 原始消息只有一个连续区段，直接使用单段值类型，避免创建链段包装。
+                    // 多段与跨映射仍走原路径，不能强制 GetSpan 而引入整包复制或跳过地址校验。
+                    if (offset == 0 && copySize == (ulong)size) return new ReadOnlySequence<byte>(physicalMemory);
+
                     if (first is null)
                     {
                         first = last = new BytesReadOnlySequenceSegment(physicalMemory);

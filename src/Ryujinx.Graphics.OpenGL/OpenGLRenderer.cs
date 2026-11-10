@@ -136,8 +136,14 @@ namespace Ryujinx.Graphics.OpenGL
             return new HardwareInfo(GpuVendor, GpuRenderer, GpuVendor); // OpenGL does not provide a driver name, vendor name is closest analogue.
         }
 
-        public PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size)
+        public PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size, bool waitForWrites = false)
         {
+            // persistent mapping 不会隐式同步；显式请求时保证该路径也满足相同读取契约。
+            if (waitForWrites)
+            {
+                GL.MemoryBarrier(MemoryBarrierFlags.ClientMappedBufferBarrierBit);
+                GL.Finish();
+            }
             return Buffer.GetData(this, buffer, offset, size);
         }
 

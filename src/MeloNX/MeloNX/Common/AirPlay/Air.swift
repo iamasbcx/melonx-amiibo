@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Foundation
 
 class ExternalDisplaySceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
@@ -17,16 +18,16 @@ class ExternalDisplaySceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 }
 
-public class Air {
+@MainActor public class Air {
     static let shared = Air()
     
     public private(set) var connected = false {
         didSet {
             guard oldValue != connected else { return }
-            connectionCallbacks.forEach { $0(connected) }
+            connectionObservers.send(connected)
         }
     }
-    var connectionCallbacks: [(Bool) -> Void] = []
+    private let connectionObservers = RemovableObservers<Bool>()
     private(set) var airWindow: UIWindow?
     var airScreen: UIScreen? { airWindow?.windowScene?.screen }
     private var hostingController: UIHostingController<AnyView>?
@@ -76,7 +77,12 @@ public class Air {
         air.connected = false
     }
     
-    public static func connection(_ callback: @escaping (Bool) -> Void) {
-        Air.shared.connectionCallbacks.append(callback)
+    /// 页面必须在消失时撤销令牌；不会跨游戏保留 SwiftUI 状态和游戏信息。
+    public static func connection(_ callback: @escaping (Bool) -> Void) -> UUID {
+        let token = shared.connectionObservers.add(callback)
+        callback(shared.connected)
+        return token
     }
+
+    public static func removeConnection(_ token: UUID) { shared.connectionObservers.remove(token) }
 }

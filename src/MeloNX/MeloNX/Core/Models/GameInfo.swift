@@ -8,6 +8,7 @@
 import Foundation
 import UniformTypeIdentifiers
 import UIKit
+import CoreGraphics
 
 public struct GameInfo: Codable, Identifiable, Equatable, Hashable, Sendable {
     public var id: URL { fileURL }
@@ -21,9 +22,18 @@ public struct GameInfo: Codable, Identifiable, Equatable, Hashable, Sendable {
     var developer: String
     var version: String
     var iconData: Data?
-    var icon: UIImage? {
-        UIImage(data: iconData ?? Data())
+    @MainActor var icon: UIImage? {
+        GameIconCache.shared.image(for: self)
     }
+
+    /// UIKit 显示尺寸按屏幕比例取样；原图继续由 icon 提供给导出与照片保存。
+    @MainActor func thumbnail(pointSize: CGFloat) -> UIImage? {
+        guard pointSize.isFinite, pointSize > 0 else { return nil }
+        let pixels = min(4096, max(1, (pointSize * UIScreen.main.scale).rounded(.up)))
+        return GameIconCache.shared.image(for: self, maxPixels: Int(pixels))
+    }
+
+    @MainActor var cartridgeIcon: UIImage? { GameIconCache.shared.image(for: self, maxPixels: 256, rounded: true) }
     
     init(containerFolder: URL, fileType: UTType, fileURL: URL, titleName: String, titleId: String, developer: String, version: String, iconData: Data? = nil) {
         self.containerFolder = containerFolder

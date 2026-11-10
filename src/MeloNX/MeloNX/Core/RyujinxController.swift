@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import Foundation
 
 extension URL {
     @available(iOS, introduced: 14.0, deprecated: 16.0, message: "Use URL.documentsDirectory on iOS 16 and above")
@@ -249,6 +250,7 @@ public final class RyujinxController: ObservableObject {
         let inputGameId = ControllerInputProfile.normalizedGameId(game.titleId)
         NativeSettingsManager.setShared(inputGameId, pullOriginal: inputGameId != nil)
         StatisticsHandler.shared.beginSession()
+        LoadingOverlayViewModel.shared.beginSession()
 
         loadWithoutSave(game.titleId)
         
@@ -320,6 +322,7 @@ public final class RyujinxController: ObservableObject {
         isStopping = true
         controllerManager.refreshInputResources()
         StatisticsHandler.shared.endSession()
+        LoadingOverlayViewModel.shared.endSession()
         _isPaused = false
         wasManuallyPaused = false
         // 先停止向 native 输入层提交事件，给窗口和渲染线程留下完整的释放窗口。
@@ -348,6 +351,7 @@ public final class RyujinxController: ObservableObject {
     @MainActor
     private func restoreGlobalInputProfile() {
         StatisticsHandler.shared.endSession()
+        LoadingOverlayViewModel.shared.endSession()
         InGameInputSession.shared.endGame()
         controllerManager.detachAllControllers()
         controllerManager.activateInputProfile(gameId: nil)
@@ -577,136 +581,30 @@ public final class RyujinxController: ObservableObject {
     }
     
     
+    private let libraryCache = GameLibraryCache()
+
     func loadGamesArray() -> [GameInfo] {
-        let fileManager = FileManager.default
-        var romDirectories: [URL] = [.romsURL]
-        
-        let romFolderManager = ROMFolderManager.shared
-        romFolderManager.loadBookmarks()
-        
-        for bookmarkData in romFolderManager.bookmarks {
-            var isStale = false
-            do {
-                let url = try URL(
-                    resolvingBookmarkData: bookmarkData,
-                    options: [withSecurityScope],
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
-                )
-                
-                if isStale, fileManager.fileExists(atPath: url.path) {
-                    _ = romFolderManager.addFolder(url: url)
-                }
-                
-                if url.startAccessingSecurityScopedResource() {
-                    romDirectories.append(url)
-                }
-            } catch {
-                print("Failed to resolve bookmark: \(error)")
-            }
-        }
-        
-        var games: [GameInfo] = []
-        for romsDirectory in romDirectories {
-            guard let enumerator = fileManager.enumerator(at: romsDirectory, includingPropertiesForKeys: nil) else {
-                continue
-            }
-            
-            for case let fileURL as URL in enumerator {
-                guard GameFileType.isSupported(fileExtension: fileURL.pathExtension) else { continue }
-                
-                do {
-                    let handle = try FileHandle(forReadingFrom: fileURL)
-                    let fileExtension = fileURL.pathExtension as NSString
-                    games.append(Ryujinx.getGameInfo(arg0: handle.fileDescriptor, arg1: fileExtension, path: fileURL))
-                } catch {
-                    print("Failed to read file at \(fileURL): \(error)")
-                }
-            }
-        }
-        
-        return games
+        libraryCache.load(systemLanguage: String(describing: settings.systemLanguage))
     }
-    
-    
+
     func loadGames() {
-        let fileManager = FileManager.default
-        guard let documentsDirectory = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return
-        }
-        
-        var romDirectories: [URL] = [documentsDirectory.appendingPathComponent("roms")]
-        
-        let romFolderManager = ROMFolderManager.shared
-        romFolderManager.loadBookmarks()
-        
-        for bookmarkData in romFolderManager.bookmarks {
-            var isStale = false
-            do {
-                let url = try URL(
-                    resolvingBookmarkData: bookmarkData,
-                    options: [withSecurityScope],
-                    relativeTo: nil,
-                    bookmarkDataIsStale: &isStale
-                )
-                
-                if isStale, fileManager.fileExists(atPath: url.path) {
-                    _ = romFolderManager.addFolder(url: url)
-                }
-                
-                if url.startAccessingSecurityScopedResource() {
-                    romDirectories.append(url)
-                }
-            } catch {
-                print("Failed to resolve bookmark: \(error)")
-            }
-        }
-        
-        let defaultRomsDirectory = documentsDirectory.appendingPathComponent("roms")
-        if !fileManager.fileExists(atPath: defaultRomsDirectory.path) {
-            do {
-                try fileManager.createDirectory(at: defaultRomsDirectory, withIntermediateDirectories: true)
-            } catch {
-                print("Failed to create roms directory: \(error)")
-            }
-        }
-        
-        var games: [GameInfo] = []
-        for romsDirectory in romDirectories {
-            guard let enumerator = fileManager.enumerator(at: romsDirectory, includingPropertiesForKeys: nil) else {
-                continue
-            }
-            
-            for case let fileURL as URL in enumerator {
-                guard GameFileType.isSupported(fileExtension: fileURL.pathExtension) else { continue }
-                
-                do {
-                    let handle = try FileHandle(forReadingFrom: fileURL)
-                    let fileExtension = fileURL.pathExtension as NSString
-                    games.append(Ryujinx.getGameInfo(arg0: handle.fileDescriptor, arg1: fileExtension, path: fileURL))
-                } catch {
-                    print("Failed to read file at \(fileURL): \(error)")
-                }
-            }
-        }
-        
-        self.games = games
-        
+        games = loadGamesArray()
         sortGames(true)
     }
-    
+
     func sortGames(_ isCalled: Bool = false) {
         let nativeSettingsManager: NativeSettingsManager = .shared
         switch nativeSettingsManager.gameSort(GameSort.none).value {
         case .alphabetical:
             games = games.sorted { $0.titleName < $1.titleName }
         case .newest:
-            games = games.sorted { (game, gam2) -> Bool in
-                let date1 = (try? game.fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-                let date2 = (try? gam2.fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-                
-                return (date1 ?? Date.distantPast) > (date2 ?? Date.distantPast)
+            // 每个文件只读取一次日期，排序比较器只访问内存；重复 URL 不会触发字典构造断言。
+            let dates: [URL: Date] = games.reduce(into: [:]) { result, game in
+                guard result[game.fileURL] == nil else { return }
+                let date = (try? game.fileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+                result[game.fileURL] = date ?? .distantPast
             }
+            games = games.sorted { dates[$0.fileURL, default: .distantPast] > dates[$1.fileURL, default: .distantPast] }
         case .none:
             if !isCalled { loadGames() }
         }

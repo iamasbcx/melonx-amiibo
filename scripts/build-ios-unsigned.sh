@@ -108,6 +108,17 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   -o "${BUILD_DIR}/MetalPresentationPolicyTests" \
   2>&1 | tee "${LOG_DIR}/metal-presentation-build.log"
 "${BUILD_DIR}/MetalPresentationPolicyTests" 2>&1 | tee "${LOG_DIR}/metal-presentation-tests.log"
+# 二轮优化直接验证回调槽、加载会话、磁盘依赖缓存及 Steam 有序输入的生产状态模块。
+xcrun swiftc -parse-as-library -default-isolation MainActor -target arm64-apple-macosx14.0 \
+  src/MeloNX/MeloNX/Common/CallbackLifecycleState.swift \
+  src/MeloNX/MeloNX/UI/Emulation/Loading/LoadingProgressState.swift \
+  src/MeloNX/MeloNX/Core/Models/LibraryCacheState.swift \
+  src/MeloNX/MeloNX/Core/Controllers/SteamControllerProtocol.swift \
+  src/MeloNX/MeloNX/Core/Controllers/SteamInputDelta.swift \
+  tests/UIRuntimeOptimizationTests.swift \
+  -o "${BUILD_DIR}/UIRuntimeOptimizationTests" \
+  2>&1 | tee "${LOG_DIR}/ui-runtime-optimization-build.log"
+"${BUILD_DIR}/UIRuntimeOptimizationTests" 2>&1 | tee "${LOG_DIR}/ui-runtime-optimization-tests.log"
 # 本地手柄包使用自身隔离规则；测试直接链接生产仲裁和布局数学，避免复制实现。
 xcrun swiftc -parse-as-library \
   src/MeloNX/Dependencies/Melo-Controller/Sources/Melo-Controller/ControllerInteractionState.swift \
@@ -137,6 +148,14 @@ DOTNET="${DOTNET_ROOT}/dotnet"
   -c Release 2>&1 | tee "${LOG_DIR}/presentation-pacing-tests.log"
 "${DOTNET}" run --project tests/HostLoop.Tests/HostLoop.Tests.csproj \
   -c Release 2>&1 | tee "${LOG_DIR}/host-loop-tests.log"
+"${DOTNET}" run --project tests/CoreOptimization.Tests/CoreOptimization.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/core-optimization-tests.log"
+"${DOTNET}" run --project tests/GraphicsOptimization.Tests/GraphicsOptimization.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/graphics-optimization-tests.log"
+"${DOTNET}" run --project tests/GraphicsLink.Tests/GraphicsLink.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/graphics-link-tests.log"
+"${DOTNET}" run --project tests/AppleAudio.Tests/AppleAudio.Tests.csproj \
+  -c Release 2>&1 | tee "${LOG_DIR}/apple-audio-tests.log"
 
 # 所有可复用的输入先记录摘要；SPM 只接受现有锁文件，禁止构建时自动升级。
 python3 - "${PROJECT_ROOT}" "${ARTIFACT_DIR}" <<'PY'

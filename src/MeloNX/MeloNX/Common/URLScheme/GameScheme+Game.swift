@@ -9,6 +9,7 @@ import Foundation
 import UIKit
 
 extension GameScheme {
+    @MainActor
     init(_ game: GameInfo) {
         self.titleName = game.titleName
         self.titleId = game.titleId

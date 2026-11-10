@@ -13,6 +13,8 @@ namespace Ryujinx.Audio.Backends.Apple.Native
         private const uint AudioChannelLayoutTagMpeg51A = (121u << 16) | 6u;
 
         private static readonly nint _nsConcreteStackBlock;
+        // Apple 持有的 block 副本共享此描述符；它的寿命覆盖所有原生迟到回调。
+        private static readonly nint _completionDescriptor;
 
         static AVFoundation()
         {
@@ -20,6 +22,12 @@ namespace Ryujinx.Audio.Backends.Apple.Native
 
             nint libSystem = NativeLibrary.Load(LibSystem);
             _nsConcreteStackBlock = NativeLibrary.GetExport(libSystem, "_NSConcreteStackBlock");
+            _completionDescriptor = Marshal.AllocHGlobal(sizeof(BlockDescriptor));
+            *(BlockDescriptor*)_completionDescriptor = new BlockDescriptor
+            {
+                Size = (nuint)sizeof(BlockLiteral),
+                Signature = Marshal.StringToHGlobalAnsi("v@?"),
+            };
         }
 
         internal enum AVAudioCommonFormat : ulong
@@ -245,20 +253,10 @@ namespace Ryujinx.Audio.Backends.Apple.Native
             }
         }
 
-        internal static nint CreateCompletionBlock(nint context, CompletionCallback callback, out GCHandle callbackHandle)
+        // callback 必须由调用方静态持有，context 必须是可撤销标识而非可释放 GCHandle。
+        internal static nint CreateCompletionBlock(nint context, CompletionCallback callback)
         {
-            callbackHandle = GCHandle.Alloc(callback);
-
-            nint descriptor = Marshal.AllocHGlobal(sizeof(BlockDescriptor));
             nint block = Marshal.AllocHGlobal(sizeof(BlockLiteral));
-            nint signature = Marshal.StringToHGlobalAnsi("v@?");
-
-            *(BlockDescriptor*)descriptor = new BlockDescriptor
-            {
-                Reserved = 0,
-                Size = (nuint)sizeof(BlockLiteral),
-                Signature = signature,
-            };
 
             *(BlockLiteral*)block = new BlockLiteral
             {
@@ -266,7 +264,7 @@ namespace Ryujinx.Audio.Backends.Apple.Native
                 Flags = BlockHasSignature,
                 Reserved = 0,
                 Invoke = Marshal.GetFunctionPointerForDelegate(callback),
-                Descriptor = descriptor,
+                Descriptor = _completionDescriptor,
                 Context = context,
             };
 
@@ -278,24 +276,14 @@ namespace Ryujinx.Audio.Backends.Apple.Native
             return ((BlockLiteral*)block)->Context;
         }
 
-        internal static void DestroyCompletionBlock(nint block, GCHandle callbackHandle)
+        internal static void DestroyCompletionBlock(nint block)
         {
             if (block == nint.Zero)
             {
                 return;
             }
 
-            BlockLiteral* literal = (BlockLiteral*)block;
-            BlockDescriptor* descriptor = (BlockDescriptor*)literal->Descriptor;
-
-            Marshal.FreeHGlobal(descriptor->Signature);
-            Marshal.FreeHGlobal(literal->Descriptor);
             Marshal.FreeHGlobal(block);
-
-            if (callbackHandle.IsAllocated)
-            {
-                callbackHandle.Free();
-            }
         }
     }
 }

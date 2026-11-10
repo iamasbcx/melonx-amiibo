@@ -1,6 +1,7 @@
 using Ryujinx.Audio.Common;
 using Ryujinx.Audio.Integration;
 using Ryujinx.Memory;
+using System;
 using System.Runtime.CompilerServices;
 
 namespace Ryujinx.Audio.Backends.Common
@@ -48,6 +49,7 @@ namespace Ryujinx.Audio.Backends.Common
         public abstract void Dispose();
         public abstract void PrepareToClose();
         public abstract void QueueBuffer(AudioBuffer buffer);
+        public virtual bool TryQueuePcm16(ReadOnlySpan<short> samples) => false;
         public abstract void SetVolume(float volume);
         public abstract float GetVolume();
         public abstract void Start();

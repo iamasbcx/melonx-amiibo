@@ -120,14 +120,16 @@ namespace Ryujinx.Library
             NativeGamepadDriver.OnInputUpdated += SignalInputUpdated;
             NativeTouchDriver.OnInputUpdated += SignalInputUpdated;
             SDL3Driver.Instance.OnKeyboardInputUpdated += SignalInputUpdated;
-            MainThreadActionQueued += SignalInputUpdated;
+            MainThreadActionQueued += SignalControlQueued;
 
         }
 
         public void SignalInputUpdated()
         {
-            _scheduler.Signal();
+            _scheduler.SignalInput();
         }
+
+        private void SignalControlQueued() => _scheduler.SignalControl();
 
         public void SetPaused(bool paused) => _scheduler.SetPaused(paused);
 
@@ -138,7 +140,7 @@ namespace Ryujinx.Library
             NativeGamepadDriver.OnInputUpdated -= SignalInputUpdated;
             NativeTouchDriver.OnInputUpdated -= SignalInputUpdated;
             SDL3Driver.Instance.OnKeyboardInputUpdated -= SignalInputUpdated;
-            MainThreadActionQueued -= SignalInputUpdated;
+            MainThreadActionQueued -= SignalControlQueued;
         }
 
         public void Initialize(Switch device, List<InputConfig> inputConfigs, bool enableKeyboard, bool enableMouse)
@@ -328,7 +330,7 @@ namespace Ryujinx.Library
                 {
                     // 暂停期间仍须处理 SDL/宿主控制任务，否则等待这些任务的线程无法恢复或退出。
                     ProcessMainThreadQueue();
-                    if (_scheduler.CanUpdateInput) UpdateFrame();
+                    if (_scheduler.ShouldUpdateInput()) UpdateFrame();
                     if (!_scheduler.WaitForWork()) break;
                 }
             }

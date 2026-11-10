@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Ryujinx.Graphics.GAL;
 using Silk.NET.Vulkan;
 
 namespace Ryujinx.Graphics.Vulkan
@@ -12,19 +13,14 @@ namespace Ryujinx.Graphics.Vulkan
         private readonly WorkerQueue _pipelineQueue;
         private readonly PipelineCacheManager _pipelineCacheManager;
 
-        public static int PipelineWorkerCount => GetBackgroundCompileThreadCount();
+        public static int PipelineWorkerCount => ShaderCompilationBudget.BackgroundWorkers;
         public static int PipelineCacheCount => PipelineWorkerCount + 1;
 
         public BackgroundCompilationScheduler(PipelineCacheManager pipelineCacheManager)
         {
             _pipelineCacheManager = pipelineCacheManager;
-            _shaderQueue = new("Shader", GetBackgroundCompileThreadCount());
+            _shaderQueue = new("Shader", ShaderCompilationBudget.BackgroundWorkers);
             _pipelineQueue = new("Pipeline", PipelineWorkerCount);
-        }
-
-        private static int GetBackgroundCompileThreadCount()
-        {
-            return Math.Max(1, Math.Min(2, Environment.ProcessorCount / 4));
         }
 
         public Task ScheduleShaderCompile(Action action, bool highPriority = false)

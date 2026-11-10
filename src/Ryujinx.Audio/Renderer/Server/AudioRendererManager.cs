@@ -54,7 +54,7 @@ namespace Ryujinx.Audio.Renderer.Server
         /// <summary>
         /// Indicate if the worker thread and <see cref="AudioProcessor"/> are running.
         /// </summary>
-        private bool _isRunning;
+        private volatile bool _isRunning;
 
         /// <summary>
         /// The audio device driver to create audio outputs.
@@ -199,6 +199,7 @@ namespace Ryujinx.Audio.Renderer.Server
         {
             _isRunning = false;
 
+            Processor.RequestStop();
             _workerThread.Join();
             Processor.Stop();
 

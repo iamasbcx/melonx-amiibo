@@ -27,6 +27,7 @@ using (HostLoopScheduler scheduler = new())
     int idleIterations = 0;
     while (timer.ElapsedMilliseconds < 96)
     {
+        scheduler.ShouldUpdateInput();
         scheduler.WaitForWork();
         idleIterations++;
     }
@@ -38,7 +39,7 @@ using (HostLoopScheduler scheduler = new())
     Thread inputWaiter = new(() => { scheduler.WaitForWork(); inputAwake.Set(); });
     inputWaiter.Start();
     Require(!inputAwake.Wait(35), "暂停状态仍按输入心跳唤醒");
-    scheduler.Signal();
+    scheduler.SignalControl();
     Require(inputAwake.Wait(2000), "控制队列无法唤醒暂停循环");
     inputWaiter.Join();
     Require(!scheduler.CanUpdateInput, "处理控制队列意外恢复输入");
@@ -63,10 +64,53 @@ using (HostLoopScheduler scheduler = new())
 HostLoopScheduler disposedScheduler = new();
 disposedScheduler.Stop();
 disposedScheduler.Dispose();
-disposedScheduler.Signal();
+disposedScheduler.SignalControl();
+disposedScheduler.SignalInput();
 disposedScheduler.SetPaused(false);
 disposedScheduler.Stop();
 Require(!disposedScheduler.CanUpdateInput, "迟到事件重新打开已释放调度器");
+
+using (HostLoopScheduler clocked = new(1000))
+{
+    Require(clocked.TryUpdateInput(0), "初次输入未立即采样");
+    for (long tick = 1; tick < 8; tick++)
+    {
+        clocked.SignalControl();
+        Require(!clocked.TryUpdateInput(tick), "控制任务触发额外 HID 更新");
+    }
+    Require(clocked.GetWaitTimeout(7) == 1 && clocked.TryUpdateInput(8), "控制任务推迟绝对心跳");
+    clocked.SignalInput();
+    Require(clocked.TryUpdateInput(10), "真实输入未立即采样");
+    Require(clocked.GetWaitTimeout(12) == 4 && clocked.TryUpdateInput(16), "真实输入重置了心跳相位");
+    Require(clocked.TryUpdateInput(40) && !clocked.TryUpdateInput(40) && clocked.GetWaitTimeout(40) == 8, "延迟唤醒导致补帧忙循环");
+    clocked.SetPaused(true);
+    clocked.SignalInput();
+    Require(!clocked.TryUpdateInput(100) && clocked.GetWaitTimeout(100) == Timeout.Infinite, "暂停仍按输入心跳轮询");
+    clocked.SetPaused(false);
+    Require(clocked.TryUpdateInput(100) && clocked.GetWaitTimeout(100) == 8, "恢复没有重建心跳");
+}
+
+// 固定委托派发的零分配与真实跨线程串行提交；超时仅用于明确暴露死锁。
+HostActionDispatcher inlineDispatcher = new(action => action());
+Action noOperation = () => { };
+for (int index = 0; index < 20; index++) inlineDispatcher.Invoke(noOperation);
+long dispatcherBefore = GC.GetAllocatedBytesForCurrentThread();
+for (int index = 0; index < 1000; index++) inlineDispatcher.Invoke(noOperation);
+Require(GC.GetAllocatedBytesForCurrentThread() == dispatcherBefore, "宿主每次同步派发仍分配闭包");
+using (BlockingCollection<Action> queue = new())
+{
+    HostActionDispatcher dispatcher = new(queue.Add);
+    int executed = 0;
+    Task consumer = Task.Run(() => { foreach (Action action in queue.GetConsumingEnumerable()) action(); });
+    Action increment = () => Interlocked.Increment(ref executed);
+    Task[] submissions = Enumerable.Range(0, 4).Select(_ => Task.Run(() =>
+    {
+        for (int index = 0; index < 50; index++) dispatcher.Invoke(increment);
+    })).ToArray();
+    Require(Task.WaitAll(submissions, TimeSpan.FromSeconds(5)) && executed == 200, "并发控制任务丢失完成通知");
+    queue.CompleteAdding();
+    Require(consumer.Wait(2000), "控制消费者未结束");
+}
 
 // 时间完全可控：关闭、首帧、限速、重复开启及新游戏不会依赖真实帧率。
 StatisticsPublishGate statistics = new(1000);

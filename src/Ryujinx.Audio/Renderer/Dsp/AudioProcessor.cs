@@ -21,7 +21,7 @@ namespace Ryujinx.Audio.Renderer.Dsp
             RenderEnd,
         }
 
-        private class RendererSession
+        private struct RendererSession
         {
             public CommandList CommandList;
             public int RenderingLimit;
@@ -39,6 +39,7 @@ namespace Ryujinx.Audio.Renderer.Dsp
         private readonly ManualResetEvent _event;
 
         private ManualResetEvent _pauseEvent;
+        private WaitHandle[] _pauseOrStop;
 
         public AudioProcessor()
         {
@@ -75,7 +76,9 @@ namespace Ryujinx.Audio.Renderer.Dsp
             _sessionCommandList = new RendererSession[Constants.AudioRendererSessionCountMax];
             _event.Reset();
             _lastTime = PerformanceCounter.ElapsedNanoseconds;
+            _playbackEnds = 0;
             _pauseEvent = deviceDriver.GetPauseEvent();
+            _pauseOrStop = _pauseEvent == null ? null : new WaitHandle[] { _pauseEvent, _event };
 
             StartThread();
 
@@ -89,6 +92,7 @@ namespace Ryujinx.Audio.Renderer.Dsp
 
         public void Stop()
         {
+            RequestStop();
             _mailbox.SendMessage(MailboxMessage.Stop);
 
             if (_mailbox.ReceiveResponse() != MailboxMessage.Stop)
@@ -96,11 +100,18 @@ namespace Ryujinx.Audio.Renderer.Dsp
                 throw new InvalidOperationException("Audio Processor Stop response was invalid!");
             }
 
+            _workerThread.Join();
+            _mailbox.Dispose();
+            _mailbox = null;
+
             foreach (IHardwareDevice device in OutputDevices)
             {
                 device.Dispose();
             }
         }
+
+        /// <summary>管理线程等待退出前先中断期限等待和暂停门；仍由邮箱完成停止握手。</summary>
+        public void RequestStop() => _event.Set();
 
         public void Send(int sessionId, CommandList commands, int renderingLimit, ulong appletResourceId)
         {
@@ -114,7 +125,7 @@ namespace Ryujinx.Audio.Renderer.Dsp
 
         public bool HasRemainingCommands(int sessionId)
         {
-            return _sessionCommandList[sessionId] != null;
+            return _sessionCommandList[sessionId].CommandList != null;
         }
 
         public void Signal()
@@ -157,7 +168,10 @@ namespace Ryujinx.Audio.Renderer.Dsp
 
             while (timeNow < _lastTime + increment)
             {
-                _event.WaitOne(1);
+                if (_event.WaitOne(AudioDeadlineWait.MillisecondsUntil(timeNow, _lastTime + increment)))
+                {
+                    break;
+                }
 
                 timeNow = PerformanceCounter.ElapsedNanoseconds;
             }
@@ -189,7 +203,10 @@ namespace Ryujinx.Audio.Renderer.Dsp
 
             while (true)
             {
-                _pauseEvent?.WaitOne();
+                if (_pauseOrStop != null)
+                {
+                    WaitHandle.WaitAny(_pauseOrStop);
+                }
 
                 MailboxMessage message = _mailbox.ReceiveMessage();
 
@@ -204,11 +221,14 @@ namespace Ryujinx.Audio.Renderer.Dsp
 
                     for (int i = 0; i < _sessionCommandList.Length; i++)
                     {
-                        if (_sessionCommandList[i] != null)
+                        if (_sessionCommandList[i].CommandList != null)
                         {
-                            _sessionCommandList[i].CommandList.Process(OutputDevices[i]);
+                            if (!_event.WaitOne(0))
+                            {
+                                _sessionCommandList[i].CommandList.Process(OutputDevices[i]);
+                            }
                             _sessionCommandList[i].CommandList.Dispose();
-                            _sessionCommandList[i] = null;
+                            _sessionCommandList[i] = default;
                         }
                     }
 

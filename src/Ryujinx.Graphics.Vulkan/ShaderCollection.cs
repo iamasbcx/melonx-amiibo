@@ -39,7 +39,13 @@ namespace Ryujinx.Graphics.Vulkan
         public ResourceBindingSegment[][] BindingSegments { get; }
         public DescriptorSetTemplate[] Templates { get; }
 
-        public ProgramLinkStatus LinkStatus { get; private set; }
+        private int _linkStatus;
+        // 后台编译线程发布、GPU 线程读取；完成状态必须跨线程可见。
+        public ProgramLinkStatus LinkStatus
+        {
+            get => (ProgramLinkStatus)Volatile.Read(ref _linkStatus);
+            private set => Volatile.Write(ref _linkStatus, (int)value);
+        }
 
         public readonly SpecDescription[] SpecDescriptions;
 
@@ -117,9 +123,8 @@ namespace Ryujinx.Graphics.Vulkan
 
             for (int i = 0; i < shaders.Length; i++)
             {
-                Shader shader = compileInBackground
-                    ? new Shader(gd, device, shaders[i], compileAsync: true, highPriorityBackgroundCompilation)
-                    : new Shader(gd.Api, device, shaders[i]);
+                // 是否允许跳过未编译的绘制，与 CPU 编译并发预算无关；两种模式均经过受限队列。
+                Shader shader = new(gd, device, shaders[i], compileAsync: true, highPriorityBackgroundCompilation);
 
                 stages |= 1u << shader.StageFlags switch
                 {
@@ -536,41 +541,19 @@ namespace Ryujinx.Graphics.Vulkan
 
         private async Task BackgroundCompilation()
         {
-            if (!CompilesInBackground)
-            {
-                await Task.WhenAll(_shaderCompileTasks);
-
-                if (Array.Exists(_shaders, shader => shader.CompileStatus == ProgramLinkStatus.Failure))
-                {
-                    LinkStatus = ProgramLinkStatus.Failure;
-
-                    return;
-                }
-
-                try
-                {
-                    if (IsCompute)
-                    {
-                        CreateBackgroundComputePipeline();
-                    }
-                    else
-                    {
-                        CreateBackgroundGraphicsPipeline();
-                    }
-                }
-                catch (VulkanException e)
-                {
-                    Logger.Error?.PrintMsg(LogClass.Gpu, $"Background Compilation failed: {e.Message}");
-
-                    LinkStatus = ProgramLinkStatus.Failure;
-                }
-
-                return;
-            }
-
             try
             {
-                if (!await WaitForShaderModuleCompilation())
+                // 默认阻塞绘制模式必须等管线完成后才能公布 link 成功，不能在模块就绪时提前置位。
+                if (!CompilesInBackground)
+                {
+                    await Task.WhenAll(_shaderCompileTasks);
+                    if (Array.Exists(_shaders, shader => shader.CompileStatus == ProgramLinkStatus.Failure))
+                    {
+                        LinkStatus = ProgramLinkStatus.Failure;
+                        return;
+                    }
+                }
+                else if (!await WaitForShaderModuleCompilation())
                 {
                     return;
                 }
@@ -601,22 +584,24 @@ namespace Ryujinx.Graphics.Vulkan
             }
             catch (VulkanException e)
             {
+                if (!CompilesInBackground) LinkStatus = ProgramLinkStatus.Failure;
                 LogBackgroundPipelineFailure(e);
             }
             catch (Exception e)
             {
+                if (!CompilesInBackground) LinkStatus = ProgramLinkStatus.Failure;
                 LogBackgroundPipelineFailure(e);
             }
             finally
             {
                 Volatile.Write(ref _initialPipelineCompileTask, null);
-                ClearInitialBackgroundPipelineTask();
+                if (CompilesInBackground) ClearInitialBackgroundPipelineTask();
             }
         }
 
         public void PromoteBackgroundCompilation()
         {
-            if (!CompilesInBackground || Interlocked.Exchange(ref _backgroundCompilationDemanded, 1) != 0)
+            if (Interlocked.Exchange(ref _backgroundCompilationDemanded, 1) != 0)
             {
                 return;
             }
@@ -888,15 +873,15 @@ namespace Ryujinx.Graphics.Vulkan
             pipeline.StagesCount = 1;
             pipeline.PipelineLayout = PipelineLayout;
 
-            if (CompilesInBackground)
+            if (backgroundCache.Handle != 0)
             {
                 pipeline.CreateComputePipeline(
                     _gd,
                     _device,
                     this,
                     backgroundCache,
-                    throwOnError: false,
-                    cachePipelineFailure: false);
+                    throwOnError: !CompilesInBackground,
+                    cachePipelineFailure: !CompilesInBackground);
             }
             else
             {
@@ -930,7 +915,7 @@ namespace Ryujinx.Graphics.Vulkan
             pipeline.StagesCount = (uint)_shaders.Length;
             pipeline.PipelineLayout = PipelineLayout;
 
-            if (CompilesInBackground)
+            if (backgroundCache.Handle != 0)
             {
                 pipeline.CreateGraphicsPipeline(
                     _gd,
@@ -938,8 +923,8 @@ namespace Ryujinx.Graphics.Vulkan
                     this,
                     backgroundCache,
                     renderPass.Value,
-                    throwOnError: false,
-                    cachePipelineFailure: false);
+                    throwOnError: !CompilesInBackground,
+                    cachePipelineFailure: !CompilesInBackground);
             }
             else
             {
@@ -950,12 +935,11 @@ namespace Ryujinx.Graphics.Vulkan
 
         public ProgramLinkStatus CheckProgramLink(bool blocking)
         {
+            if (blocking) PromoteBackgroundCompilation();
             if (!CompilesInBackground)
             {
                 if (LinkStatus == ProgramLinkStatus.Incomplete)
                 {
-                    ProgramLinkStatus resultStatus = ProgramLinkStatus.Success;
-
                     foreach (Shader shader in _shaders)
                     {
                         if (shader.CompileStatus == ProgramLinkStatus.Incomplete)
@@ -964,15 +948,16 @@ namespace Ryujinx.Graphics.Vulkan
                             {
                                 shader.WaitForCompile();
 
-                                if (shader.CompileStatus != ProgramLinkStatus.Success)
-                                {
-                                    resultStatus = ProgramLinkStatus.Failure;
-                                }
                             }
                             else
                             {
                                 return ProgramLinkStatus.Incomplete;
                             }
+                        }
+                        if (shader.CompileStatus != ProgramLinkStatus.Success)
+                        {
+                            LinkStatus = ProgramLinkStatus.Failure;
+                            return LinkStatus;
                         }
                     }
 
@@ -980,10 +965,14 @@ namespace Ryujinx.Graphics.Vulkan
                     {
                         if (blocking)
                         {
-                            _compileTask.Wait();
-
-                            if (LinkStatus == ProgramLinkStatus.Failure)
+                            try
                             {
+                                _compileTask.Wait();
+                            }
+                            catch (AggregateException e)
+                            {
+                                LinkStatus = ProgramLinkStatus.Failure;
+                                LogBackgroundPipelineFailure(e);
                                 return ProgramLinkStatus.Failure;
                             }
                         }
@@ -993,7 +982,10 @@ namespace Ryujinx.Graphics.Vulkan
                         }
                     }
 
-                    return resultStatus;
+                    // IsCompleted/Wait 建立完成屏障后重新读取，覆盖检查途中发生的后台失败。
+                    LinkStatus = _compileTask.IsFaulted || _compileTask.IsCanceled || LinkStatus == ProgramLinkStatus.Failure
+                        ? ProgramLinkStatus.Failure : ProgramLinkStatus.Success;
+                    return LinkStatus;
                 }
 
                 return LinkStatus;

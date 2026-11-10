@@ -38,18 +38,6 @@ namespace Ryujinx.Graphics.Vulkan
 
         public readonly Task CompileTask;
 
-        public unsafe Shader(Vk api, Device device, ShaderSource shaderSource)
-        {
-            _api = api;
-            _device = device;
-
-            CompileStatus = ProgramLinkStatus.Incomplete;
-
-            _stage = shaderSource.Stage.Convert();
-
-            CompileTask = Task.Run(() => Compile(shaderSource));
-        }
-
         public unsafe Shader(VulkanRenderer gd, Device device, ShaderSource shaderSource, bool compileAsync = true, bool highPriorityBackgroundCompilation = false)
         {
             _gd = gd;

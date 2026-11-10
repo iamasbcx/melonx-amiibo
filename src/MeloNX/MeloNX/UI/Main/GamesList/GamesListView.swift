@@ -117,7 +117,7 @@ struct GamesListView: View {
                                         toolbarHandler()
                                     }
                                 
-                                let cartridges: [CartridgeData] = ryujinxController.games.compactMap({ CartridgeData(labelImage: $0.icon ?? UIImage(), colors: [UIColor(hex: "171717"), .yellow]) })
+                                let cartridges: [CartridgeData] = ryujinxController.games.compactMap({ CartridgeData(labelImage: $0.cartridgeIcon ?? UIImage(), colors: [UIColor(hex: "171717"), .yellow]) })
                                 
                                 CartridgeCarouselView(cartridges: cartridges, selectedIndex: $selectedIndex, uiMenu: gameContextUIMenu, spinTrigger: $spinTrigger, reset: $spinReset, spun: { index in
                                     let game = ryujinxController.games[index]

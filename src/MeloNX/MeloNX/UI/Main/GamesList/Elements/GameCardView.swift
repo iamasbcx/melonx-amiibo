@@ -21,7 +21,7 @@ struct GameCardView: View {
     
     @ViewBuilder
     var smallGrid: some View {
-        if let icon = game.icon {
+        if let icon = game.thumbnail(pointSize: 150) {
             Image(uiImage: icon)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
@@ -41,7 +41,7 @@ struct GameCardView: View {
     @ViewBuilder
     var wiiUCard: some View {
         Group {
-            if let icon = game.icon {
+            if let icon = game.thumbnail(pointSize: 95) {
                 Image(uiImage: icon)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
@@ -121,7 +121,7 @@ struct GameCardView: View {
         VStack(spacing: 8) {
             // Game Icon
             ZStack {
-                if let icon = game.icon {
+                if let icon = game.thumbnail(pointSize: 150) {
                     Image(uiImage: icon)
                         .resizable()
                         .aspectRatio(contentMode: .fill)

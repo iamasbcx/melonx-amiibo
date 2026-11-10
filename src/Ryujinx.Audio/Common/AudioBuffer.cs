@@ -19,7 +19,10 @@ namespace Ryujinx.Audio.Common
         /// <summary>
         /// Globally unique ID of the buffer on the host.
         /// </summary>
-        public ulong HostTag = Interlocked.Increment(ref _uniqueIdGlobal);
+        public ulong HostTag = NextHostTag();
+
+        /// <summary>同步样本路径与普通缓冲共用标签空间，避免创建仅用于分配标签的对象。</summary>
+        public static ulong NextHostTag() => Interlocked.Increment(ref _uniqueIdGlobal);
 
         /// <summary>
         /// Pointer to the user samples.

@@ -9,6 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Ryujinx.Input.Native/Ryujinx.Input.Native.csproj" />
     <Compile Include="../../src/Ryujinx.Library/Window/HostLoopScheduler.cs" Link="Production/HostLoopScheduler.cs" />
+    <Compile Include="../../src/Ryujinx.Library/Window/HostActionDispatcher.cs" Link="Production/HostActionDispatcher.cs" />
     <Compile Include="../../src/Ryujinx.Library/Window/StatisticsPublishGate.cs" Link="Production/StatisticsPublishGate.cs" />
     <Compile Include="../../src/Ryujinx.Library/Window/NativeViewportState.cs" Link="Production/NativeViewportState.cs" />
     <Compile Include="../../src/Ryujinx.Library/Native/NativeTouchState.cs" Link="Production/NativeTouchState.cs" />

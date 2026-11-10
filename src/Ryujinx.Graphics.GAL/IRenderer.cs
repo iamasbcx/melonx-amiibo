@@ -52,7 +52,8 @@ namespace Ryujinx.Graphics.GAL
 
         void DeleteBuffer(BufferHandle buffer);
 
-        PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size);
+        /// <summary>读取缓冲区；waitForWrites 仅供 GPU 提交线程调用，要求提交此前写入并等待其完成。</summary>
+        PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size, bool waitForWrites = false);
 
         Capabilities GetCapabilities();
         ulong GetCurrentSync();

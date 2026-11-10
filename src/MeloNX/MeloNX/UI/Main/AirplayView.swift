@@ -39,7 +39,7 @@ struct AirplayView: View {
     }
     
     private var carousel: some View {
-        let cartridges: [CartridgeData] = ryujinxController.games.compactMap({ CartridgeData(labelImage: $0.icon ?? UIImage(), colors: [UIColor(hex: "171717"), .yellow]) })
+        let cartridges: [CartridgeData] = ryujinxController.games.compactMap({ CartridgeData(labelImage: $0.cartridgeIcon ?? UIImage(), colors: [UIColor(hex: "171717"), .yellow]) })
         
         return CartridgeCarouselView(cartridges: cartridges, selectedIndex: $selectedIndex, uiMenu: { _ in UIMenu() }, spinTrigger: $spinTrigger, reset: $spinReset, spun: { index in
             let game = ryujinxController.games[index]

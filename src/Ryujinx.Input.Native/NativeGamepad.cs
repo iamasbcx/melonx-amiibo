@@ -19,6 +19,7 @@ namespace Ryujinx.Input.Native
         private int? _motionScreenOrientation;
         private ulong _motionEpoch;
         private bool _isMotionSuspended;
+        private readonly string _rumbleCallbackName;
 
         private static readonly GamepadButtonInputId[] ButtonMapping = new GamepadButtonInputId[17]
         {
@@ -53,6 +54,7 @@ namespace Ryujinx.Input.Native
         {
             Name = name;
             Id = id;
+            _rumbleCallbackName = $"rumble-{id}";
             IsConnected = true;
             Features = GamepadFeaturesFlag.Rumble | GamepadFeaturesFlag.Motion;
 
@@ -321,17 +323,8 @@ namespace Ryujinx.Input.Native
         {
             unsafe 
             {
-                int size = Marshal.SizeOf(typeof(RumbleData));
-                nint ptr = Marshal.AllocHGlobal(size);
-                try 
-                {
-                    Marshal.StructureToPtr(rumbleData, ptr, false);
-                    CallbackRegistry.Invoke($"rumble-{Id}", (byte*)ptr, size);
-                } 
-                finally
-                {
-                    Marshal.FreeHGlobal(ptr);
-                }
+                // C ABI 固定 44 字节，回调同步复制且不得保留指针；参数本身由当前栈帧拥有。
+                CallbackRegistry.Invoke(_rumbleCallbackName, (byte*)&rumbleData, sizeof(RumbleData));
             }
         }
 

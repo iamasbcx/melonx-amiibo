@@ -708,9 +708,23 @@ namespace Ryujinx.Graphics.Vulkan
             BufferManager.StagingBuffer.FreeCompleted();
         }
 
-        public PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size)
+        public PinnedSpan<byte> GetBufferData(BufferHandle buffer, int offset, int size, bool waitForWrites = false)
         {
-            return BufferManager.GetData(buffer, offset, size);
+            if (waitForWrites)
+            {
+                if (!CommandBufferPool.OwnedByCurrentThread)
+                    throw new InvalidOperationException("Synchronous write readback requires the GPU submission thread.");
+                _pipeline.EndRenderPass();
+                CommandBufferScoped cbs = _pipeline.CurrentCommandBuffer;
+                Auto<DisposableBuffer> autoBuffer = BufferManager.GetBuffer(cbs.CommandBuffer, buffer, false);
+                if (autoBuffer == null) throw new InvalidOperationException("Readback buffer no longer exists.");
+                // host coherent mapping 仍需 GPU 写入到 host read 的可见性，再等待提交 fence。
+                BufferHolder.InsertBufferBarrier(this, cbs.CommandBuffer, autoBuffer.Get(cbs, offset, size).Value,
+                    AccessFlags.MemoryWriteBit, AccessFlags.HostReadBit,
+                    PipelineStageFlags.AllCommandsBit, PipelineStageFlags.HostBit, offset, size);
+                FlushAllCommands();
+            }
+            return BufferManager.GetData(buffer, offset, size, waitForWrites);
         }
 
         public unsafe Capabilities GetCapabilities()

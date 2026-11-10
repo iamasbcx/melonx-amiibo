@@ -6,63 +6,46 @@
 //
 
 import SwiftUI
+import Foundation
 import Combine
 
-class LoadingOverlayViewModel: ObservableObject {
+/// 应用级加载进度只注册一次；页面的出现和消失不再留下原生回调持有的旧模型。
+@MainActor
+final class LoadingOverlayViewModel: ObservableObject {
+    static let shared = LoadingOverlayViewModel()
     @Published var isLoading = true
     @Published var isAnimating = false
-    @Published var isShaderOrPTC = false
-    @Published var loadingType = ""
-    @Published var currentProgress = 0
-    @Published var totalProgress = 1
+    @Published private(set) var progress = LoadingProgressSnapshot.empty
+    var isShaderOrPTC: Bool { progress.visible && !progress.type.isEmpty }
+    var loadingType: String { progress.type }
+    var currentProgress: Int { progress.current }
+    var totalProgress: Int { progress.total }
+    private let session = CallbackSessionEpoch()
+    private var registered = false
 
-    
-    func setupLoading() {
-        let userData = Unmanaged.passRetained(self).toOpaque()
-        
-        RegisterCallback("ProgressWithPTCorShaderCache", { rawPtr, userData in
-            guard let userData else { return }
-            let vm = Unmanaged<LoadingOverlayViewModel>.fromOpaque(userData).takeUnretainedValue()
-            
-            guard let rawPtr else {
-                Task { @MainActor in vm.isShaderOrPTC = false }
-                print("ptr nil")
-                return
+    func beginSession() {
+        session.begin()
+        progress = .empty
+        isLoading = true
+        guard !registered else { return }
+        registered = true
+        let session = session
+        CallbackManager.register(name: "ProgressWithPTCorShaderCache") { @Sendable [weak self, session] packet in
+            guard let token = session.current(), let pointer = packet.ptr,
+                  packet.len > 0, packet.len <= 1024 else { return }
+            let data = Data(bytesNoCopy: pointer, count: Int(packet.len), deallocator: .none)
+            guard let next = LoadingProgressSnapshot.decode(data) else { return }
+            DispatchQueue.main.async { [weak self, session] in
+                guard let self, session.accepts(token) else { return }
+                if self.progress != next { self.progress = next }
             }
-            
-            let callbackData = rawPtr.load(as: CallbackData.self)
-            
-            guard callbackData.len > 0, let ptr = callbackData.ptr else {
-                Task { @MainActor in vm.isShaderOrPTC = false }
-                print("len no workie")
-                return
-            }
-            
-            let rawData = Data(bytes: ptr, count: Int(callbackData.len))
-            
-            guard let jsonArray = try? JSONSerialization.jsonObject(with: rawData) as? [Any],
-                  jsonArray.count == 3,
-                  let type = jsonArray[0] as? String,
-                  let current = jsonArray[1] as? Int,
-                  let total = jsonArray[2] as? Int else {
-                print("No JSON")
-                Task { @MainActor in vm.isShaderOrPTC = false }
-                return
-            }
-            
-            Task {
-                await MainActor.run {
-                    if current < total - 10 {
-                        vm.isShaderOrPTC = true
-                        vm.loadingType = type
-                        vm.currentProgress = current
-                        vm.totalProgress = total
-                    } else {
-                        vm.isShaderOrPTC = false
-                    }
-                }
-            }
-        }, userData)
+        }
+    }
+
+    func endSession() {
+        session.end()
+        isAnimating = false
+        progress = .empty
     }
 }
 
@@ -70,7 +53,7 @@ struct LoadingOverlayView: View {
     let game: GameInfo?
     let showLogs: Bool
     
-    @StateObject private var vm = LoadingOverlayViewModel()
+    @ObservedObject private var vm = LoadingOverlayViewModel.shared
     @State private var contentVisible = false
     
     private let clumpWidth: CGFloat = 80
@@ -91,7 +74,6 @@ struct LoadingOverlayView: View {
             }
             .opacity(contentVisible ? 1 : 0)
             .onAppear {
-                vm.setupLoading()
                 vm.isAnimating = true
                 withAnimation(.easeIn(duration: 0.3)) {
                     contentVisible = true
@@ -127,9 +109,9 @@ struct LoadingOverlayView: View {
                 LoadingProgressBar(
                     screenGeometry: geo,
                     isAnimating: $vm.isAnimating,
-                    isShaderOrPTC: $vm.isShaderOrPTC,
-                    currentProgress: $vm.currentProgress,
-                    totalProgress: $vm.totalProgress,
+                    isShaderOrPTC: .constant(vm.isShaderOrPTC),
+                    currentProgress: .constant(vm.currentProgress),
+                    totalProgress: .constant(vm.totalProgress),
                     clumpWidth: clumpWidth
                 )
                 

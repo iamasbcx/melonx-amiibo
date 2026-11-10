@@ -461,7 +461,7 @@ struct CartridgeCarouselView: UIViewRepresentable {
         parentNode.enumerateHierarchy { node, _ in
             guard let materials = node.geometry?.materials else { return }
             for material in materials where material.name == materialName {
-                material.diffuse.contents = image.withRoundedCorners(radius: 12)
+                material.diffuse.contents = image // 圆角纹理已由图标缓存生成，重建节点不再重复绘制。
             }
         }
     }

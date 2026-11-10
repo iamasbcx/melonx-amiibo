@@ -626,10 +626,11 @@ namespace Ryujinx.Graphics.Vulkan
             return null;
         }
 
-        public PinnedSpan<byte> GetData(BufferHandle handle, int offset, int size)
+        public PinnedSpan<byte> GetData(BufferHandle handle, int offset, int size, bool waitForWrites = false)
         {
             if (TryGetBuffer(handle, out BufferHolder holder))
             {
+                if (waitForWrites) holder.WaitForFences(offset, size);
                 return holder.GetData(offset, size);
             }
 

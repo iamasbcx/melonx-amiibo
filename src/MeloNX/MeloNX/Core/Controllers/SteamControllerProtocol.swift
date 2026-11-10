@@ -7,7 +7,7 @@
 
 import Foundation
 
-nonisolated struct SteamControllerState {
+nonisolated struct SteamControllerState: Sendable, Equatable {
     var buttons: UInt32 = 0
     var leftTrigger: Float = 0
     var rightTrigger: Float = 0
@@ -22,34 +22,29 @@ nonisolated struct SteamControllerDecoder {
 
     mutating func decode(_ data: Data, reportID: UInt8) -> SteamControllerState? {
         guard (reportID == 0x45 || reportID == 0x47), data.count == 45 else { return nil }
-        let bytes = Array(data)
-        func u16(_ at: Int) -> UInt16 { UInt16(bytes[at]) | UInt16(bytes[at + 1]) << 8 }
-        
-        func u32(_ at: Int) -> UInt32 { UInt32(u16(at)) | UInt32(u16(at + 2)) << 16 }
-        
-        func signed(_ at: Int) -> Float { Float(Int16(bitPattern: u16(at))) }
-        
-        func axis(_ at: Int) -> Float {
-            let value = signed(at)
-            return value / (value < 0 ? 32768 : 32767)
+        return data.withUnsafeBytes { (bytes: UnsafeRawBufferPointer) -> SteamControllerState in
+            // 只在借用 Data 的生命周期内读取字节，避免每份 BLE 报告再分配一个数组。
+            func u16(_ at: Int) -> UInt16 { UInt16(bytes[at]) | UInt16(bytes[at + 1]) << 8 }
+            func u32(_ at: Int) -> UInt32 { UInt32(u16(at)) | UInt32(u16(at + 2)) << 16 }
+            func signed(_ at: Int) -> Float { Float(Int16(bitPattern: u16(at))) }
+            func axis(_ at: Int) -> Float {
+                let value = signed(at)
+                return value / (value < 0 ? 32768 : 32767)
+            }
+            var state = SteamControllerState()
+            state.buttons = u32(1)
+            state.leftTrigger = max(0, axis(5))
+            state.rightTrigger = max(0, axis(7))
+            state.stick = SIMD2(axis(9), axis(11))
+            state.rightStick = SIMD2(axis(13), axis(15))
+            let timestamp = reportID == 0x45 ? u32(29) : UInt32(u16(31))
+            if timestamp != lastSensorTimestamp {
+                state.accelerometer = SIMD3(-signed(33), signed(35), signed(37)) / 16384
+                state.gyroscope = SIMD3(signed(39), -signed(41), -signed(43)) * (2000 / 32768)
+                lastSensorTimestamp = timestamp
+            }
+            return state
         }
-        let buttons = u32(1)
-        var state = SteamControllerState()
-        
-        state.buttons = buttons
-        state.leftTrigger = max(0, axis(5))
-        state.rightTrigger = max(0, axis(7))
-        state.stick = SIMD2(axis(9), axis(11))
-        state.rightStick = SIMD2(axis(13), axis(15))
-        
-        let timestamp = reportID == 0x45 ? u32(29) : UInt32(u16(31))
-        
-        if timestamp != lastSensorTimestamp {
-            state.accelerometer = SIMD3(-signed(33), signed(35), signed(37)) / 16384
-            state.gyroscope = SIMD3(signed(39), -signed(41), -signed(43)) * (2000 / 32768)
-            lastSensorTimestamp = timestamp
-        }
-        return state
     }
 }
 

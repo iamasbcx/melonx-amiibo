@@ -27,6 +27,16 @@ namespace Ryujinx.Audio.Integration
 
         public void AppendBuffer(ReadOnlySpan<short> data, uint channelCount)
         {
+            if (channelCount != _channelCount || data.Length != _buffer.Length / sizeof(short))
+            {
+                throw new ArgumentException("Renderer PCM packet must match the device channel count and frame size.", nameof(data));
+            }
+
+            if (_session.TryQueuePcm16(data))
+            {
+                return;
+            }
+
             data.CopyTo(MemoryMarshal.Cast<byte, short>(new Span<byte>(_buffer)));
 
             _session.QueueBuffer(new AudioBuffer

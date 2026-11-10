@@ -7,12 +7,6 @@
 
 import Foundation
 
-final class CallbackBox {
-    let body: (CallbackData) -> Void
-    init(_ body: @escaping (CallbackData) -> Void) { self.body = body }
-}
-
-
 extension CallbackData {
     var data: Data? {
         guard let ptr, len > 0 else { return nil }

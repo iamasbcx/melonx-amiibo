@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/Ryujinx.Graphics.GAL/ShaderCompilationBudget.cs" Link="Production/ShaderCompilationBudget.cs" />
+    <Compile Include="../../src/Ryujinx.Graphics.Vulkan/BackgroundCompilationScheduler.cs" Link="Production/BackgroundCompilationScheduler.cs" />
+    <Compile Include="../../src/Ryujinx.Graphics.Vulkan/PipelineCacheGeneration.cs" Link="Production/PipelineCacheGeneration.cs" />
+    <Compile Include="../../src/Ryujinx.Graphics.Vulkan/TextureTransferLayout.cs" Link="Production/TextureTransferLayout.cs" />
+    <Compile Include="../../src/Ryujinx.Graphics.Gpu/Image/TextureReadbackBatch.cs" Link="Production/TextureReadbackBatch.cs" />
+  </ItemGroup>
+</Project>

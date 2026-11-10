@@ -25,7 +25,7 @@ struct GameRowView: View {
         }) {
             HStack(spacing: 16) {
                 // Game Icon
-                if let icon = game.icon {
+                if let icon = game.thumbnail(pointSize: 55) {
                     Image(uiImage: icon)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
