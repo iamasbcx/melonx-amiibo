@@ -1,4 +1,6 @@
 import Foundation
+// 几何类型的 Swift 扩展由 CoreGraphics 提供，独立编译时不能依赖 Foundation 间接导入。
+import CoreGraphics
 
 /// 右摇杆与滑动视角分别保存输入；按住摇杆时优先使用摇杆，滑动定时归零只清理滑动源。
 /// 此值类型不持有设备，调用方在主线程串行修改并把 output 提交给手柄。

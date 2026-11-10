@@ -1,5 +1,6 @@
 // 直接编译手柄包中的生产状态与坐标模块；不依赖 UIKit，覆盖输入仲裁及真实画布网格。
 import Foundation
+import CoreGraphics
 
 @main
 struct VirtualControllerInteractionTests {

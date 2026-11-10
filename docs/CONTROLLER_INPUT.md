@@ -105,7 +105,7 @@ python scripts/test_verify_ipa.py
 - C11 桥接头严格警告检查；应用默认 MainActor 隔离下编译 `ControllerInputTests.swift`，验证四方向、六轴控制及 9999 倍边界，并生成 Swift 回放供 C# 消费。
 - `InputProfileTests.swift` 使用隔离 UserDefaults suite 检查作用域、动态继承、重置和启动投影。
 - `InputLifecycleTests.swift` 检查游戏/设备/运动注册代次及专属标记重算。
-- `VirtualControllerInteractionTests.swift` 直接编译生产输入仲裁、命中及布局数学模块，检查滑动归零不清摇杆、区域边界和真实画布微调。
+- `VirtualControllerInteractionTests.swift` 直接编译生产输入仲裁、命中及布局数学模块，检查滑动归零不清摇杆、区域边界和真实画布微调。三个编译源均显式导入 `CoreGraphics`，以使用 `CGPoint.zero`、`CGRect` 初始化器及几何协议扩展，不依赖 UI 框架间接导入。
 - C# 运动回归、NativeMotion、本地化、IPA 验证器测试；产物必须包含新手机运动导出和挂起导出。
 
 Swift 回放 JSON 为 `name/kind/samples`，`kind` 为 `pitch` 或 `translation`；每个采样必须包含 `acceleration/gyroscope/gravity/rotationFactors/screenOrientation/timestamp`。缺字段或非法值明确失败。Swift 回放覆盖四方向俯仰，以及四方向和三种握姿的平移；组合控制由独立 C# 回归覆盖。
