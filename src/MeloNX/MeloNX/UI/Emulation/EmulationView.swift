@@ -63,8 +63,8 @@ struct EmulationView: View {
     
     @ViewBuilder
     func emulationView(_ airplay: Bool = false) -> some View {
-        if airplay { MetalViewRepresentable(showView: true, gameId: inputGameId).ignoresSafeArea().frame(maxWidth: .infinity, maxHeight: .infinity) } else {
-            MetalViewContainer(showView: !isConnected, airplay: airplay, gameId: inputGameId, ryujinxController: ryujinxController, statisticsHandler: statisticsHandler, nativeSettingsManager: nativeSettingsManager)
+        if airplay { MetalViewRepresentable(showView: true).ignoresSafeArea().frame(maxWidth: .infinity, maxHeight: .infinity) } else {
+            MetalViewContainer(showView: !isConnected, airplay: airplay, ryujinxController: ryujinxController, statisticsHandler: statisticsHandler, nativeSettingsManager: nativeSettingsManager)
                 .overlay {
                     if controllerManager.hasVirtualController() && !airplay && !editingInput {
                         ControllerView(
@@ -76,13 +76,20 @@ struct EmulationView: View {
                             touchLookSensitivity: touchLookSensitivity,
                             touchLookInvertX: touchLookInvertX,
                             touchLookInvertY: touchLookInvertY,
-                            visualOpacity: controllerOpacity
+                            visualOpacity: controllerOpacity,
+                            onTouchLookBegan: menuViewHandler.triggerButton
                         )
                             .id(layoutRevision)
                             .ignoresSafeArea(.all, edges: .vertical)
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // 菜单位于输入层之上且遵守安全区，全屏滑动区域不能遮住齿轮。
+                .overlay(alignment: .topLeading) {
+                    if nativeSettingsManager.showScreenShotButton(true).bool && !editingInput {
+                        InGameConfigView()
+                    }
+                }
         }
     }
     
@@ -146,7 +153,7 @@ struct EmulationView: View {
                 gameId: scope == .currentGame ? inputGameId : nil,
                 gameName: scope == .currentGame && inputGameId != nil ? game.titleName : nil
             )
-            .ignoresSafeArea(.all, edges: .vertical)
+            .interactiveDismissDisabled(true)
         }
         .onChange(of: ryujinxController.isStopping) { stopping in
             if stopping {
@@ -194,13 +201,12 @@ struct EmulationView: View {
         }
         if let metalView = Ryujinx.emulationView as? MetalView {
             metalView.resetTouchTracking()
-            metalView.configureTouchLook(gameId: inputGameId)
         }
         // 运行态视图重新加载横/竖屏布局，不能继续使用打开编辑器前的缓存。
         layoutRevision += 1
         editingInput = false
-        InGameInputSession.shared.setSuspended(false)
         guard resume, isCurrentGameRunning else { return }
+        InGameInputSession.shared.setSuspended(false)
         ryujinxController.wasManuallyPaused = manuallyPausedBeforeEditing
         ryujinxController.isPaused = pausedBeforeEditing || scenePhase != .active
     }

@@ -11,6 +11,7 @@ struct ControllerInputTests {
         let gyroscope: [Float]
         let gravity: [Float]
         let rotationFactors: [Float]
+        let screenOrientation: Int32
         let timestamp: UInt64
     }
 
@@ -66,6 +67,8 @@ struct ControllerInputTests {
         let keys = PhoneMotionAxis.allCases.flatMap { [$0.enabledKey, $0.invertedKey] }
         precondition(Set(keys).count == 12)
         precondition(PhoneMotionAxis.allCases.filter { $0.defaultInverted } == [.translationX])
+        precondition(Orientation.portrait.code == 0 && Orientation.portraitUpsideDown.code == 1)
+        precondition(Orientation.landscapeLeft.code == 2 && Orientation.landscapeRight.code == 3)
     }
 
     static func checkSensitivity() {
@@ -127,6 +130,7 @@ struct ControllerInputTests {
             expectedTranslation = SIMD3(-0.5, -0.25, 0.75)
         }
         let basis = PhoneMotionTransform.driverSample(gravity: SIMD3(1, 2, 3), userAcceleration: .zero, rotationRate: SIMD3(1, 2, 3), orientation: orientation)
+        precondition(basis.screenOrientation == orientation.code)
         expect(npad(basis.accelerometer), expectedBasis)
         expect(npad(basis.gravity), expectedBasis)
         expect(npad(basis.gyroscope) * (Float.pi / 180), expectedBasis)
@@ -226,7 +230,7 @@ struct ControllerInputTests {
         let gyro = npad(sample.gyroscope)
         let gravity = npad(sample.gravity)
         let factors = sample.rotationFactors
-        return Sample(acceleration: [accel.x, accel.y, accel.z], gyroscope: [gyro.x, gyro.y, gyro.z], gravity: [gravity.x, gravity.y, gravity.z], rotationFactors: [factors.x, factors.y, factors.z], timestamp: UInt64(index + 1) * 16_666)
+        return Sample(acceleration: [accel.x, accel.y, accel.z], gyroscope: [gyro.x, gyro.y, gyro.z], gravity: [gravity.x, gravity.y, gravity.z], rotationFactors: [factors.x, factors.y, factors.z], screenOrientation: sample.screenOrientation, timestamp: UInt64(index + 1) * 16_666)
     }
 
     /// 重现生产 NpadController 的固定变换，防止 Swift 端遗漏或重复换轴。

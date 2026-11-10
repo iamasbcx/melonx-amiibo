@@ -76,6 +76,22 @@ xcrun swiftc -parse-as-library -default-isolation MainActor -target arm64-apple-
   -o "${BUILD_DIR}/InputProfileTests" \
   2>&1 | tee "${LOG_DIR}/input-profile-build.log"
 "${BUILD_DIR}/InputProfileTests" 2>&1 | tee "${LOG_DIR}/input-profile-tests.log"
+# 生命周期测试直接使用生产屏障，检查旧游戏、旧绑定和已停止传感器的回调不会重新写入。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Controllers/InGameInputSession.swift \
+  src/MeloNX/MeloNX/UI/Main/Settings/NativeSettingsOverrideMarker.swift \
+  tests/InputLifecycleTests.swift \
+  -o "${BUILD_DIR}/InputLifecycleTests" \
+  2>&1 | tee "${LOG_DIR}/input-lifecycle-build.log"
+"${BUILD_DIR}/InputLifecycleTests" 2>&1 | tee "${LOG_DIR}/input-lifecycle-tests.log"
+# 本地手柄包使用自身隔离规则；测试直接链接生产仲裁和布局数学，避免复制实现。
+xcrun swiftc -parse-as-library \
+  src/MeloNX/Dependencies/Melo-Controller/Sources/Melo-Controller/ControllerInteractionState.swift \
+  src/MeloNX/Dependencies/Melo-Controller/Sources/Melo-Controller/Models/Layout.swift \
+  tests/VirtualControllerInteractionTests.swift \
+  -o "${BUILD_DIR}/VirtualControllerInteractionTests" \
+  2>&1 | tee "${LOG_DIR}/virtual-controller-interaction-build.log"
+"${BUILD_DIR}/VirtualControllerInteractionTests" 2>&1 | tee "${LOG_DIR}/virtual-controller-interaction-tests.log"
 bash "${SCRIPT_DIR}/bootstrap-dotnet.sh" 2>&1 | tee "${LOG_DIR}/dotnet-bootstrap.log"
 export DOTNET_ROOT
 export PATH="${DOTNET_ROOT}:${PATH}"
@@ -140,7 +156,7 @@ touch "${CORE_PUBLISH_STAMP}"
 test -s "${CORE_DYLIB}"
 test "${CORE_DYLIB}" -nt "${CORE_PUBLISH_STAMP}"
 nm -gU "${CORE_DYLIB}" > "${LOG_DIR}/core-symbols.log"
-for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_motion_sample_with_controls suspend_gamepad_motion; do
+for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion; do
   if ! awk '{print $NF}' "${LOG_DIR}/core-symbols.log" | grep -qx "_${symbol}"; then
     echo "新核心缺少导出：${symbol}" >&2
     exit 1

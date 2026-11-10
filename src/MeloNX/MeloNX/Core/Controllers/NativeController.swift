@@ -47,9 +47,14 @@ class NativeController: BaseController {
     }
     
     func refreshMotion() {
-        stopMotion()
-        
-        setupMotion()
+        guard let attachment = activeInputAttachment else { return }
+        // 立即拒绝旧回调，不能等主线程执行关闭传感器时才使注册令牌失效。
+        endMotionRegistration()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.activeInputAttachment == attachment else { return }
+            self.stopInputSensors()
+            self.setupMotion(expectedAttachment: attachment)
+        }
     }
     
     func applyMapping(_ mapping: ControllerMapping) {
@@ -68,6 +73,7 @@ class NativeController: BaseController {
     }
     
     private func installButtonHandlers(_ mapping: ControllerMapping) {
+        let attachment = activeInputAttachment
         for input in PhysicalInput.allCases where input != .unbound {
             let targets = mapping.emulatedButtons(for: input)
             
@@ -76,19 +82,19 @@ class NativeController: BaseController {
             let threshold = mapping.triggerThreshold
             
             element.valueChangedHandler = { [weak self] _, value, pressed in
-                guard let self else { return }
+                guard let self, let attachment else { return }
                 
                 let isDown = input.isTrigger ? value >= threshold : pressed
                 
                 for target in targets {
-                    self.setButtonState(isDown ? 1 : 0, for: target)
+                    self.setButtonState(isDown ? 1 : 0, for: target, attachment: attachment)
                 }
             }
         }
     }
     
     private func installStickHandlers(_ mapping: ControllerMapping) {
-        
+        let attachment = activeInputAttachment
         var feeds: [PhysicalStick: [(axis: Int, config: StickMapping)]] = [:]
         
         for (axis, config) in [(1, mapping.leftStick), (2, mapping.rightStick)] {
@@ -101,12 +107,12 @@ class NativeController: BaseController {
             guard let element = stickElement(for: source) else { continue }
             
             element.valueChangedHandler = { [weak self] _, xValue, yValue in
-                guard let self else { return }
+                guard let self, let attachment else { return }
                 
                 for target in targets {
                     let value = target.config.apply(x: xValue, y: yValue)
                     
-                    self.updateAxisValue(x: value.x, y: value.y, forAxis: target.axis)
+                    self.updateAxisValue(x: value.x, y: value.y, forAxis: target.axis, attachment: attachment)
                 }
             }
         }

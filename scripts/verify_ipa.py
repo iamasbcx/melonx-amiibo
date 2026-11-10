@@ -20,7 +20,7 @@ ARM64 = 0x0100000C
 DYLIB_COMMANDS = {0x0C, 0x80000018, 0x8000001F, 0x20, 0x80000023}
 AMIIBO_SYMBOLS = frozenset({"_mlx_amiibo_get_abi", "_mlx_amiibo_get_state", "_mlx_amiibo_scan"})
 # 手机采样必须整帧传递；只包含旧逐轴接口的核心不能承接独立重力。
-MOTION_SYMBOLS = frozenset({"_set_gamepad_motion_sample_with_controls", "_suspend_gamepad_motion"})
+MOTION_SYMBOLS = frozenset({"_set_gamepad_phone_motion_sample", "_suspend_gamepad_motion"})
 CORE_SYMBOLS = AMIIBO_SYMBOLS | MOTION_SYMBOLS
 # Apple 平台由系统 ICU 与 Foundation 提供全球化和基础运行时能力。
 SYSTEM_ICU_DEPENDENCIES = frozenset({

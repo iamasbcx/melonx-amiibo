@@ -2,6 +2,8 @@
 #ifndef MLX_MOTION_BRIDGE_H
 #define MLX_MOTION_BRIDGE_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -11,11 +13,14 @@ extern "C" {
 // acceleration/gravity 使用同一 driver 坐标（g），gyroscope 为 deg/s。
 // 可从运动串行队列调用；核心锁内保存完整帧，无效/已断开的 id 不更新状态。
 // rotationFactor 使用核心屏幕 X/Y/Z，取值仅 -1/0/+1，不随 driver 换轴；按值复制。
-void set_gamepad_motion_sample_with_controls(void *id,
+// screenOrientation: 0=portrait、1=portraitUpsideDown、2=landscapeLeft、3=landscapeRight。
+// 界面方向变化只影响后续输入轴；核心保留游戏姿态并重建时间基准。
+void set_gamepad_phone_motion_sample(void *id,
                               float accelerationX, float accelerationY, float accelerationZ,
                               float gyroscopeX, float gyroscopeY, float gyroscopeZ,
                               float gravityX, float gravityY, float gravityZ,
-                              float rotationFactorX, float rotationFactorY, float rotationFactorZ);
+                              float rotationFactorX, float rotationFactorY, float rotationFactorZ,
+                              int32_t screenOrientation);
 
 // 编辑会话挂起运动：清除瞬时输入但保留重力和控制姿态，恢复首帧不积分暂停时长。
 // id 为非拥有标识；无效/已断开的 id 不更新状态；新采样自动解除挂起。

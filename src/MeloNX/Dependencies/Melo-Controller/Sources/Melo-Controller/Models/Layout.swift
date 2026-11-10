@@ -28,7 +28,7 @@ public struct JoystickLayout: Codable, Equatable {
     var hidden: Bool = false
 }
 
-/// 屏幕滑动视角区域的归一化布局。位置和尺寸相对于游戏画面保存，避免分辨率或旋转变化后偏移。
+/// 屏幕滑动视角区域的归一化布局。位置和尺寸相对于全屏控制画布保存，与游戏画面宽高比无关。
 public struct TouchLookLayout: Codable, Equatable {
     public var centerX: CGFloat = 0.75
     public var centerY: CGFloat = 0.5
@@ -109,10 +109,11 @@ public struct LayoutConfig: Codable, Equatable {
             joysticks[id] = item
         }
         if gridEnabled, canvasSize.width > 0, canvasSize.height > 0 {
-            let stepX = gridSpacing / canvasSize.width
-            let stepY = gridSpacing / canvasSize.height
-            touchLook.centerX = (touchLook.centerX / stepX).rounded() * stepX
-            touchLook.centerY = (touchLook.centerY / stepY).rounded() * stepY
+            let center = ControllerLayoutGeometry.nudgedCenter(CGPoint(x: touchLook.centerX, y: touchLook.centerY),
+                size: CGSize(width: touchLook.width, height: touchLook.height), canvas: canvasSize,
+                dx: 0, dy: 0, gridSpacing: gridSpacing)
+            touchLook.centerX = center.x
+            touchLook.centerY = center.y
             touchLook.clamp()
         }
     }

@@ -50,6 +50,34 @@ class BaseController: Equatable, Identifiable {
     
     private let lifecycleLock = NSLock()
     private var _isActive: Bool = true
+    private let inputAttachment = InputAttachmentState()
+
+    /// 传感器/设备回调必须在注册时捕获令牌，不能在旧事件最终写入时重新获取令牌。
+    var activeInputAttachment: UInt64? { inputAttachment.activeGeneration }
+    var activeMotionRegistration: UInt64? { inputAttachment.activeMotionGeneration }
+
+    func beginMotionRegistration(attachment: UInt64) -> UInt64? {
+        inputAttachment.beginMotion(generation: attachment)
+    }
+
+    func endMotionRegistration() { inputAttachment.endMotion() }
+
+    func performIfInputAttached(generation: UInt64, motionGeneration: UInt64? = nil, _ action: () -> Void) {
+        inputAttachment.performIfActive(generation: generation, motionGeneration: motionGeneration, action)
+    }
+
+    /// 先使排队输入失效，再异步停止传感器；旧停止任务不能关闭重新绑定后的采样。
+    func endInputAttachment() {
+        inputAttachment.end()
+        // 保留设备直到停止任务完成，避免断开后资源释放先于传感器关闭。
+        DispatchQueue.main.async { [self] in
+            guard activeInputAttachment == nil else { return }
+            stopInputSensors()
+        }
+    }
+
+    /// 仅主线程调用；子类可同时关闭外设传感器，不改变可复用设备对象的有效状态。
+    func stopInputSensors() { stopMotion() }
     
     var isActive: Bool {
         lifecycleLock.lock()
@@ -83,25 +111,30 @@ class BaseController: Equatable, Identifiable {
     }
     
     public func attach(_ index: Int, controllerType: ControllerType) {
+        guard isActive else { return }
+        inputAttachment.begin()
         setupController()
         Ryujinx.attachGamepad(self.pointer, self.name, controllerType == .handheld ? 8 : index, controllerType)
     }
     
     public func setupController() {
-        // Motion setup is usually low frequency, async is fine here
-        inputQueue.async { [weak self] in
-            guard let self = self else { return }
-            self.setupMotion()
+        // 注册与停止均串到主线程；不要同步等待内部需要读取主线程方向的采样队列。
+        guard let attachment = activeInputAttachment else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.activeInputAttachment == attachment else { return }
+            self.setupMotion(expectedAttachment: attachment)
         }
         
         setupHaptics()
     }
     
-    func updateAxisValue(x: Float, y: Float, forAxis axis: Int) {
-        guard isActive else { return }
+    func updateAxisValue(x: Float, y: Float, forAxis axis: Int, attachment expectedAttachment: UInt64? = nil) {
+        guard isActive, let attachment = expectedAttachment ?? activeInputAttachment else { return }
         
         InGameInputSession.shared.performIfActive {
-            Ryujinx.setGamepadStickAxis(self.pointer, stickId: axis, x: x, y: y)
+            performIfInputAttached(generation: attachment) {
+                Ryujinx.setGamepadStickAxis(self.pointer, stickId: axis, x: x, y: y)
+            }
         }
     }
     
@@ -113,28 +146,32 @@ class BaseController: Equatable, Identifiable {
         }
     }
     
-    func setButtonState(_ state: UInt8, for button: VirtualControllerButton) {
-        guard isActive else { return }
+    func setButtonState(_ state: UInt8, for button: VirtualControllerButton, attachment expectedAttachment: UInt64? = nil) {
+        guard isActive, let attachment = expectedAttachment ?? activeInputAttachment else { return }
         
         InGameInputSession.shared.performIfActive {
-            Ryujinx.setGamepadButtonState(self.pointer, buttonId: button.rawValue, pressed: state == 1)
+            performIfInputAttached(generation: attachment) {
+                Ryujinx.setGamepadButtonState(self.pointer, buttonId: button.rawValue, pressed: state == 1)
+            }
         }
     }
 
     /// 设置页挂起后清空来宾输入；直接提交释放，不能经过已关闭的输入屏障。
     func releaseInputs() {
-        guard isActive else { return }
+        guard isActive, let attachment = activeInputAttachment else { return }
         let buttons: [VirtualControllerButton] = [
             .A, .B, .X, .Y, .back, .guide, .start, .leftStick, .rightStick,
             .leftShoulder, .rightShoulder, .dPadUp, .dPadDown, .dPadLeft, .dPadRight,
             .leftTrigger, .rightTrigger
         ]
-        for button in buttons {
-            Ryujinx.setGamepadButtonState(pointer, buttonId: button.rawValue, pressed: false)
+        performIfInputAttached(generation: attachment) {
+            for button in buttons {
+                Ryujinx.setGamepadButtonState(pointer, buttonId: button.rawValue, pressed: false)
+            }
+            Ryujinx.setGamepadStickAxis(pointer, stickId: 1, x: 0, y: 0)
+            Ryujinx.setGamepadStickAxis(pointer, stickId: 2, x: 0, y: 0)
+            Ryujinx.suspendGamepadMotion(pointer)
         }
-        Ryujinx.setGamepadStickAxis(pointer, stickId: 1, x: 0, y: 0)
-        Ryujinx.setGamepadStickAxis(pointer, stickId: 2, x: 0, y: 0)
-        Ryujinx.suspendGamepadMotion(pointer)
     }
     
     private let rumbleCallback: @convention(c) (
@@ -239,7 +276,7 @@ class BaseController: Equatable, Identifiable {
         let callbackName = "rumble-\(self.id)"
         callbackName.withCString { UnregisterCallback($0) }
         
-        stopMotion()
+        endInputAttachment()
         rumbleController = nil
         
         let pointer = self.pointer

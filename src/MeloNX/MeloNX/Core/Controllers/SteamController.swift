@@ -30,19 +30,39 @@ final class SteamController: NativeController {
     
     override func applyMapping(_ mapping: ControllerMapping) {
         super.applyMapping(mapping)
-        setMotionEnabled(mapping.motionEnabled)
+        if let attachment = activeInputAttachment, mapping.motionEnabled {
+            if activeMotionRegistration == nil { _ = beginMotionRegistration(attachment: attachment) }
+        } else {
+            endMotionRegistration()
+        }
+        setMotionEnabled(activeInputAttachment != nil && mapping.motionEnabled)
     }
     
     override func refreshMotion() {
-        setMotionEnabled(activeMapping.motionEnabled)
+        guard let attachment = activeInputAttachment else { return }
+        endMotionRegistration()
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.activeInputAttachment == attachment else { return }
+            if self.activeMapping.motionEnabled { _ = self.beginMotionRegistration(attachment: attachment) }
+            self.setMotionEnabled(self.activeMapping.motionEnabled)
+        }
+    }
+
+    override func stopInputSensors() {
+        endMotionRegistration()
+        setMotionEnabled(false)
+        super.stopInputSensors()
     }
     
     func receive(_ state: SteamControllerState) {
         let generation = InGameInputSession.shared.activeGeneration
+        let attachment = activeInputAttachment
+        let motionRegistration = activeMotionRegistration
         inputQueue.async { [weak self] in
             guard let self, self.isActive, let pad = self.nativeController?.extendedGamepad else { return }
             // 编辑期间仍可捕获映射，但跨越挂起/恢复边界的旧帧不能重新进入游戏。
-            guard InGameInputSession.shared.activeGeneration == generation else { return }
+            guard InGameInputSession.shared.activeGeneration == generation,
+                  self.activeInputAttachment == attachment else { return }
             let buttons: [(GCControllerButtonInput?, UInt32)] = [
                 (pad.buttonA, 0x01), (pad.buttonB, 0x02),
                 (pad.buttonX, 0x04), (pad.buttonY, 0x08),
@@ -65,17 +85,16 @@ final class SteamController: NativeController {
             
             pad.rightThumbstick.setValueForXAxis(right.x, yAxis: right.y)
             
-            guard self.activeMapping.motionEnabled, let generation else { return }
-            
-            if let accel = state.accelerometer {
-                InGameInputSession.shared.performIfActive(generation: generation) {
-                    Ryujinx.setGamepadMotion(self.pointer, motionType: 1, axis: accel)
-                }
-            }
-            
-            if let gyro = state.gyroscope {
-                InGameInputSession.shared.performIfActive(generation: generation) {
-                    Ryujinx.setGamepadMotion(self.pointer, motionType: 2, axis: gyro)
+            guard self.activeMapping.motionEnabled, let generation, let attachment, let motionRegistration else { return }
+
+            InGameInputSession.shared.performIfActive(generation: generation) {
+                self.performIfInputAttached(generation: attachment, motionGeneration: motionRegistration) {
+                    if let accel = state.accelerometer {
+                        Ryujinx.setGamepadMotion(self.pointer, motionType: 1, axis: accel)
+                    }
+                    if let gyro = state.gyroscope {
+                        Ryujinx.setGamepadMotion(self.pointer, motionType: 2, axis: gyro)
+                    }
                 }
             }
         }

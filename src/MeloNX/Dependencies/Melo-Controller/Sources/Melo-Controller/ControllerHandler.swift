@@ -12,8 +12,9 @@ class ControllerHandler: ObservableObject {
 
     @Published var isPortrait: Bool = false
 
-    func updateOrientation() {
-        guard let window = Window.window else { return }
-        self.isPortrait = window.bounds.size.height > window.bounds.size.width
+    /// 使用实际控制画布，横竖屏动画完成后的尺寸变化也会触发更新。
+    func updateOrientation(canvasSize: CGSize) {
+        guard canvasSize.width > 0, canvasSize.height > 0 else { return }
+        self.isPortrait = canvasSize.height > canvasSize.width
     }
 }

@@ -9,17 +9,20 @@ import SwiftUI
 import UIKit
 
 final class TouchLookInputUIView: UIView {
-    var controller: any Controller
-    var layout: TouchLookLayout
+    var onMove: (CGPoint) -> Void
+    var onBegin: () -> Void
+    var layout: TouchLookLayout { didSet { if layout != oldValue { resetTracking() } } }
     var enabled: Bool
     var sensitivity: CGFloat
     var invertX: Bool
     var invertY: Bool
     private var touches: [ObjectIdentifier: CGPoint] = [:]
     private var resetWorkItem: DispatchWorkItem?
+    private var previousSize = CGSize.zero
 
-    init(controller: any Controller, layout: TouchLookLayout, enabled: Bool, sensitivity: CGFloat, invertX: Bool, invertY: Bool) {
-        self.controller = controller
+    init(onMove: @escaping (CGPoint) -> Void, onBegin: @escaping () -> Void, layout: TouchLookLayout, enabled: Bool, sensitivity: CGFloat, invertX: Bool, invertY: Bool) {
+        self.onMove = onMove
+        self.onBegin = onBegin
         self.layout = layout
         self.enabled = enabled
         self.sensitivity = sensitivity
@@ -38,16 +41,13 @@ final class TouchLookInputUIView: UIView {
         if let window, ControllerTouchRouter.shared.hasControl(at: convert(point, to: window), in: window) {
             return false
         }
-        let rect = CGRect(
-            x: layout.centerX * bounds.width - layout.width * bounds.width / 2,
-            y: layout.centerY * bounds.height - layout.height * bounds.height / 2,
-            width: layout.width * bounds.width,
-            height: layout.height * bounds.height
-        )
+        let rect = ControllerLayoutGeometry.rect(center: CGPoint(x: layout.centerX, y: layout.centerY),
+                                                 size: CGSize(width: layout.width, height: layout.height), canvas: bounds.size)
         return rect.contains(point)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        onBegin()
         for touch in touches { self.touches[ObjectIdentifier(touch)] = touch.location(in: self) }
     }
 
@@ -61,17 +61,18 @@ final class TouchLookInputUIView: UIView {
                 x: current.x - previous.x,
                 y: current.y - previous.y
             )
-            guard hypot(delta.x, delta.y) >= 0.5 else { continue }
+            // 不丢弃亚像素增量；慢速移动同样必须能受用户设置的倍率控制。
+            guard delta != .zero else { continue }
             delta.x *= sensitivity
             delta.y *= sensitivity
             if invertX { delta.x = -delta.x }
             if invertY { delta.y = -delta.y }
             delta.x = max(-1, min(1, delta.x))
             delta.y = max(-1, min(1, delta.y))
-            controller.joystickMoved(position: delta, right: true)
+            onMove(delta)
             resetWorkItem?.cancel()
             let reset = DispatchWorkItem { [weak self] in
-                self?.controller.joystickMoved(position: .zero, right: true)
+                self?.onMove(.zero)
             }
             resetWorkItem = reset
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.04, execute: reset)
@@ -85,13 +86,32 @@ final class TouchLookInputUIView: UIView {
         for touch in touches { self.touches.removeValue(forKey: ObjectIdentifier(touch)) }
         if self.touches.isEmpty {
             resetWorkItem?.cancel()
-            controller.joystickMoved(position: .zero, right: true)
+            onMove(.zero)
         }
+    }
+
+    /// 尺寸、区域、可见性或宿主变化后结束当前手势，禁止旧坐标增量进入新布局。
+    func resetTracking() {
+        touches.removeAll()
+        resetWorkItem?.cancel()
+        resetWorkItem = nil
+        onMove(.zero)
+    }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        if bounds.size != previousSize { resetTracking(); previousSize = bounds.size }
+    }
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        if window == nil { resetTracking() }
     }
 }
 
 struct TouchLookInputView: UIViewRepresentable {
-    let controller: any Controller
+    let onMove: (CGPoint) -> Void
+    let onBegin: () -> Void
     let layout: TouchLookLayout
     let enabled: Bool
     let sensitivity: CGFloat
@@ -99,15 +119,19 @@ struct TouchLookInputView: UIViewRepresentable {
     let invertY: Bool
 
     func makeUIView(context: Context) -> TouchLookInputUIView {
-        TouchLookInputUIView(controller: controller, layout: layout, enabled: enabled, sensitivity: sensitivity, invertX: invertX, invertY: invertY)
+        TouchLookInputUIView(onMove: onMove, onBegin: onBegin, layout: layout, enabled: enabled, sensitivity: sensitivity, invertX: invertX, invertY: invertY)
     }
 
     func updateUIView(_ uiView: TouchLookInputUIView, context: Context) {
-        uiView.controller = controller
+        uiView.onMove = onMove
+        uiView.onBegin = onBegin
         uiView.layout = layout
         uiView.enabled = enabled
         uiView.sensitivity = sensitivity
         uiView.invertX = invertX
         uiView.invertY = invertY
+        if !enabled || layout.hidden { uiView.resetTracking() }
     }
+
+    static func dismantleUIView(_ uiView: TouchLookInputUIView, coordinator: ()) { uiView.resetTracking() }
 }

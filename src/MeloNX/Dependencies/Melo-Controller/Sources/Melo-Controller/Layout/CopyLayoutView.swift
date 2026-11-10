@@ -121,10 +121,11 @@ struct EditableButtonView: View {
                     )
             } else {
                 if layout.buttons[button.id, default: ButtonLayout()].hidden {
-                    ButtonView(controller: controller, button: button, opacity: visualOpacity, layout: $layout, gameId: gameId)
+                    ButtonView(controller: controller, disabled: true, button: button, opacity: visualOpacity, layout: $layout, gameId: gameId)
                         .scaleEffect(layout.buttons[button.id]?.scale ?? 1.0)
                         .offset(layout.buttons[button.id]?.offset ?? .zero)
                         .opacity(0)
+                        .allowsHitTesting(false)
                 } else {
                     ButtonView(controller: controller, button: button, opacity: visualOpacity, layout: $layout, gameId: gameId)
                         .scaleEffect(layout.buttons[button.id]?.scale ?? 1.0)

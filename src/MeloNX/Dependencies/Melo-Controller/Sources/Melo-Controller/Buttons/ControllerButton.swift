@@ -19,6 +19,7 @@ final class ControllerTouchRouter {
     }
 
     private var targets: [ObjectIdentifier: WeakTarget] = [:]
+    private let joysticks = NSHashTable<JoystickView>.weakObjects()
 
     private var owners: [ObjectIdentifier: ControllerTouchView] = [:]
 
@@ -26,13 +27,13 @@ final class ControllerTouchRouter {
 
     /// 判断坐标是否落在现有实体虚拟控件上，供滑动视角层让出按钮和摇杆的命中优先级。
     func hasControl(at point: CGPoint, in window: UIWindow?) -> Bool {
+        for joystick in joysticks.allObjects {
+            guard joystick.inputEnabled, isVisible(joystick, in: window) else { continue }
+            if joystick.point(inside: joystick.convert(point, from: window), with: nil) { return true }
+        }
         for box in targets.values {
             guard let candidate = box.view,
-                  let candidateWindow = candidate.window,
-                  window == nil || candidateWindow === window,
-                  !candidate.isHidden,
-                  candidate.isUserInteractionEnabled,
-                  candidate.alpha > 0.01 else { continue }
+                  isVisible(candidate, in: window) else { continue }
             let localPoint = candidate.convert(point, from: window)
             if candidate.point(inside: localPoint, with: nil) {
                 return true
@@ -40,6 +41,20 @@ final class ControllerTouchRouter {
         }
         return false
     }
+
+    /// 路由绕过 UIKit 的父级命中遍历，因此必须同时检查父级可见性和交互状态。
+    private func isVisible(_ view: UIView, in window: UIWindow?) -> Bool {
+        guard let actualWindow = view.window, window == nil || actualWindow === window else { return false }
+        var current: UIView? = view
+        while let node = current {
+            guard !node.isHidden, node.alpha > 0.01, node.isUserInteractionEnabled else { return false }
+            current = node.superview
+        }
+        return true
+    }
+
+    func registerJoystick(_ view: JoystickView) { joysticks.add(view) }
+    func unregisterJoystick(_ view: JoystickView) { joysticks.remove(view) }
 
     // MARK: Registration
 

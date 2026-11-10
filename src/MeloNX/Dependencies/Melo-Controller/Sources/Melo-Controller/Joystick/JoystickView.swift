@@ -12,6 +12,7 @@ struct EditableJoystickView: View {
     let iscool: Bool
     var controller: any Controller
     var visualOpacity: Double = 1.0
+    var onActiveChanged: ((Bool) -> Void)? = nil
     @Binding var showBackground: Bool
     @Binding var layout: LayoutConfig
     var isEditing: Bool
@@ -81,7 +82,9 @@ struct EditableJoystickView: View {
                         }
                 )
         } else {
-            JoystickViewRepresentable(controller: controller, right: iscool, showBackground: $showBackground, visualOpacity: visualOpacity)
+            JoystickViewRepresentable(controller: controller, right: iscool, showBackground: $showBackground,
+                                      visualOpacity: visualOpacity, enabled: !(layout.joysticks[id]?.hidden ?? false),
+                                      onActiveChanged: onActiveChanged)
                 .frame(width: 160, height: 160)
                 .scaleEffect((layout.joysticks[id]?.scale ?? 1.0) * controllerScale)
                 .offset(layout.joysticks[id]?.offset ?? .zero)

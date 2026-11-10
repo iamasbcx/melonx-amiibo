@@ -141,16 +141,16 @@ namespace Ryujinx.Input.Native
         /// <summary>
         /// 提交手机同一帧的完整运动采样；发布事件前已原子替换全部运动字段。
         /// </summary>
-        public static void SetMotionSample(nint idPtr, Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity, Vector3 rotationFactors)
+        public static void SetMotionSample(nint idPtr, Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity, Vector3 rotationFactors, int screenOrientation)
         {
-            if (!GamepadMotionSample.AreRotationFactorsValid(rotationFactors))
+            if (!GamepadMotionSample.IsPhoneSampleValid(accelerometer, gyroscope, gravity, rotationFactors, screenOrientation))
             {
-                Logger.Error?.Print(LogClass.Hid, "Invalid phone motion rotation factors; expected -1, 0 or 1.");
+                Logger.Error?.Print(LogClass.Hid, "Invalid phone motion sample; expected finite vectors, nonzero gravity, factors -1/0/1 and orientation 0..3.");
                 return;
             }
             if (_instance != null && _instance._gamepads.TryGetValue(idPtr, out var gamepad))
             {
-                if (gamepad.SetMotionSampleInternal(accelerometer, gyroscope, gravity, rotationFactors))
+                if (gamepad.SetMotionSampleInternal(accelerometer, gyroscope, gravity, rotationFactors, screenOrientation))
                 {
                     NotifyInputUpdated();
                 }

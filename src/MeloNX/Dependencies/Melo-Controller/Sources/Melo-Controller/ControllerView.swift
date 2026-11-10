@@ -45,12 +45,14 @@ public typealias JoystickSubView = (String, Bool, Binding<Bool>) -> AnyView
 public struct ControllerView: View {
     var gameId: String?
     var gameName: String?
-    var controller: any Controller
     private let touchLookEnabled: Bool
     private let touchLookSensitivity: CGFloat
     private let touchLookInvertX: Bool
     private let touchLookInvertY: Bool
     private let visualOpacity: Double
+    private let onTouchLookBegan: () -> Void
+    @StateObject private var inputRouter: ControllerInputRouter
+    @State private var canvasSize = CGSize.zero
     @StateObject var controllerHandler = ControllerHandler()
     @StateObject private var preferences: ControllerPreferences
     private var controllerScale: Double { preferences.scale }
@@ -60,7 +62,6 @@ public struct ControllerView: View {
     @State private var selectedButton: String?
     @State private var selectedJoystick: String?
     @State private var selectedTouchLook = false
-    @Environment(\.verticalSizeClass) var verticalSizeClass
     @State private var showEditControls = true
     @State var isEditing: Bool = false
     private var isEditingInput: Bool
@@ -104,6 +105,7 @@ public struct ControllerView: View {
         touchLookInvertX: Bool = false,
         touchLookInvertY: Bool = false,
         visualOpacity: Double = 1.0,
+        onTouchLookBegan: @escaping () -> Void = {},
         @ViewBuilder customControllerLayout: @escaping (@escaping SubView, @escaping JoystickSubView, Bool) -> V
     ) {
         self.isEditingInput = isEditing
@@ -111,7 +113,8 @@ public struct ControllerView: View {
         self.gameId = gameId
         self.gameName = gameName
         self._preferences = StateObject(wrappedValue: ControllerPreferences(gameId: gameId))
-        self.controller = controller
+        self.onTouchLookBegan = onTouchLookBegan
+        self._inputRouter = StateObject(wrappedValue: ControllerInputRouter(controller: controller))
         self.touchLookEnabled = touchLookEnabled
         self.touchLookSensitivity = touchLookSensitivity
         self.touchLookInvertX = touchLookInvertX
@@ -129,14 +132,16 @@ public struct ControllerView: View {
         touchLookSensitivity: CGFloat = 0.012,
         touchLookInvertX: Bool = false,
         touchLookInvertY: Bool = false,
-        visualOpacity: Double = 1.0
+        visualOpacity: Double = 1.0,
+        onTouchLookBegan: @escaping () -> Void = {}
     ) {
         self.isEditingInput = isEditing
         self._isEditing = State(initialValue: isEditing)
         self.gameId = gameId
         self.gameName = gameName
         self._preferences = StateObject(wrappedValue: ControllerPreferences(gameId: gameId))
-        self.controller = controller
+        self.onTouchLookBegan = onTouchLookBegan
+        self._inputRouter = StateObject(wrappedValue: ControllerInputRouter(controller: controller))
         self.touchLookEnabled = touchLookEnabled
         self.touchLookSensitivity = touchLookSensitivity
         self.touchLookInvertX = touchLookInvertX
@@ -148,6 +153,85 @@ public struct ControllerView: View {
     @State private var layout: LayoutConfig = LayoutConfig()
 
     public var body: some View {
+        GeometryReader { _ in
+            ZStack(alignment: .topLeading) {
+                GeometryReader { canvas in
+                    controllerCanvas
+                        .onAppear { updateCanvasSize(canvas.size) }
+                        .onChange(of: canvas.size) { updateCanvasSize($0) }
+                }
+                // 按键位置和滑动区域始终基于全屏画布；编辑工具栏独立遵守安全区。
+                .ignoresSafeArea(.container, edges: .vertical)
+                editorControls
+            }
+        }
+        .environmentObject(controllerHandler)
+        .environment(\.controllerAppearance, preferences.snapshot)
+        .onDisappear { inputRouter.reset() }
+    }
+
+    @ViewBuilder
+    private var editorControls: some View {
+        // Edit Controls
+        if isEditing {
+            if showEditControls {
+                LayoutEditorView(
+                    preferences: preferences,
+                    hideDpad: $hideDpad,
+                    hideABXY: $hideABXY,
+                    isEditing: $isEditing,
+                    showEditControls: $showEditControls,
+                    layout: $layout,
+                    selectedButton: $selectedButton,
+                    selectedJoystick: $selectedJoystick,
+                    selectedTouchLook: $selectedTouchLook,
+                    orientation: layoutOrientation,
+                    canvasSize: canvasSize,
+                    gameId: gameId,
+                    gameName: gameName
+                )
+                .zIndex(1)
+            } else {
+                VStack {
+                    HStack {
+                        Button(action: {
+                            withAnimation(.easeInOut(duration: 0.3)) {
+                                showEditControls = true
+                            }
+                        }) {
+                            Image(systemName: "eye")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.primary)
+                                .padding(13)
+                                .background(.ultraThinMaterial, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .padding(12)
+
+                        Spacer()
+                    }
+
+                    Spacer()
+                }
+            }
+        }
+    }
+
+    private func updateCanvasSize(_ size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+        canvasSize = size
+        let next: LayoutOrientation = size.height > size.width ? .portrait : .landscape
+        guard next != loadedLayoutOrientation else { return }
+        if isEditing, let previous = loadedLayoutOrientation {
+            LayoutManager.shared.save(layout, for: gameId, orientation: previous)
+        }
+        inputRouter.reset()
+        controllerHandler.updateOrientation(canvasSize: size)
+        loadedLayoutOrientation = next
+        loadLayout()
+    }
+
+    private var controllerCanvas: some View {
         ZStack {
             if isEditing && layout.gridEnabled {
                 LayoutGridOverlay(spacing: layout.gridSpacing)
@@ -170,7 +254,8 @@ public struct ControllerView: View {
 
             if !isEditing && touchLookEnabled {
                 TouchLookInputView(
-                    controller: controller,
+                    onMove: inputRouter.swipeMoved,
+                    onBegin: onTouchLookBegan,
                     layout: layout.touchLook,
                     enabled: true,
                     sensitivity: touchLookSensitivity,
@@ -195,71 +280,13 @@ public struct ControllerView: View {
                 }
             }
             .padding()
+            .id(layoutOrientation)
             // 编辑时实体按钮和摇杆必须高于滑动视角区域，确保重叠位置仍可切换选择。
             .zIndex(isEditing ? 0.7 : 0)
-            .onChange(of: verticalSizeClass) { _ in controllerHandler.updateOrientation() }
-            .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
-                controllerHandler.updateOrientation()
-            }
             .onChange(of: isEditingInput) { isEditing = $0 }
-            .onChange(of: controllerHandler.isPortrait) { _ in
-                if isEditing, let loadedLayoutOrientation {
-                    LayoutManager.shared.save(layout, for: gameId, orientation: loadedLayoutOrientation)
-                }
-                loadedLayoutOrientation = layoutOrientation
-                loadLayout()
-            }
-            .onAppear {
-                controllerHandler.updateOrientation()
-                loadedLayoutOrientation = layoutOrientation
-                loadLayout()
-            }
 
-            // Edit Controls
-            if isEditing {
-                if showEditControls {
-                    LayoutEditorView(
-                        preferences: preferences,
-                        hideDpad: $hideDpad,
-                        hideABXY: $hideABXY,
-                        isEditing: $isEditing,
-                        showEditControls: $showEditControls,
-                        layout: $layout,
-                        selectedButton: $selectedButton,
-                        selectedJoystick: $selectedJoystick,
-                        selectedTouchLook: $selectedTouchLook,
-                        orientation: layoutOrientation,
-                        gameId: gameId,
-                        gameName: gameName
-                    )
-                    .zIndex(1)
-                } else {
-                    VStack {
-                        HStack {
-                            Button(action: {
-                                withAnimation(.easeInOut(duration: 0.3)) {
-                                    showEditControls = true
-                                }
-                            }) {
-                                Image(systemName: "eye")
-                                    .font(.system(size: 15, weight: .semibold))
-                                    .foregroundColor(.primary)
-                                    .padding(13)
-                                    .background(.ultraThinMaterial, in: Circle())
-                            }
-                            .buttonStyle(.plain)
-                            .padding(12)
 
-                            Spacer()
-                        }
-
-                        Spacer()
-                    }
-                }
-            }
         }
-        .environmentObject(controllerHandler)
-        .environment(\.controllerAppearance, preferences.snapshot)
     }
 
     private func loadLayout() {
@@ -450,7 +477,7 @@ public struct ControllerView: View {
         .init(
             EditableButtonView(
                 button: button,
-                controller: controller,
+                controller: inputRouter,
                 layout: $layout,
                 gameId: gameId,
                 visualOpacity: isEditing ? 1 : visualOpacity,
@@ -471,8 +498,9 @@ public struct ControllerView: View {
             EditableJoystickView(
                 id: id,
                 iscool: iscool,
-                controller: controller,
+                controller: inputRouter,
                 visualOpacity: isEditing ? 1 : visualOpacity,
+                onActiveChanged: { inputRouter.joystickActivityChanged($0, right: iscool) },
                 showBackground: showBackground,
                 layout: $layout,
                 isEditing: isEditing,
@@ -506,6 +534,5 @@ private struct LayoutGridOverlay: View {
             }
             context.stroke(path, with: .color(.white.opacity(0.12)), lineWidth: 0.5)
         }
-        .ignoresSafeArea()
     }
 }

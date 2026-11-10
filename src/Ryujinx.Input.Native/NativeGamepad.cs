@@ -16,6 +16,7 @@ namespace Ryujinx.Input.Native
         private readonly Vector3[] _motionStates; 
         private Vector3? _motionGravity;
         private Vector3? _motionRotationFactors;
+        private int? _motionScreenOrientation;
         private ulong _motionEpoch;
         private bool _isMotionSuspended;
 
@@ -128,9 +129,10 @@ namespace Ryujinx.Input.Native
                 }
 
                 // 实体手柄逐轴提交不带独立重力；即使数值相同，也必须清除手机采样遗留的重力。
-                bool clearedGravity = _motionGravity.HasValue || _motionRotationFactors.HasValue || _isMotionSuspended;
+                bool clearedGravity = _motionGravity.HasValue || _motionRotationFactors.HasValue || _motionScreenOrientation.HasValue || _isMotionSuspended;
                 _motionGravity = null;
                 _motionRotationFactors = null;
+                _motionScreenOrientation = null;
                 _isMotionSuspended = false;
 
                 if (motionType == (int)MotionInputId.Accelerometer)
@@ -161,19 +163,25 @@ namespace Ryujinx.Input.Native
         /// <summary>
         /// 手机完整采样在同一把锁内替换，消费者不会看到总加速度、角速度和重力分属不同帧。
         /// </summary>
-        internal bool SetMotionSampleInternal(Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity, Vector3 rotationFactors)
+        internal bool SetMotionSampleInternal(Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity, Vector3 rotationFactors, int screenOrientation)
         {
             lock (_stateLock)
             {
-                if (!_isMotionSuspended && _motionStates[0] == accelerometer && _motionStates[1] == gyroscope && _motionGravity == gravity && _motionRotationFactors == rotationFactors)
+                if (!_isMotionSuspended && _motionStates[0] == accelerometer && _motionStates[1] == gyroscope && _motionGravity == gravity && _motionRotationFactors == rotationFactors && _motionScreenOrientation == screenOrientation)
                 {
                     return false;
                 }
 
+                // 即使两次转屏都发生在消费者轮询之间，代次仍能报告未观测到的坐标边界。
+                if (_motionScreenOrientation is int previousOrientation && previousOrientation != screenOrientation)
+                {
+                    _motionEpoch = unchecked(_motionEpoch + 1);
+                }
                 _motionStates[0] = accelerometer;
                 _motionStates[1] = gyroscope;
                 _motionGravity = gravity;
                 _motionRotationFactors = rotationFactors;
+                _motionScreenOrientation = screenOrientation;
                 _isMotionSuspended = false;
                 return true;
             }
@@ -204,7 +212,7 @@ namespace Ryujinx.Input.Native
         {
             lock (_stateLock)
             {
-                return new GamepadMotionSample(_motionStates[0], _motionStates[1], _motionGravity, _motionRotationFactors, _motionEpoch, _isMotionSuspended);
+                return new GamepadMotionSample(_motionStates[0], _motionStates[1], _motionGravity, _motionRotationFactors, _motionScreenOrientation, _motionEpoch, _isMotionSuspended);
             }
         }
 
@@ -259,6 +267,7 @@ namespace Ryujinx.Input.Native
                 Array.Clear(_motionStates, 0, _motionStates.Length);
                 _motionGravity = null;
                 _motionRotationFactors = null;
+                _motionScreenOrientation = null;
                 _isMotionSuspended = false;
             }
         }

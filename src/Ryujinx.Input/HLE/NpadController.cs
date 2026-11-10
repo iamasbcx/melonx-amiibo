@@ -315,7 +315,7 @@ namespace Ryujinx.Input.HLE
                             }
 
                             // 控制系数已经使用核心屏幕轴，不参与上面的传感器驱动换轴。
-                            _leftMotionInput.Update(accelerometer, gyroscope, (ulong)PerformanceCounter.ElapsedNanoseconds / 1000, controllerConfig.Motion.Sensitivity, (float)controllerConfig.Motion.GyroDeadzone, gravity, sample.RotationFactors, sample.MotionEpoch, sample.IsMotionSuspended);
+                            _leftMotionInput.Update(accelerometer, gyroscope, (ulong)PerformanceCounter.ElapsedNanoseconds / 1000, controllerConfig.Motion.Sensitivity, (float)controllerConfig.Motion.GyroDeadzone, gravity, sample.RotationFactors, sample.ScreenOrientation, sample.MotionEpoch, sample.IsMotionSuspended);
 
                             if (controllerConfig.ControllerType == ConfigControllerType.JoyconPair)
                             {

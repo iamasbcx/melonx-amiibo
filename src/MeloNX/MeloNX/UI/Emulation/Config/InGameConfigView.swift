@@ -50,12 +50,17 @@ struct InGameConfigView: View {
         Menu {
             menuButton
         } label: {
-            ButtonView(controller: VirtualControllerManager.shared, disabled: true, button: .guide, opacity: 0.4)
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 24, weight: .semibold))
+                .frame(width: 44, height: 44)
+                .background(.ultraThinMaterial, in: Circle())
+                .contentShape(Circle())
         }
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .padding()
-        .opacity(menuViewHandler.showButton ? 1 : 0)
+        // 闲置时淡化但保持可点；关闭原生触屏或扩大滑动区域都不能使设置入口消失。
+        .opacity(menuViewHandler.showButton ? 1 : 0.45)
         .animation(.easeInOut(duration: 0.6), value: menuViewHandler.showButton)
         .sheet(isPresented: $showAmiiboSelection) {
             AmiiboSelectionView()

@@ -208,7 +208,7 @@ private struct InputControlsSettingsForm: View {
             }
             UserDefaults.standard.removeObject(forKey: "joystickDpad-" + game.titleId)
             inputRevision += 1
-            settings.objectWillChange.send()
+            settings.refreshOverrideMarker()
         } catch {
             resetError = error.localizedDescription
         }

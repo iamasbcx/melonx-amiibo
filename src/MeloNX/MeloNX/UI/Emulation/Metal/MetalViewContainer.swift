@@ -11,7 +11,6 @@ struct MetalViewContainer: View {
     
     var showView: Bool = true
     var airplay: Bool = false
-    var gameId: String?
     @State var isPortrait: Bool = false
 
     @ObservedObject var ryujinxController: RyujinxController
@@ -43,7 +42,7 @@ struct MetalViewContainer: View {
                     }
 
                 VStack(spacing: 0) {
-                    MetalViewRepresentable(showView: showView, gameId: gameId)
+                    MetalViewRepresentable(showView: showView)
                         .frame(width: size.width, height: size.height)
                         .allowsHitTesting(true)
 
@@ -51,12 +50,6 @@ struct MetalViewContainer: View {
                         Rectangle()
                             .fill(Color.clear)
                             .frame(width: geo.size.width, height: .infinity)
-                            .if(nativeSettingsManager.showScreenShotButton(true).bool) { view in
-                                view
-                                    .overlay(alignment: .topLeading) {
-                                        InGameConfigView()
-                                    }
-                            }
                             .if(nativeSettingsManager.overlayBelowScreen(true).bool && !airplay) { view in
                                 view
                                     .overlay(alignment: overlayAlignment) {
@@ -88,12 +81,6 @@ struct MetalViewContainer: View {
             .onChange(of: portrait) { newValue in
                 updateOrientation(newValue)
             }
-        }
-        .if(!(isPortrait && !isStretched) && nativeSettingsManager.showScreenShotButton(true).bool) { view in
-            view
-                .overlay(alignment: .topLeading) {
-                    InGameConfigView()
-                }
         }
         .overlay(alignment: overlayAlignment) {
             if nativeSettingsManager.performacehud(false).bool && !showingPerformanceOverlay && !airplay {

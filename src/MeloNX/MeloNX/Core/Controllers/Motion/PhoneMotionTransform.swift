@@ -7,6 +7,16 @@ nonisolated enum PhoneMotionTransform {
     /// 与 UIInterfaceOrientation 一一对应；未知方向由调用方保留最近有效值。
     nonisolated enum Orientation: String, CaseIterable, Sendable {
         case portrait, portraitUpsideDown, landscapeLeft, landscapeRight
+
+        /// C ABI 的显式枚举值；不能使用 UIKit 原始值或依赖 CaseIterable 的顺序。
+        var code: Int32 {
+            switch self {
+            case .portrait: return 0
+            case .portraitUpsideDown: return 1
+            case .landscapeLeft: return 2
+            case .landscapeRight: return 3
+            }
+        }
     }
 
     nonisolated struct Sample: Sendable {
@@ -14,12 +24,13 @@ nonisolated enum PhoneMotionTransform {
         let gyroscope: SIMD3<Float>
         let gravity: SIMD3<Float>
         let rotationFactors: SIMD3<Float>
+        let screenOrientation: Int32
     }
 
     /// 输入为 CoreMotion 的重力、用户加速度（单位 g）和角速度（rad/s）。
     /// 输出为 GamepadDriver 坐标，加速度/重力单位 g，角速度单位 deg/s；调用方原子提交整帧。
     /// 平移在屏幕坐标下应用开关；旋转系数作为元数据交给核心，不改写物理角速度。
-    /// 独立重力和物理角速度供姿态滤波，避免反向控制与重力反馈互相抵消。
+    /// 核心用重力分离平移，用 CoreMotion 已校正角速度积分相对控制姿态；界面方向标记用于断开坐标切换的积分边界。
     /// 本函数无状态、可并发调用；CoreMotion 已补偿角速度，不将慢速瞄准学习成零偏。
     static func driverSample(
         gravity: SIMD3<Float>,
@@ -28,8 +39,7 @@ nonisolated enum PhoneMotionTransform {
         orientation: Orientation,
         controls: PhoneMotionControls = .standard
     ) -> Sample {
-        // 姿态融合的重力与角速度必须使用同一右手旋转（行列式 +1）。
-        // 游戏平移的方向校正不能施加到重力，否则 Mahony 停止后仍会向反方向校正。
+        // 重力与角速度必须使用同一右手旋转（行列式 +1）；平移方向控制不能改变重力分量。
         let mappedGravity = screenVector(gravity, orientation: orientation)
         let translation = screenVector(userAcceleration, orientation: orientation)
         // 平移开关不能施加到包含倾斜信息的重力；0 禁用、-1 反向、+1 原方向。
@@ -42,7 +52,8 @@ nonisolated enum PhoneMotionTransform {
             accelerometer: SIMD3(accel.x, accel.z, -accel.y),
             gyroscope: SIMD3(gyro.x, gyro.z, -gyro.y),
             gravity: SIMD3(mappedGravity.x, mappedGravity.z, -mappedGravity.y),
-            rotationFactors: controls.rotationFactors
+            rotationFactors: controls.rotationFactors,
+            screenOrientation: orientation.code
         )
     }
 

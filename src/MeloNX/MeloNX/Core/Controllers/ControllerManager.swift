@@ -216,6 +216,7 @@ class ControllerManager: ObservableObject {
             // 标量参数和布局变化不重新创建 native 运动设备，保留陀螺仪姿态与重力基准。
             for (id, attached) in attachedControllers {
                 if let next = desired[id], next.playerIndex == attached.playerIndex, next.type == attached.type { continue }
+                attached.controller.endInputAttachment()
                 Ryujinx.detachGamepad(attached.controller.pointer)
             }
             for id in selectedControllerIds {
@@ -241,7 +242,10 @@ class ControllerManager: ObservableObject {
     /// 在模拟线程完成退出后解绑所有输入设备，避免旧窗口已销毁时仍向 native 层发送输入。
     func detachAllControllers() {
         controllerQueue.sync(flags: .barrier) {
-            for attached in attachedControllers.values { Ryujinx.detachGamepad(attached.controller.pointer) }
+            for attached in attachedControllers.values {
+                attached.controller.endInputAttachment()
+                Ryujinx.detachGamepad(attached.controller.pointer)
+            }
             attachedControllers.removeAll()
         }
     }

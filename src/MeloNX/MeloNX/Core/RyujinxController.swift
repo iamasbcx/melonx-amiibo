@@ -230,7 +230,6 @@ public final class RyujinxController: ObservableObject {
         lastGameLaunched = nil
         
         controllerManager.activateInputProfile(gameId: game.titleId)
-        InGameInputSession.shared.setSuspended(false)
         let config = pullKeyboardConfig(gameId: game.titleId)
         Ryujinx.setKeyboardConfig(config)
         let inputReadErrors = [
@@ -266,6 +265,7 @@ public final class RyujinxController: ObservableObject {
 
         // 先进入运行态，再绑定控制器，避免刷新回调与游戏启动之间出现 attach 竞态。
         // 绑定完成后，虚拟手柄输入才能稳定送入当前游戏。
+        InGameInputSession.shared.beginGame()
         controllerManager.attachAllControllers()
         
         let nativeSettingsManager = NativeSettingsManager.shared
@@ -316,6 +316,7 @@ public final class RyujinxController: ObservableObject {
         _isPaused = false
         wasManuallyPaused = false
         // 先停止向 native 输入层提交事件，给窗口和渲染线程留下完整的释放窗口。
+        InGameInputSession.shared.endGame()
         controllerManager.detachAllControllers()
         AmiiboService.shared.stop()
 
@@ -339,10 +340,10 @@ public final class RyujinxController: ObservableObject {
     /// 模拟线程结束后恢复菜单使用的全局范围，不向已经退出的核心重新绑定设备。
     @MainActor
     private func restoreGlobalInputProfile() {
+        InGameInputSession.shared.endGame()
         controllerManager.detachAllControllers()
         controllerManager.activateInputProfile(gameId: nil)
         NativeSettingsManager.setShared()
-        InGameInputSession.shared.setSuspended(false)
         controllerManager.refreshControllersList()
     }
     

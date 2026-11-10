@@ -80,6 +80,13 @@ class NativeSettingsManager: ObservableObject {
         guard pullOriginal, !titleId.isEmpty else { return }
         UserDefaults.standard.set(true, forKey: titleId)
     }
+
+    /// 局部重置之后重新检查全部原生覆盖，避免误清其他游戏专属设置的存在标记。
+    func refreshOverrideMarker() {
+        guard pullOriginal else { return }
+        NativeSettingsOverrideMarker.refresh(titleId: titleId)
+        objectWillChange.send()
+    }
     
     subscript<T: Any>(dynamicMember member: String) -> (T) -> Setting<T> {
         return { [weak self] input in
@@ -208,6 +215,7 @@ class Setting<T: Any>: Hashable, AnySettingProtocol {
     fileprivate func set(_ value: Any?) {
         guard let value = value else {
             UserDefaults.standard.removeObject(forKey: name)
+            parent?.refreshOverrideMarker()
             parent?.objectWillChange.send()
             return
         }

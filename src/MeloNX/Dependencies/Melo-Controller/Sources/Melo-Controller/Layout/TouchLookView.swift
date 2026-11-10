@@ -2,8 +2,7 @@
 //  TouchLookView.swift
 //  Melo-Controller
 //
-//  屏幕滑动视角区域的布局编辑控件。正常游戏输入由宿主 MetalView 处理，
-//  本视图只在布局编辑模式显示，避免透明层拦截按钮、摇杆和原生触摸。
+//  屏幕滑动视角区域的布局编辑控件，与运行态 TouchLookInputView 共用全屏控制画布。
 //
 
 import SwiftUI
@@ -19,8 +18,10 @@ struct EditableTouchLookView: View {
         GeometryReader { proxy in
             if isEditing {
                 let item = layout.touchLook
-                let width = max(60, proxy.size.width * item.width)
-                let height = max(60, proxy.size.height * item.height)
+                let rect = ControllerLayoutGeometry.rect(center: CGPoint(x: item.centerX, y: item.centerY),
+                                                         size: CGSize(width: item.width, height: item.height), canvas: proxy.size)
+                let width = rect.width
+                let height = rect.height
                 let center = CGPoint(
                     x: proxy.size.width * item.centerX + dragOffset.width,
                     y: proxy.size.height * item.centerY + dragOffset.height
@@ -40,16 +41,17 @@ struct EditableTouchLookView: View {
                     VStack(spacing: 5) {
                         Image(systemName: "hand.draw")
                             .font(.system(size: 26, weight: .semibold))
-                        Text("滑动视角区域")
-                            .font(.caption.weight(.semibold))
-                        Text(item.hidden ? "已隐藏" : "拖动调整位置")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
+                        if width >= 120 && height >= 80 {
+                            Text("滑动视角区域")
+                                .font(.caption.weight(.semibold))
+                            Text(item.hidden ? "已隐藏" : "拖动调整位置")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .foregroundStyle(.white.opacity(0.85))
                 }
                 .frame(width: width, height: height)
-                .position(center)
                 .editorSelectionRing(isSelected: isSelected, isCircular: false, tint: .cyan)
                 .contentShape(Rectangle())
                 .onTapGesture {
@@ -77,6 +79,8 @@ struct EditableTouchLookView: View {
                             layout.touchLook = updated
                         }
                 )
+                // 命中形状和手势属于区域本身，最后才放到画布位置，避免 position 包装层扩大命中。
+                .position(center)
             }
         }
         .allowsHitTesting(isEditing)

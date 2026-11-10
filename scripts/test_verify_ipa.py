@@ -89,7 +89,19 @@ class IpaVerificationTests(unittest.TestCase):
         )
         self.core_path.write_bytes(self.core)
         self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
-        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_set_gamepad_motion_sample_with_controls"):
+        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_set_gamepad_phone_motion_sample"):
+            self.check(self.entries)
+
+    def test_old_motion_export_cannot_replace_phone_sample_export(self) -> None:
+        # 旧接口不携带屏幕方向；即使旧符号存在，也必须拒绝混用旧核心。
+        self.core = make_macho(
+            dependencies=("/usr/lib/libicucore.A.dylib", "/System/Library/Frameworks/Foundation.framework/Foundation"),
+            symbols=tuple(sorted((CORE_SYMBOLS - {"_set_gamepad_phone_motion_sample"})
+                                 | {"_set_gamepad_motion_sample_with_controls"})),
+        )
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_set_gamepad_phone_motion_sample"):
             self.check(self.entries)
 
     def test_missing_amiibo_export_with_motion_export_present(self) -> None:

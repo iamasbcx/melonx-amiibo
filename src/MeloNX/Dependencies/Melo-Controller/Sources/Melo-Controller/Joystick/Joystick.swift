@@ -33,6 +33,12 @@ final class JoystickView: UIView {
 
     var onPositionChanged: ((CGPoint) -> Void)?
     var onActiveChanged: ((Bool) -> Void)?
+    var inputEnabled = true {
+        didSet {
+            isUserInteractionEnabled = inputEnabled
+            if !inputEnabled, activeTouch != nil { endTracking() }
+        }
+    }
 
     private let boundaryView          = UIView()
     private let backgroundView        = UIView()
@@ -122,8 +128,11 @@ final class JoystickView: UIView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
 
-        if window == nil, activeTouch != nil {
-            endTracking()
+        if window == nil {
+            ControllerTouchRouter.shared.unregisterJoystick(self)
+            if activeTouch != nil { endTracking() }
+        } else {
+            ControllerTouchRouter.shared.registerJoystick(self)
         }
     }
 
@@ -155,6 +164,7 @@ final class JoystickView: UIView {
     }
 
     private func beginTracking(at location: CGPoint) {
+        onActiveChanged?(true)
         let rawOffset = rawOffset(for: location)
         springAnimator?.stopAnimation(true)
         springAnimator = nil
@@ -172,7 +182,6 @@ final class JoystickView: UIView {
             self.joystickView.transform = CGAffineTransform(scaleX: 1.12, y: 1.12)
             self.joystickBackgroundView.transform = CGAffineTransform(scaleX: 1.08, y: 1.08)
         }
-        onActiveChanged?(true)
     }
 
     private func endTracking() {
@@ -183,9 +192,9 @@ final class JoystickView: UIView {
         }
 
         animateBackground(show: false)
+        onActiveChanged?(false)
         onPositionChanged?(.zero)
         springReturnToCenter()
-        onActiveChanged?(false)
     }
 
     private func normalizedPosition() -> CGPoint {

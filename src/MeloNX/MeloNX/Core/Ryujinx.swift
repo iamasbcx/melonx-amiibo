@@ -83,12 +83,12 @@ final class Ryujinx {
         MeloNX.set_gamepad_motion_axis(id, Int32(motionType), axis.x, axis.y, axis.z)
     }
 
-    /// 使用 C 声明传递完整手机采样，独立重力仅供核心姿态滤波；仅复制数值，可从运动队列调用。
-    nonisolated static func setGamepadMotionSample(_ id: UnsafeMutableRawPointer?, acceleration: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>, rotationFactors: SIMD3<Float>) {
-        MeloNX.set_gamepad_motion_sample_with_controls(
+    /// 使用 C 声明原子传递手机采样和屏幕坐标标记；仅复制数值，可从运动队列调用。
+    nonisolated static func setGamepadPhoneMotionSample(_ id: UnsafeMutableRawPointer?, acceleration: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>, rotationFactors: SIMD3<Float>, screenOrientation: Int32) {
+        MeloNX.set_gamepad_phone_motion_sample(
             id, acceleration.x, acceleration.y, acceleration.z,
             gyroscope.x, gyroscope.y, gyroscope.z, gravity.x, gravity.y, gravity.z,
-            rotationFactors.x, rotationFactors.y, rotationFactors.z
+            rotationFactors.x, rotationFactors.y, rotationFactors.z, screenOrientation
         )
     }
 

@@ -39,6 +39,7 @@ struct LayoutEditorView: View {
     @Binding var selectedJoystick: String?
     @Binding var selectedTouchLook: Bool
     let orientation: LayoutOrientation
+    let canvasSize: CGSize
 
     @State private var showingLayoutOptions = false
     @State private var showingResetAlert = false
@@ -77,18 +78,18 @@ struct LayoutEditorView: View {
     var body: some View {
         VStack(spacing: 10) {
             toolbar
+                .fixedSize(horizontal: false, vertical: true)
 
-            HStack(alignment: .top, spacing: 10) {
-                inspector
-                    .frame(maxWidth: 360, alignment: .leading)
-
-                Spacer(minLength: 0)
-
-                if let gameTitle = gameTitle {
-                    gameBadge(gameTitle)
+            // 参数面板允许滚动；工具栏留在安全区内，不随长面板被挤出或被滚动层覆盖。
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 10) {
+                    if let gameTitle = gameTitle { gameBadge(gameTitle) }
+                    inspector
                 }
             }
-
+            .frame(maxWidth: 360, alignment: .leading)
+            .frame(maxHeight: max(120, min(420, canvasSize.height * 0.55)), alignment: .top)
+            .frame(maxWidth: .infinity, alignment: .leading)
             Spacer(minLength: 0)
         }
         .padding(12)
@@ -141,6 +142,8 @@ struct LayoutEditorView: View {
             } label: {
                 Text("完成")
                     .font(.footnote.weight(.semibold))
+                    .frame(minWidth: 44, minHeight: 44)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
         }
@@ -218,7 +221,7 @@ struct LayoutEditorView: View {
                     get: { layout.gridEnabled },
                     set: { enabled in
                         layout.gridEnabled = enabled
-                        if enabled { layout.snapAllOffsets() }
+                        if enabled { layout.snapAllOffsets(in: canvasSize) }
                     }
                 )
             )
@@ -230,7 +233,7 @@ struct LayoutEditorView: View {
                         get: { layout.gridSpacing },
                         set: { spacing in
                             layout.gridSpacing = min(64, max(8, spacing))
-                            layout.snapAllOffsets()
+                            layout.snapAllOffsets(in: canvasSize)
                         }
                     ),
                     range: 8...64,
@@ -294,9 +297,11 @@ struct LayoutEditorView: View {
 
             EditorNudgePad { dx, dy in
                 var item = layout.touchLook
-                let step = layout.gridEnabled ? layout.gridSpacing : 8
-                item.centerX += CGFloat(dx) * step / 320
-                item.centerY += CGFloat(dy) * step / 180
+                let center = ControllerLayoutGeometry.nudgedCenter(CGPoint(x: item.centerX, y: item.centerY),
+                    size: CGSize(width: item.width, height: item.height), canvas: canvasSize,
+                    dx: dx, dy: dy, gridSpacing: layout.gridEnabled ? layout.gridSpacing : nil)
+                item.centerX = center.x
+                item.centerY = center.y
                 item.clamp()
                 layout.touchLook = item
             }
@@ -530,6 +535,8 @@ struct EditorChip: View {
                 }
             }
             .foregroundColor(tint ?? .primary)
+            .frame(minWidth: 44, minHeight: 44)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
     }

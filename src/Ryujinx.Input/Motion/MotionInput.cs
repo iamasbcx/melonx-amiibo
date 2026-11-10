@@ -11,42 +11,52 @@ namespace Ryujinx.Input
         public Vector3 Gyroscrope { get; set; }
         public Vector3 Rotation { get; set; }
 
-        private readonly MotionSensorFilter _filter;
-        private readonly MotionAxisTransform _axisTransform;
+        private readonly MotionSensorFilter _filter = new(0f);
+        private readonly MotionAxisTransform _phoneOrientation = new();
         private ulong _motionEpoch;
         private bool _wasMotionSuspended;
+        private bool _isPhoneSource;
+        private int? _screenOrientation;
         private Vector3 _lastGameGravity;
 
-        public MotionInput()
-        {
-            TimeStamp = 0;
-            Accelerometer = new Vector3();
-            Gyroscrope = new Vector3();
-            Rotation = new Vector3();
-
-            // TODO: RE the correct filter.
-            _filter = new MotionSensorFilter(0f);
-            _axisTransform = new MotionAxisTransform();
-        }
-
         /// <summary>
-        /// 更新运动状态。独立 gravity 只为融合器提供重力方向，避免平移加速度伪装成倾斜；
-        /// 默认保留调用方加速度；自定义旋转时保留平移分量并合成相符的虚拟重力。
-        /// 没有独立重力的实体设备仍使用自身加速度参与融合。
-        /// rotationFactors 在核心屏幕轴上控制游戏输出；物理融合始终使用未经反向/禁用的角速度。
-        /// motionEpoch 或暂停状态改变时跳过一次积分；本对象及所有输出由同一采样线程持有。
+        /// 更新同一输入设备的运动。手机须同时提供独立 gravity、rotationFactors 和 screenOrientation；
+        /// 实体设备三项均为 null，保留原有 Mahony 融合。所有状态由同一采样线程持有。
+        /// 手机姿态只积分经过开关/反向的角速度，重力反馈不进入控制增量，因此禁用轴不会泄漏到其他轴。
+        /// 暂停、转屏和来源变化的首帧仅重建时间基准，不积分未观测时段；转屏/暂停保留相对游戏姿态。
         /// </summary>
-        public void Update(Vector3 accel, Vector3 gyro, ulong timestamp, int sensitivity, float deadzone, Vector3? gravity = null, Vector3? rotationFactors = null,
+        public void Update(Vector3 accel, Vector3 gyro, ulong timestamp, int sensitivity, float deadzone,
+            Vector3? gravity = null, Vector3? rotationFactors = null, int? screenOrientation = null,
             ulong motionEpoch = 0, bool isMotionSuspended = false)
         {
-            if (rotationFactors is Vector3 factors && !GamepadMotionSample.AreRotationFactorsValid(factors))
+            bool phoneSource = gravity.HasValue || rotationFactors.HasValue || screenOrientation.HasValue;
+            if (phoneSource && (gravity is not Vector3 phoneGravity || rotationFactors is not Vector3 factors ||
+                screenOrientation is not int orientation || !GamepadMotionSample.IsPhoneSampleValid(accel, gyro, phoneGravity, factors, orientation)))
             {
-                throw new ArgumentOutOfRangeException(nameof(rotationFactors), "Rotation factors must be -1, 0 or 1.");
+                throw new ArgumentException("Phone motion requires finite vectors, nonzero gravity, factors -1/0/1 and screen orientation 0..3.");
             }
 
-            // 挂起和恢复首帧只重建时间基准，绝不把设置页停留时间或旧角速度积分到游戏。
-            // 暂停可能覆盖整个轮询间隔，因此还必须检查代数，不能只依赖消费者读到暂停标记。
-            bool rebaseTime = _motionEpoch != motionEpoch || _wasMotionSuspended;
+            bool sourceChanged = phoneSource != _isPhoneSource;
+            bool orientationChanged = phoneSource && _screenOrientation != screenOrientation;
+            if (sourceChanged)
+            {
+                _isPhoneSource = phoneSource;
+                Rotation = Vector3.Zero;
+                if (phoneSource)
+                {
+                    _phoneOrientation.Initialize(gravity!.Value);
+                    _lastGameGravity = _phoneOrientation.GravityForGame();
+                }
+                else
+                {
+                    _filter.Reset();
+                    _lastGameGravity = Vector3.Zero;
+                }
+            }
+            _screenOrientation = screenOrientation;
+
+            bool rebaseTime = TimeStamp == 0 || sourceChanged || orientationChanged ||
+                _motionEpoch != motionEpoch || _wasMotionSuspended;
             _motionEpoch = motionEpoch;
             _wasMotionSuspended = isMotionSuspended;
             if (isMotionSuspended || rebaseTime)
@@ -57,52 +67,43 @@ namespace Ryujinx.Input
                 return;
             }
 
-            if (TimeStamp != 0)
+            float deltaTime = MathF.Abs((long)(timestamp - TimeStamp) / 1000000f);
+            if (phoneSource)
             {
+                // 先屏蔽方向再判断死区，禁用轴的大角速度不能使其他轴的小噪声越过门槛。
+                Vector3 controlledGyro = gyro * rotationFactors!.Value;
+                if (controlledGyro.Length() < deadzone)
+                {
+                    controlledGyro = Vector3.Zero;
+                }
+                controlledGyro *= sensitivity / 100f;
+                Gyroscrope = controlledGyro;
+                Rotation += controlledGyro * deltaTime;
+                _phoneOrientation.Update(controlledGyro, deltaTime);
+                _lastGameGravity = _phoneOrientation.GravityForGame();
+                Accelerometer = -(accel - gravity!.Value + _lastGameGravity);
+            }
+            else
+            {
+                // 实体手柄继续使用原来的加速度、角速度与物理融合规则。
                 Accelerometer = -accel;
-
                 if (gyro.Length() < deadzone)
                 {
                     gyro = Vector3.Zero;
                 }
-
-                gyro *= (sensitivity / 100f);
-
-                Vector3 controlledGyro = gyro * (rotationFactors ?? Vector3.One);
-                Gyroscrope = controlledGyro;
-
-                float deltaTime = MathF.Abs((long)(timestamp - TimeStamp) / 1000000f);
-
-                Vector3 deltaGyro = controlledGyro * deltaTime;
-
-                Rotation += deltaGyro;
-
+                gyro *= sensitivity / 100f;
+                Gyroscrope = gyro;
+                Rotation += gyro * deltaTime;
                 _filter.SamplePeriod = deltaTime;
-                Quaternion previousPhysical = _filter.Quaternion;
-                _filter.Update(gravity ?? accel, DegreeToRad(gyro));
-                _axisTransform.Update(previousPhysical, _filter.Quaternion, gravity ?? accel, rotationFactors);
-                if (_axisTransform.IsControlled && gravity is Vector3 physicalGravity)
-                {
-                    // 只替换重力部分，平移开关/方向已经由手机输入适配层处理。
-                    Accelerometer = -(accel - physicalGravity + _axisTransform.GravityForGame(physicalGravity));
-                }
-                // 暂停输出只保留上一有效帧的游戏重力；无独立重力的实体设备不猜测平移分量。
-                _lastGameGravity = gravity is Vector3 currentGravity
-                    ? _axisTransform.GravityForGame(currentGravity)
-                    : Vector3.Zero;
+                _filter.Update(accel, DegreeToRad(gyro));
             }
 
             TimeStamp = timestamp;
         }
 
-        public Matrix4x4 GetOrientation()
-        {
-            return Matrix4x4.CreateFromQuaternion(_axisTransform.Orientation);
-        }
+        public Matrix4x4 GetOrientation() => Matrix4x4.CreateFromQuaternion(
+            _isPhoneSource ? _phoneOrientation.Orientation : _filter.Quaternion);
 
-        private static Vector3 DegreeToRad(Vector3 degree)
-        {
-            return degree * (MathF.PI / 180);
-        }
+        private static Vector3 DegreeToRad(Vector3 degree) => degree * (MathF.PI / 180);
     }
 }

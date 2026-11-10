@@ -11,7 +11,18 @@ import GameController
 import UIKit
 
 extension BaseController {
-    func setupMotion() {
+    /// 传感器注册只在主线程执行；绑定和注册代次均由回调捕获，旧设备回调不得进入新绑定。
+    func setupMotion(expectedAttachment: UInt64? = nil) {
+        guard let attachment = expectedAttachment ?? activeInputAttachment else { return }
+        guard Thread.isMainThread else {
+            DispatchQueue.main.async { [weak self] in
+                self?.setupMotion(expectedAttachment: attachment)
+            }
+            return
+        }
+        guard isActive, activeInputAttachment == attachment else { return }
+        stopMotion()
+        guard let registration = beginMotionRegistration(attachment: attachment) else { return }
         if let nativeController, nativeController.motion != nil, !self.usesDeviceHandlers {
             guard ControllerMappingStore.shared.runtimeMapping(for: self).motionEnabled else {
                 nativeController.motion?.valueChangedHandler = nil
@@ -24,7 +35,8 @@ extension BaseController {
             
             // Thank you @BXYMartin :3
             nativeController.motion?.valueChangedHandler = { [weak self] m in
-                guard let self = self else { return }
+                guard let self = self, self.activeInputAttachment == attachment,
+                      self.activeMotionRegistration == registration else { return }
                 
                 guard let generation = InGameInputSession.shared.activeGeneration,
                       self.shouldSubmitMotion() else { return }
@@ -42,7 +54,7 @@ extension BaseController {
                 let accel = SIMD3(-rawAccelX, -rawAccelZ, rawAccelY)
                 let gyro = SIMD3(rawGyroDeg.x, rawGyroDeg.z, -rawGyroDeg.y)
                 
-                self.submitMotion(accelerometer: accel, gyroscope: gyro, generation: generation)
+                self.submitMotion(accelerometer: accel, gyroscope: gyro, generation: generation, attachment: attachment, registration: registration)
             }
         } else {
             guard self.motionManager.isDeviceMotionAvailable else { return }
@@ -50,12 +62,13 @@ extension BaseController {
             self.motionManager.deviceMotionUpdateInterval = 1.0 / 60.0 // 60Hz
             _ = self.currentMotionInterfaceOrientation()
             self.motionManager.startDeviceMotionUpdates(to: self.motionOperation) { [weak self] (data, error) in
-                guard let self = self, let m = data else { return }
+                guard let self = self, let m = data, self.activeInputAttachment == attachment,
+                      self.activeMotionRegistration == registration else { return }
                 guard let generation = InGameInputSession.shared.activeGeneration,
                       self.shouldSubmitMotion() else { return }
                 
-                let interfaceOrientation = self.currentMotionInterfaceOrientation()
-                guard let transformOrientation = self.phoneMotionOrientation(interfaceOrientation) else { return }
+                let context = self.currentPhoneMotionContext()
+                guard let transformOrientation = self.phoneMotionOrientation(context.orientation) else { return }
                 let sample = PhoneMotionTransform.driverSample(
                     gravity: SIMD3<Float>(
                         Float(m.gravity.x), Float(m.gravity.y), Float(m.gravity.z)
@@ -69,14 +82,15 @@ extension BaseController {
                         Float(m.rotationRate.z)
                     ),
                     orientation: transformOrientation,
-                    controls: self.currentPhoneMotionControls()
+                    controls: context.controls
                 )
-                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope, gravity: sample.gravity, rotationFactors: sample.rotationFactors, generation: generation)
+                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope, gravity: sample.gravity, rotationFactors: sample.rotationFactors, screenOrientation: sample.screenOrientation, generation: generation, attachment: attachment, registration: registration)
             }
         }
     }
     
     func stopMotion() {
+        endMotionRegistration()
         nativeController?.motion?.valueChangedHandler = nil
         nativeController?.motion?.sensorsActive = false
         
@@ -97,33 +111,36 @@ extension BaseController {
     }
     
     /// 手机携带独立重力，完整采样在核心中原子保存；实体手柄没有该数据时继续提交自身传感器。
-    private func submitMotion(accelerometer: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>? = nil, rotationFactors: SIMD3<Float> = SIMD3(repeating: 1), generation: UInt64) {
-        guard isActive, !InGameInputSession.shared.isSuspended else { return }
+    private func submitMotion(accelerometer: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>? = nil, rotationFactors: SIMD3<Float> = SIMD3(repeating: 1), screenOrientation: Int32? = nil, generation: UInt64, attachment: UInt64, registration: UInt64) {
+        guard isActive, activeInputAttachment == attachment, activeMotionRegistration == registration,
+              !InGameInputSession.shared.isSuspended else { return }
         
         let pointer = self.pointer
         
         motionQueue.async { [weak self] in
-            guard self?.isActive == true, !InGameInputSession.shared.isSuspended else { return }
+            guard let self, self.isActive, !InGameInputSession.shared.isSuspended else { return }
             
             // 与编辑会话的清空动作互斥，防止检查后才到达的旧帧重新写入运动状态。
             InGameInputSession.shared.performIfActive(generation: generation) {
-                if let gravity {
-                    Ryujinx.setGamepadMotionSample(pointer, acceleration: accelerometer, gyroscope: gyroscope, gravity: gravity, rotationFactors: rotationFactors)
-                } else {
-                    Ryujinx.setGamepadMotion(pointer, motionType: 1, axis: accelerometer)
-                    Ryujinx.setGamepadMotion(pointer, motionType: 2, axis: gyroscope)
+                self.performIfInputAttached(generation: attachment, motionGeneration: registration) {
+                    if let gravity, let screenOrientation {
+                        Ryujinx.setGamepadPhoneMotionSample(pointer, acceleration: accelerometer, gyroscope: gyroscope, gravity: gravity, rotationFactors: rotationFactors, screenOrientation: screenOrientation)
+                    } else {
+                        Ryujinx.setGamepadMotion(pointer, motionType: 1, axis: accelerometer)
+                        Ryujinx.setGamepadMotion(pointer, motionType: 2, axis: gyroscope)
+                    }
                 }
             }
         }
     }
 
-    /// 同一局始终读取当前游戏的覆盖及全局回退；设置改动从下一帧开始生效。
-    private func currentPhoneMotionControls() -> PhoneMotionControls {
+    /// 同一主线程快照内读取方向和配置，避免一帧跨越两次主线程读取而混用新旧界面状态。
+    private func currentPhoneMotionContext() -> (orientation: UIInterfaceOrientation, controls: PhoneMotionControls) {
         if Thread.isMainThread {
-            return PhoneMotionControls.read(from: NativeSettingsManager.shared)
+            return (currentMotionInterfaceOrientation(), PhoneMotionControls.read(from: NativeSettingsManager.shared))
         }
         return DispatchQueue.main.sync {
-            PhoneMotionControls.read(from: NativeSettingsManager.shared)
+            (currentMotionInterfaceOrientation(), PhoneMotionControls.read(from: NativeSettingsManager.shared))
         }
     }
     
@@ -131,14 +148,10 @@ extension BaseController {
     private func currentMotionInterfaceOrientation() -> UIInterfaceOrientation {
         let sceneOrientation: UIInterfaceOrientation?
         if Thread.isMainThread {
-            sceneOrientation = UIApplication.shared.connectedScenes
-                .compactMap { ($0 as? UIWindowScene)?.interfaceOrientation }
-                .first(where: { self.isUsableInterfaceOrientation($0) })
+            sceneOrientation = primaryMotionSceneOrientation()
         } else {
             sceneOrientation = DispatchQueue.main.sync {
-                UIApplication.shared.connectedScenes
-                    .compactMap { ($0 as? UIWindowScene)?.interfaceOrientation }
-                    .first(where: { self.isUsableInterfaceOrientation($0) })
+                primaryMotionSceneOrientation()
             }
         }
 
@@ -148,6 +161,17 @@ extension BaseController {
             motionInterfaceOrientation = sceneOrientation
         }
         return isUsableInterfaceOrientation(motionInterfaceOrientation) ? motionInterfaceOrientation : .portrait
+    }
+
+    /// 手机输入以主应用窗口为准；外接显示器的横屏方向不能覆盖手机竖屏方向。
+    @MainActor private func primaryMotionSceneOrientation() -> UIInterfaceOrientation? {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role == .windowApplication }
+        let scene = scenes.first { $0.activationState == .foregroundActive && $0.windows.contains(where: { $0.isKeyWindow }) }
+            ?? scenes.first { $0.activationState == .foregroundActive }
+            ?? scenes.first { $0.activationState == .foregroundInactive }
+        guard let orientation = scene?.interfaceOrientation, isUsableInterfaceOrientation(orientation) else { return nil }
+        return orientation
     }
 
     private func isUsableInterfaceOrientation(_ orientation: UIInterfaceOrientation) -> Bool {
