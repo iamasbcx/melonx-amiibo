@@ -683,41 +683,7 @@ struct SettingsView: View {
                                 info: "Sizes the texture and buffer caches from how much memory this app may actually use, and shrinks them when the system asks for memory back. Turn OFF if a game renders a blank or white screen, or loses geometry after a few seconds.")
             }
 
-            // Performance Overlay
-            Section("Performance Overlay") {
-                NativeToggleRow("Performance Overlay", icon: "speedometer",
-                                isOn: nativeSettingsManager.performacehud.projectedValue,
-                                info: "Shows framerate, frametime, fifo (First In, First Out) and battery info while a game is running.")
-
-                if nativeSettingsManager.performacehud.value {
-                    NativeToggleRow("Show Battery Percentage", icon: "battery.100percent.bolt",
-                                    isOn: nativeSettingsManager.showBatteryPercentage.projectedValue)
-
-                    NativeToggleRow("Show Frame Time", icon: "clock.arrow.2.circlepath",
-                                    isOn: nativeSettingsManager.performanceFrameTime(true).projectedValue)
-
-                    NativeToggleRow("Show Memory Usage", icon: "memorychip",
-                                    isOn: nativeSettingsManager.performanceRam(true).projectedValue)
-
-                    NativeToggleRow("Show FIFO", icon: "arrow.left.arrow.right",
-                                    isOn: nativeSettingsManager.performanceFIFO.projectedValue)
-
-                    NativeToggleRow("Horizontal Layout", icon: "rotate.right",
-                                    isOn: nativeSettingsManager.horizontalorvertical.projectedValue,
-                                    info: "Changes the Performance Overlay to display horizontally instead of vertically.")
-
-                    NativeToggleRow("Move Overlay below Screen", icon: "arrow.uturn.down",
-                                    isOn: nativeSettingsManager.overlayBelowScreen(true).projectedValue,
-                                    info: "When device is in portrait, the overlay will be moved below the game screen.")
-
-                }
-
-                Picker("Overlay Position", selection: nativeSettingsManager.performancePosition(PerformanceOverlayPosition.topRight).projectedValue) {
-                    ForEach(PerformanceOverlayPosition.allCases, id: \.self) { position in
-                        Text(position.displayValue).tag(position)
-                    }
-                }
-            }
+            PerformanceOverlaySettingsSection(settings: nativeSettingsManager)
 
             // Aspect Ratio
             Section("Aspect Ratio") {

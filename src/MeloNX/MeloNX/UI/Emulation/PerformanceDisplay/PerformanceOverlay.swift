@@ -59,70 +59,54 @@ class MemoryUsageMonitor: ObservableObject {
     }
 }
 
+/// 紧凑性能条：所有指标合并为一行，外观读取当前有效范围，渲染与设置预览共用同一视图。
 struct PerformanceOverlayView: View {
     @StateObject private var memorymonitor = MemoryUsageMonitor()
-    @StateObject private var nativeSettings: NativeSettingsManager = .shared
+    // 与宿主的位置/总开关共用同一设置实例，游戏缺省项由存储层回退到全局。
+    @ObservedObject var nativeSettings: NativeSettingsManager
     @ObservedObject var statisticsHandler: StatisticsHandler
     
-    @State private var batteryLevel: Int = Int(UIDevice.current.batteryLevel * 100)
-    
-    
-    @ViewBuilder
-    var content: some View {
-        if nativeSettings.horizontalorvertical(false).bool {
-            HStack(spacing: 8) {
-                overlayText
-            }
-            .padding(10)
-        } else {
-            VStack(alignment: .trailing, spacing: 8) {
-                overlayText
-            }
-            .padding(10)
-            .frame(minWidth: 150)
+    @State private var batteryLevel: Int?
+
+    private var summary: String {
+        var items = [String(format: "FPS %.1f", statisticsHandler.fps)]
+        if nativeSettings.performanceFrameTime(true).bool {
+            items.append(String(format: "%.1fms", statisticsHandler.frameTime))
         }
-    }
-    
-    @ViewBuilder
-    var overlayText: some View {
-        if nativeSettings.horizontalorvertical(false).bool {
-            Text("Battery: \(batteryLevel)%")
-                .foregroundStyle(.white)
-        }
-        
-        Text(nativeSettings.performanceFrameTime(true).bool ? statisticsHandler.formatFPS() + (" (\(statisticsHandler.frameTime)ms)") : statisticsHandler.formatFPS())
-            .foregroundStyle(.white)
-        
         if nativeSettings.performanceRam(true).bool {
-            Text("RAM: " + memorymonitor.formatMemorySize(memorymonitor.memoryUsage))
-                .foregroundStyle(.white)
-
+            items.append("RAM " + compactMemory(memorymonitor.memoryUsage))
             if memorymonitor.donatedMemory > 0 {
-                Text("Donated: " + memorymonitor.formatMemorySize(memorymonitor.donatedMemory))
-                    .foregroundStyle(.white)
+                items.append("扩展 " + compactMemory(memorymonitor.donatedMemory))
             }
         }
-
         if nativeSettings.performanceFIFO(false).bool {
-            Text("FIFO: \(statisticsHandler.fifo, specifier: "%.2f")%")
-                .foregroundStyle(.white)
+            items.append(String(format: "FIFO %.1f%%", statisticsHandler.fifo))
         }
+        if nativeSettings.showBatteryPercentage(false).bool, let batteryLevel {
+            items.append("电量 \(batteryLevel)%")
+        }
+        return items.joined(separator: " · ")
+    }
+
+    private func compactMemory(_ bytes: UInt64) -> String {
+        memorymonitor.formatMemorySize(bytes).replacingOccurrences(of: " ", with: "")
+    }
+
+    private func updateBatteryLevel() {
+        let level = UIDevice.current.batteryLevel
+        // 系统尚未提供电量时隐藏该项，不能把 -1 显示成 -100%。
+        batteryLevel = (0...1).contains(level) ? Int((level * 100).rounded()) : nil
     }
     
     var body: some View {
-        content
-            .background(Color.black.opacity(0.7))
-            .onAppear() {
+        PerformanceOverlayLine(text: summary, appearance: PerformanceOverlayAppearance(settings: nativeSettings))
+            .onAppear {
                 UIDevice.current.isBatteryMonitoringEnabled = true
-                batteryLevel = Int(UIDevice.current.batteryLevel * 100)
-                
-                NotificationCenter.default.addObserver(
-                    forName: UIDevice.batteryLevelDidChangeNotification,
-                    object: nil,
-                    queue: .main
-                ) { _ in
-                    batteryLevel = Int(UIDevice.current.batteryLevel * 100)
-                }
+                updateBatteryLevel()
+            }
+            // 订阅随视图销毁自动取消，反复旋转或开关性能条不会积累观察者。
+            .onReceive(NotificationCenter.default.publisher(for: UIDevice.batteryLevelDidChangeNotification).receive(on: RunLoop.main)) { _ in
+                updateBatteryLevel()
             }
     }
 }

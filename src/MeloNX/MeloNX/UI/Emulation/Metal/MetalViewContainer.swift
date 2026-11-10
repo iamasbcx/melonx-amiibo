@@ -15,10 +15,8 @@ struct MetalViewContainer: View {
 
     @ObservedObject var ryujinxController: RyujinxController
     @ObservedObject var statisticsHandler: StatisticsHandler
-    @ObservedObject var nativeSettingsManager: NativeSettingsManager
     @ObservedObject var menuViewHandler: InGameConfigView_MenuView = .shared
-    
-    @State var showingPerformanceOverlay: Bool = false
+    @ObservedObject var nativeSettingsManager: NativeSettingsManager
     
     var overlayAlignment: Alignment {
         nativeSettingsManager.performancePosition(PerformanceOverlayPosition.topRight).value.alignment
@@ -33,6 +31,8 @@ struct MetalViewContainer: View {
             let portrait = geo.size.height > geo.size.width
             let isStretched = aspectRatio == .stretched
             let size = targetSize(in: geo.size, aspectRatio: aspectRatio)
+            let showPerformance = nativeSettingsManager.performacehud(false).bool && !airplay
+            let showPerformanceBelow = showPerformance && portrait && !isStretched && nativeSettingsManager.overlayBelowScreen(true).bool
 
             ZStack {
                 Color.black
@@ -46,34 +46,24 @@ struct MetalViewContainer: View {
                         .frame(width: size.width, height: size.height)
                         .allowsHitTesting(true)
 
-                    if isPortrait && !isStretched {
-                        Rectangle()
-                            .fill(Color.clear)
-                            .frame(width: geo.size.width, height: .infinity)
-                            .if(nativeSettingsManager.overlayBelowScreen(true).bool && !airplay) { view in
-                                view
-                                    .overlay(alignment: overlayAlignment) {
-                                        PerformanceOverlayView(statisticsHandler: statisticsHandler)
-                                            .onAppear {
-                                                showingPerformanceOverlay = true
-                                            }
-                                            .onDisappear {
-                                                showingPerformanceOverlay = false
-                                            }
-                                            .onTapGesture {
-                                                menuViewHandler.triggerButton()
-                                            }
-                                    }
-                        }
+                    if portrait && !isStretched {
+                        Color.clear
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .overlay(alignment: overlayAlignment) {
+                                if showPerformanceBelow { performanceOverlay }
+                            }
                     }
                 }
                 .frame(
                     width: geo.size.width,
                     height: geo.size.height,
-                    alignment: isPortrait && !isStretched ? .top : .center
+                    alignment: portrait && !isStretched ? .top : .center
                 )
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .overlay(alignment: overlayAlignment) {
+                if showPerformance && !showPerformanceBelow { performanceOverlay }
+            }
             .onAppear { updateOrientation(portrait) }
             .onChange(of: geo.size) { _ in
                 updateOrientation(portrait)
@@ -82,17 +72,15 @@ struct MetalViewContainer: View {
                 updateOrientation(newValue)
             }
         }
-        .overlay(alignment: overlayAlignment) {
-            if nativeSettingsManager.performacehud(false).bool && !showingPerformanceOverlay && !airplay {
-                PerformanceOverlayView(statisticsHandler: statisticsHandler)
-                    .padding(10)
-                    .onTapGesture {
-                        menuViewHandler.triggerButton()
-                    }
-            }
-        }
         .statusBarHidden(true)
         .ignoresSafeArea(.container, edges: isPortrait && !isStretched ? .horizontal : .all)
+    }
+
+    /// 上下两处入口共享同一尺寸；当前几何方向决定唯一显示位置，避免旋转时出现双份叠加。
+    private var performanceOverlay: some View {
+        PerformanceOverlayView(nativeSettings: nativeSettingsManager, statisticsHandler: statisticsHandler)
+            .padding(4)
+            .onTapGesture { menuViewHandler.triggerButton() }
     }
 
     private func updateOrientation(_ portrait: Bool) {
