@@ -9,9 +9,17 @@ import SwiftUI
 import Melo_Controller
 import Combine
 
+/// 菜单仅发送请求，弹层由不随横竖屏分支卸载的 EmulationView 持有。
+struct InGameSettingsRequest: Equatable {
+    enum Destination: Equatable { case input, layout }
+    let destination: Destination
+    let scope: InputSettingsScope
+}
+
 class InGameConfigView_MenuView: ObservableObject {
     @Published var hideTask: Task<Void, Never>? = nil
     @Published var showButton: Bool = false
+    @Published var settingsRequest: InGameSettingsRequest?
 
     static var shared: InGameConfigView_MenuView = .init()
 
@@ -34,8 +42,6 @@ struct InGameConfigView: View {
     @ObservedObject var controllerManager: ControllerManager = .shared
     @StateObject var menuViewHandler: InGameConfigView_MenuView = .shared
     @State var rotationlock: Bool = false
-    @State var showingKeyboardConfig: Bool = false
-    @State var showControllerSettings: Bool = false
     @State private var showAmiiboSelection: Bool = false
 
 
@@ -51,9 +57,6 @@ struct InGameConfigView: View {
         .padding()
         .opacity(menuViewHandler.showButton ? 1 : 0)
         .animation(.easeInOut(duration: 0.6), value: menuViewHandler.showButton)
-        .sheet(isPresented: $showControllerSettings) {
-            controllerSelection
-        }
         .sheet(isPresented: $showAmiiboSelection) {
             AmiiboSelectionView()
         }
@@ -74,7 +77,7 @@ struct InGameConfigView: View {
         }
 
         Button {
-            showControllerSettings = true
+            menuViewHandler.settingsRequest = InGameSettingsRequest(destination: .input, scope: availableScopes.first ?? .global)
         } label: {
             Label {
                 Text(LocalizedStringKey("Configure Controllers"))
@@ -82,6 +85,9 @@ struct InGameConfigView: View {
                 Image(systemName: "gamecontroller")
             }
         }
+
+        settingsMenu("Input Settings", icon: "slider.horizontal.3", destination: .input)
+        settingsMenu("Edit Virtual Controller Layout", icon: "formfitting.gamecontroller", destination: .layout)
 
         // 目录只提供虚拟身份；打开菜单时继续运行游戏，避免阻塞来宾读取请求。
         Button {
@@ -125,61 +131,25 @@ struct InGameConfigView: View {
 
     }
 
-    @ViewBuilder
-    private var controllerSelection: some View {
-        List {
-            Section("手柄选择") {
-                if controllerManager.selectedControllers.isEmpty {
-                    Text("未选择手柄，将使用键盘")
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(Array(controllerManager.resolvedSelection.enumerated()), id: \.offset) { index, entry in
-                        ControllerRow(index: index, controllerId: entry.id, controllerManager: controllerManager)
-                    }
-                }
-                if hasAvailableControllers {
-                    Menu {
-                        ForEach(controllerManager.allControllers.filter {
-                            !contains(controllerManager.selectedControllers, value: $0)
-                        }) { controller in
-                            Button(controller.name) {
-                                controllerManager.selectController(controller)
-                            }
-                        }
-                    } label: {
-                        Label("添加手柄", systemImage: "plus.circle.fill")
-                    }
+    private var availableScopes: [InputSettingsScope] {
+        if case .started(let game, _) = ryujinxController.isRunning,
+           ControllerInputProfile.normalizedGameId(game.titleId) != nil {
+            return InputSettingsScope.allCases
+        }
+        return [.global]
+    }
+
+    private func settingsMenu(_ title: String, icon: String, destination: InGameSettingsRequest.Destination) -> some View {
+        Menu {
+            ForEach(availableScopes) { scope in
+                Button(LocalizedStringKey(scope.title)) {
+                    menuViewHandler.settingsRequest = InGameSettingsRequest(destination: destination, scope: scope)
                 }
             }
-
-
-            if controllerManager.selectedControllers.isEmpty {
-                Section {
-                    Button(LocalizedStringKey("Map Keyboard")) {
-                        showingKeyboardConfig = true
-                    }
-                    .sheet(isPresented: $showingKeyboardConfig) {
-                        KeyboardConfigView()
-                    }
-                }
-            }
+        } label: {
+            Label(LocalizedStringKey(title), systemImage: icon)
         }
-        .padding(.top)
-        .onAppear {
-            controllerManager.refreshControllersList()
-        }
-        .onDisappear {
-            controllerManager.refreshControllersList(true)
-        }
+        .disabled(ryujinxController.isStopping)
     }
 
-    private var hasAvailableControllers: Bool {
-        !ControllerManager.shared.allControllers
-            .filter { !contains(ControllerManager.shared.selectedControllers, value: $0) }
-            .isEmpty
-    }
-
-    func contains(_ array: [String], value: BaseController) -> Bool {
-        array.contains { $0 == value.id }
-    }
 }

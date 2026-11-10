@@ -33,11 +33,17 @@ class MetalView: MTKView {
     private var aspectRatio: AspectRatio = .fixed16x9
 
     private var layoutOrientation: LayoutOrientation {
-        bounds.height > bounds.width ? .portrait : .landscape
+        // 竖屏时游戏画面仍可能固定为 16:9；布局方向以所在界面为准，不能由画面宽高推断。
+        switch window?.windowScene?.interfaceOrientation {
+        case .portrait?, .portraitUpsideDown?: return .portrait
+        case .landscapeLeft?, .landscapeRight?: return .landscape
+        default: return bounds.height > bounds.width ? .portrait : .landscape
+        }
     }
 
     /// 切换游戏布局时清理旧触点，并立即应用对应的全局/单游戏视角区域。
     func configureTouchLook(gameId: String?) {
+        let gameId = ControllerInputProfile.normalizedGameId(gameId)
         guard touchLookGameId != gameId else {
             syncTouchLookSettings()
             return
@@ -169,8 +175,7 @@ class MetalView: MTKView {
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         
-        let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
-        guard !disabled else { return }
+        guard !isTouchInputDisabled else { resetTouchTracking(); return }
         
         setAspectRatio()
         var shouldShowMenu = false
@@ -199,15 +204,7 @@ class MetalView: MTKView {
         super.touchesEnded(touches, with: event)
         
         
-        let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
-        guard !disabled else {
-            for touch in touches {
-                _ = releaseSlot(for: touch)
-                touchLookTouches.removeValue(forKey: ObjectIdentifier(touch))
-            }
-            if touchLookTouches.isEmpty { resetTouchLook() }
-            return
-        }
+        guard !isTouchInputDisabled else { resetTouchTracking(); return }
         
         for touch in touches {
             let id = ObjectIdentifier(touch)
@@ -228,8 +225,7 @@ class MetalView: MTKView {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesMoved(touches, with: event)
         
-        let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
-        guard !disabled else { return }
+        guard !isTouchInputDisabled else { resetTouchTracking(); return }
         
         setAspectRatio()
         
@@ -255,15 +251,7 @@ class MetalView: MTKView {
 
     override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesCancelled(touches, with: event)
-        let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
-        guard !disabled else {
-            for touch in touches {
-                _ = releaseSlot(for: touch)
-                touchLookTouches.removeValue(forKey: ObjectIdentifier(touch))
-            }
-            if touchLookTouches.isEmpty { resetTouchLook() }
-            return
-        }
+        guard !isTouchInputDisabled else { resetTouchTracking(); return }
         
         for touch in touches {
             let id = ObjectIdentifier(touch)
@@ -280,6 +268,12 @@ class MetalView: MTKView {
         }
     }
     
+
+    /// 触摸路径与设置页使用相同的游戏作用域，编辑时禁止触点进入来宾游戏。
+    private var isTouchInputDisabled: Bool {
+        InGameInputSession.shared.isSuspended
+            || NativeSettingsManager.shared.setting(forKey: "disableTouch", default: false).value
+    }
 
     func resetTouchTracking() {
         // 页面退出或失焦时主动结束仍在协议层的触点，避免游戏收到永久按下状态。

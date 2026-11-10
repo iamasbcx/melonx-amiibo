@@ -11,6 +11,7 @@ const ulong SamplePeriodUs = 16_666;
 var failures = new List<string>();
 RunSyntheticRegression(failures);
 RunTranslationRegression(failures);
+AxisControlRegression.Run(failures);
 
 if (args.Length > 0)
 {
@@ -134,7 +135,8 @@ static List<Sample> ParseSamples(JsonElement samplesElement)
             ReadVector(sample.GetProperty("acceleration")),
             ReadVector(sample.GetProperty("gyroscope")),
             sample.GetProperty("timestamp").GetUInt64(),
-            ReadVector(sample.GetProperty("gravity"))));
+            ReadVector(sample.GetProperty("gravity")),
+            ReadVector(sample.GetProperty("rotationFactors"))));
     }
     return samples;
 }
@@ -216,9 +218,9 @@ static TraceResult Replay(IReadOnlyList<Sample> samples)
         {
             throw new InvalidDataException($"样本 {index} 包含非法独立重力");
         }
-        input.Update(sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone, sample.Gravity);
+        input.Update(sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone, sample.Gravity, sample.RotationFactors);
         // 同一姿态和角速度、没有平移加速度的对照。允许竖直/倾斜持握的初始重力对齐过程。
-        baseline.Update(sample.Gravity ?? sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone, sample.Gravity);
+        baseline.Update(sample.Gravity ?? sample.Acceleration, sample.Gyroscope, sample.Timestamp, (int)Sensitivity, Deadzone, sample.Gravity, sample.RotationFactors);
         Matrix4x4 orientation = input.GetOrientation();
         float pitch = PitchDegrees(orientation);
         allFinite &= MatrixFinite(orientation) && float.IsFinite(pitch) && VectorFinite(input.Rotation);
@@ -336,6 +338,6 @@ static bool MatrixFinite(Matrix4x4 value) =>
     float.IsFinite(value.M31) && float.IsFinite(value.M32) && float.IsFinite(value.M33) && float.IsFinite(value.M34) &&
     float.IsFinite(value.M41) && float.IsFinite(value.M42) && float.IsFinite(value.M43) && float.IsFinite(value.M44);
 
-readonly record struct Sample(Vector3 Acceleration, Vector3 Gyroscope, ulong Timestamp, Vector3? Gravity = null);
+readonly record struct Sample(Vector3 Acceleration, Vector3 Gyroscope, ulong Timestamp, Vector3? Gravity = null, Vector3? RotationFactors = null);
 
 readonly record struct TraceResult(float MovingEndPitch, float FinalPitch, float MinStablePitch, float StableDuration, Vector3 IntegratedRotation, bool LastGyroscopeIsZero, bool AllFinite, float MaxOrientationDegrees, float MaxBaselineDeviation, bool TotalAccelerationPreserved);

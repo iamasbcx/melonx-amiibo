@@ -1595,7 +1595,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u9000\u51fa\u6e38\u620f"
+            "value": "退出游戏"
           }
         }
       }
@@ -1605,7 +1605,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "\u6b63\u5728\u9000\u51fa\u2026"
+            "value": "正在退出…"
           }
         }
       }
@@ -4284,12 +4284,12 @@
         }
       }
     },
-    "Range: 0.25–100x. Tap Apply to save. High values reach the game's right-stick speed limit sooner; 100x does not mean 100 times the turning speed.": {
+    "Range: 0.25–9999x. Tap Apply to save. High values reach the game's right-stick speed limit sooner; 9999x does not mean 9999 times the turning speed.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "范围：0.25～100 倍，点击“应用”保存。高倍率更容易达到游戏的右摇杆速度上限，100 倍不代表转向速度变成 100 倍。"
+            "value": "范围：0.25～9999 倍，点击“应用”保存。高倍率更容易达到游戏的右摇杆速度上限，9999 倍不代表转向速度变成 9999 倍。"
           }
         }
       }
@@ -4314,12 +4314,12 @@
         }
       }
     },
-    "Enter a multiplier from 0.25 to 100.": {
+    "Enter a multiplier from 0.25 to 9999.": {
       "localizations": {
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "请输入 0.25～100 之间的倍数。"
+            "value": "请输入 0.25～9999 之间的倍数。"
           }
         }
       }
@@ -5448,6 +5448,276 @@
           "stringUnit": {
             "state": "translated",
             "value": "默认取消选择"
+          }
+        }
+      }
+    },
+    "Phone Motion Directions": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手机运动方向"
+          }
+        }
+      }
+    },
+    "Enable or reverse each phone movement independently. Disabled directions keep their reverse setting for later use.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "每个方向可独立启用或反向。关闭方向后会保留反向设置，方便下次启用。"
+          }
+        }
+      }
+    },
+    "Enabled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "启用"
+          }
+        }
+      }
+    },
+    "Reversed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "反向"
+          }
+        }
+      }
+    },
+    "Input Settings": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入设置"
+          }
+        }
+      }
+    },
+    "Edit Virtual Controller Layout": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑虚拟手柄布局"
+          }
+        }
+      }
+    },
+    "Editing Scope": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修改范围"
+          }
+        }
+      }
+    },
+    "Current Game": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前游戏"
+          }
+        }
+      }
+    },
+    "Global Defaults": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "全局默认"
+          }
+        }
+      }
+    },
+    "Current-game values override global defaults for each setting. Global changes apply wherever the game has no override.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前游戏按参数优先使用专属设置；未单独设置的参数跟随全局默认。"
+          }
+        }
+      }
+    },
+    "Camera and Phone Motion": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视角与手机运动"
+          }
+        }
+      }
+    },
+    "Virtual Controller Appearance": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "虚拟手柄"
+          }
+        }
+      }
+    },
+    "Edit the controller layout to change button positions, grid snapping, and the right stick or swipe-area size and visibility.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在布局编辑中调整按钮位置、网格吸附，以及右摇杆和滑动视角区域的大小与显隐。"
+          }
+        }
+      }
+    },
+    "Use Global Input Defaults": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用全局输入默认值"
+          }
+        }
+      }
+    },
+    "Use Global Input Defaults?": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "要恢复使用全局输入默认值吗？"
+          }
+        }
+      }
+    },
+    "Removes only this game's input overrides shown on this page. Other game settings and controller layouts are kept.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅移除此页所示的当前游戏输入设置，其他游戏设置和手柄布局保持原样。"
+          }
+        }
+      }
+    },
+    "Move Left / Right": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左右平移"
+          }
+        }
+      }
+    },
+    "Move Up / Down": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上下平移"
+          }
+        }
+      }
+    },
+    "Move Forward / Backward": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "前后平移"
+          }
+        }
+      }
+    },
+    "Turn Left / Right": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左右转向"
+          }
+        }
+      }
+    },
+    "Pitch Up / Down": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "上下俯仰"
+          }
+        }
+      }
+    },
+    "Tilt Left / Right": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "左右倾斜"
+          }
+        }
+      }
+    },
+    "Slide Between Buttons": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "允许滑动切换按钮"
+          }
+        }
+      }
+    },
+    "Use D-Pad for Left Stick": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "使用方向键控制左摇杆"
+          }
+        }
+      }
+    },
+    "Input Settings Error": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入设置错误"
+          }
+        }
+      }
+    },
+    "Controller selection, player types, mappings, and keyboard bindings use the selected editing scope.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手柄选择、玩家控制器类型、按键映射和键盘映射均按所选范围保存。"
+          }
+        }
+      }
+    },
+    "Input configuration could not be read. Reset the affected mapping before saving changes.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "无法读取输入配置。请切换到出错的修改范围，重置对应映射后再保存。"
           }
         }
       }

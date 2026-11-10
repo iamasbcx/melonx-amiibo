@@ -100,7 +100,9 @@ class BaseController: Equatable, Identifiable {
     func updateAxisValue(x: Float, y: Float, forAxis axis: Int) {
         guard isActive else { return }
         
-        Ryujinx.setGamepadStickAxis(self.pointer, stickId: axis, x: x, y: y)
+        InGameInputSession.shared.performIfActive {
+            Ryujinx.setGamepadStickAxis(self.pointer, stickId: axis, x: x, y: y)
+        }
     }
     
     func thumbstickMoved(_ stick: ThumbstickType, x: Double, y: Double) {
@@ -114,7 +116,25 @@ class BaseController: Equatable, Identifiable {
     func setButtonState(_ state: UInt8, for button: VirtualControllerButton) {
         guard isActive else { return }
         
-        Ryujinx.setGamepadButtonState(self.pointer, buttonId: button.rawValue, pressed: state == 1)
+        InGameInputSession.shared.performIfActive {
+            Ryujinx.setGamepadButtonState(self.pointer, buttonId: button.rawValue, pressed: state == 1)
+        }
+    }
+
+    /// 设置页挂起后清空来宾输入；直接提交释放，不能经过已关闭的输入屏障。
+    func releaseInputs() {
+        guard isActive else { return }
+        let buttons: [VirtualControllerButton] = [
+            .A, .B, .X, .Y, .back, .guide, .start, .leftStick, .rightStick,
+            .leftShoulder, .rightShoulder, .dPadUp, .dPadDown, .dPadLeft, .dPadRight,
+            .leftTrigger, .rightTrigger
+        ]
+        for button in buttons {
+            Ryujinx.setGamepadButtonState(pointer, buttonId: button.rawValue, pressed: false)
+        }
+        Ryujinx.setGamepadStickAxis(pointer, stickId: 1, x: 0, y: 0)
+        Ryujinx.setGamepadStickAxis(pointer, stickId: 2, x: 0, y: 0)
+        Ryujinx.suspendGamepadMotion(pointer)
     }
     
     private let rumbleCallback: @convention(c) (

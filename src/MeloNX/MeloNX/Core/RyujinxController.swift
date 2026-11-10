@@ -150,21 +150,6 @@ public final class RyujinxController: ObservableObject {
         }
     }
 
-    /// 修改当前玩家的控制器类型，并按当前运行作用域保存。
-    /// 游戏运行时优先写入对应的 per-game 配置，避免界面显示的类型与 attach 使用的配置不一致。
-    func updateControllerType(index: Int, to type: ControllerType) {
-        if case .started(let game, _) = isRunning {
-            var gameSettings = perSettings[game.titleId] ?? settings
-            Options.updateControllerType(index: index, to: type, options: &gameSettings)
-            perSettings[game.titleId] = gameSettings
-            schedulePerGameConfigSave(game.titleId)
-            return
-        }
-
-        Options.updateControllerType(index: index, to: type, options: &settings)
-        scheduleConfigSave()
-    }
-    
     var lastGameLaunched: String? {
         get {
             UserDefaults.standard.string(forKey: "lastGameLaunched")
@@ -244,19 +229,28 @@ public final class RyujinxController: ObservableObject {
         
         lastGameLaunched = nil
         
-        let config = pullKeyboardConfig()
+        controllerManager.activateInputProfile(gameId: game.titleId)
+        InGameInputSession.shared.setSuspended(false)
+        let config = pullKeyboardConfig(gameId: game.titleId)
         Ryujinx.setKeyboardConfig(config)
-        
-        if NativeSettingsManager.exists(game.titleId) {
-            NativeSettingsManager.setShared(game.titleId, pullOriginal: true)
-        } else {
-            // 没有游戏专属覆盖时恢复全局设置作用域，避免上一局游戏的 titleId 继续生效。
-            NativeSettingsManager.setShared(nil, pullOriginal: false)
+        let inputReadErrors = [
+            ControllerMappingStore.shared.readError(gameId: game.titleId),
+            keyboardConfigReadError(gameId: game.titleId)
+        ].compactMap { $0 }
+        if !inputReadErrors.isEmpty {
+            AppAlerts.showAlert(title: "Input Settings Error", message: inputReadErrors.joined(separator: "\n\n"), actions: [
+                (title: "OK", style: .default, handler: nil)
+            ])
         }
-        
+
+        // 始终以当前游戏读取并逐项回退到全局；游戏内首次创建覆盖也无需替换正在观察的对象。
+        let inputGameId = ControllerInputProfile.normalizedGameId(game.titleId)
+        NativeSettingsManager.setShared(inputGameId, pullOriginal: inputGameId != nil)
+
         loadWithoutSave(game.titleId)
         
         var settings = perSettings[game.titleId] ?? settings
+        ControllerInputProfile.applyTypes(to: &settings, gameId: game.titleId)
         
         let preferredNetworkInterfaceId = settings.multiplayerLanInterfaceId == "0" ? self.settings.multiplayerLanInterfaceId : settings.multiplayerLanInterfaceId
         
@@ -296,8 +290,10 @@ public final class RyujinxController: ObservableObject {
                 if self.isStopping {
                     self.finishStopping()
                 } else if response != 0 {
+                    self.restoreGlobalInputProfile()
                     self.isRunning = .crashed(result: "Code: \(response)")
                 } else {
+                    self.restoreGlobalInputProfile()
                     self.isRunning = .stopped
                 }
             }
@@ -337,6 +333,17 @@ public final class RyujinxController: ObservableObject {
         wasManuallyPaused = false
         isStopping = false
         isRunning = .stopped
+        restoreGlobalInputProfile()
+    }
+
+    /// 模拟线程结束后恢复菜单使用的全局范围，不向已经退出的核心重新绑定设备。
+    @MainActor
+    private func restoreGlobalInputProfile() {
+        controllerManager.detachAllControllers()
+        controllerManager.activateInputProfile(gameId: nil)
+        NativeSettingsManager.setShared()
+        InGameInputSession.shared.setSuspended(false)
+        controllerManager.refreshControllersList()
     }
     
     
@@ -496,6 +503,11 @@ public final class RyujinxController: ObservableObject {
         let url = URL.perGameConfigURL(titleId)
         
         do {
+            if let inputGameId = ControllerInputProfile.normalizedGameId(titleId) {
+                try ControllerMappingStore.shared.resetOverrides(gameId: inputGameId)
+                try resetKeyboardConfig(gameId: inputGameId)
+                ControllerInputProfile.resetOverrides(gameId: inputGameId)
+            }
             if FileManager.default.fileExists(atPath: url.path) {
                 try FileManager.default.removeItem(at: url)
             }
@@ -511,9 +523,13 @@ public final class RyujinxController: ObservableObject {
     }
     
     func hasPerGameConfig(_ titleId: String) -> Bool {
-        perSettings[titleId] != nil ||
-        FileManager.default.fileExists(atPath: URL.perGameConfigURL(titleId).path) ||
-        NativeSettingsManager.exists(titleId)
+        if perSettings[titleId] != nil ||
+            FileManager.default.fileExists(atPath: URL.perGameConfigURL(titleId).path) ||
+            NativeSettingsManager.exists(titleId) { return true }
+        guard let inputGameId = ControllerInputProfile.normalizedGameId(titleId) else { return false }
+        return ControllerInputProfile.hasOverrides(gameId: inputGameId) ||
+            ControllerMappingStore.shared.hasOverrides(gameId: inputGameId) ||
+            hasKeyboardConfigOverride(gameId: inputGameId)
     }
     
     func flushPendingSettingsSaves() {

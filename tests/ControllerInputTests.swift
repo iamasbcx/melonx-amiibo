@@ -10,6 +10,7 @@ struct ControllerInputTests {
         let acceleration: [Float]
         let gyroscope: [Float]
         let gravity: [Float]
+        let rotationFactors: [Float]
         let timestamp: UInt64
     }
 
@@ -21,6 +22,8 @@ struct ControllerInputTests {
 
     static func main() throws {
         checkSensitivity()
+        checkControlSwitches()
+        checkInputSession()
         let traces = Orientation.allCases.flatMap { orientation in
             [checkMotion(orientation)] + checkTranslation(orientation)
         }
@@ -28,12 +31,46 @@ struct ControllerInputTests {
             let data = try JSONEncoder().encode(traces)
             try data.write(to: URL(fileURLWithPath: CommandLine.arguments[1]), options: .atomic)
         }
-        print("ControllerInputTests: 100x sensitivity, four motion orientations and translation separation passed")
+        print("ControllerInputTests: 9999x sensitivity, motion controls, input session and four orientations passed")
+    }
+
+    /// 排队的旧传感器帧即使在关闭设置后才执行，也不能重新进入已恢复的游戏。
+    static func checkInputSession() {
+        let session = InGameInputSession()
+        guard let before = session.activeGeneration else { preconditionFailure("Session starts suspended") }
+        var writes = 0
+        session.performIfActive(generation: before) { writes += 1 }
+        precondition(writes == 1)
+        session.setSuspended(true)
+        precondition(session.activeGeneration == nil)
+        session.performIfActive { writes += 1 }
+        precondition(writes == 1)
+        session.setSuspended(false)
+        guard let after = session.activeGeneration else { preconditionFailure("Session did not resume") }
+        precondition(after != before)
+        session.performIfActive(generation: before) { writes += 1 }
+        precondition(writes == 1, "Queued pre-edit frame entered resumed game")
+        session.performIfActive(generation: after) { writes += 1 }
+        precondition(writes == 2)
+        session.setSuspended(false)
+        precondition(session.activeGeneration == after)
+    }
+
+    /// 开关生成的有效域与核心契约一致；禁用时反向标记不产生输入。
+    static func checkControlSwitches() {
+        precondition(PhoneMotionControls.factor(enabled: true, inverted: false) == 1)
+        precondition(PhoneMotionControls.factor(enabled: true, inverted: true) == -1)
+        precondition(PhoneMotionControls.factor(enabled: false, inverted: false) == 0)
+        precondition(PhoneMotionControls.factor(enabled: false, inverted: true) == 0)
+        precondition(PhoneMotionAxis.allCases.count == 6)
+        let keys = PhoneMotionAxis.allCases.flatMap { [$0.enabledKey, $0.invertedKey] }
+        precondition(Set(keys).count == 12)
+        precondition(PhoneMotionAxis.allCases.filter { $0.defaultInverted } == [.translationX])
     }
 
     static func checkSensitivity() {
         typealias Config = TouchLookSensitivityConfiguration
-        for (text, expected) in [("1", 1.0), (" 2.5 ", 2.5), (".5", 0.5), ("2,5", 2.5), ("0.25", 0.25), ("10.01", 10.01), ("50", 50.0), ("100", 100.0)] {
+        for (text, expected) in [("1", 1.0), (" 2.5 ", 2.5), (".5", 0.5), ("2,5", 2.5), ("0.25", 0.25), ("10.01", 10.01), ("50", 50.0), ("100.01", 100.01), ("500", 500.0), ("500.01", 500.01), ("9999", 9999.0)] {
             precondition(Config.parseMultiplier(text) == .success(expected), "Invalid parsing: \(text)")
         }
         for text in ["", " \n"] {
@@ -42,47 +79,71 @@ struct ControllerInputTests {
         for text in ["nan", "inf", "1e309", "2x", "1.2.3", "1,2,3", "2..", "--1"] {
             precondition(Config.parseMultiplier(text) == .failure(.invalidNumber), "Accepted invalid input: \(text)")
         }
-        for text in ["0", "-1", "0.249", "100.01", "101"] {
+        for text in ["0", "-1", "0.249", "9999.01", "10000"] {
             precondition(Config.parseMultiplier(text) == .failure(.outOfRange), "Accepted out-of-range input: \(text)")
         }
         precondition(Config.normalizedMultiplier(.nan) == 1)
         precondition(Config.normalizedMultiplier(.infinity) == 1)
         precondition(Config.normalizedMultiplier(-1) == 0.25)
-        precondition(Config.normalizedMultiplier(100) == 100)
-        precondition(Config.normalizedMultiplier(101) == 100)
+        precondition(Config.normalizedMultiplier(100.01) == 100.01)
+        precondition(Config.normalizedMultiplier(500) == 500)
+        precondition(Config.normalizedMultiplier(501) == 501)
+        precondition(Config.normalizedMultiplier(9999) == 9999)
+        precondition(Config.normalizedMultiplier(10000) == 9999)
         precondition(abs(Config.coefficient(for: 1) - 0.012) < 1e-12)
         precondition(abs(Config.coefficient(for: 2.5) - 0.030) < 1e-12)
-        // 大倍率必须完整进入运行态系数，不能被旧的 10 倍或 0.05 系数上限截断。
+        // 大倍率必须完整进入运行态系数，不能被旧的 100 倍或 0.05 系数上限截断。
         precondition(abs(Config.coefficient(for: 10) - 0.120) < 1e-12)
         precondition(abs(Config.coefficient(for: 100) - 1.200) < 1e-12)
+        precondition(abs(Config.coefficient(for: 500) - 6.000) < 1e-12)
+        precondition(abs(Config.coefficient(for: 9999) - 119.988) < 1e-12)
     }
 
     static func checkMotion(_ orientation: Orientation) -> Trace {
         let pitchAxis: SIMD3<Float>
         let yawAxis: SIMD3<Float>
         let expectedBasis: SIMD3<Float>
+        let expectedTranslation: SIMD3<Float>
         switch orientation {
         case .portrait:
             pitchAxis = SIMD3(1, 0, 0)
             yawAxis = SIMD3(0, 1, 0)
             expectedBasis = SIMD3(1, -2, -3)
+            expectedTranslation = SIMD3(-0.25, 0.5, 0.75)
         case .portraitUpsideDown:
             pitchAxis = SIMD3(-1, 0, 0)
             yawAxis = SIMD3(0, -1, 0)
             expectedBasis = SIMD3(-1, 2, -3)
+            expectedTranslation = SIMD3(0.25, -0.5, 0.75)
         case .landscapeLeft:
             pitchAxis = SIMD3(0, 1, 0)
             yawAxis = SIMD3(-1, 0, 0)
             expectedBasis = SIMD3(2, 1, -3)
+            expectedTranslation = SIMD3(0.5, 0.25, 0.75)
         case .landscapeRight:
             pitchAxis = SIMD3(0, -1, 0)
             yawAxis = SIMD3(1, 0, 0)
             expectedBasis = SIMD3(-2, -1, -3)
+            expectedTranslation = SIMD3(-0.5, -0.25, 0.75)
         }
         let basis = PhoneMotionTransform.driverSample(gravity: SIMD3(1, 2, 3), userAcceleration: .zero, rotationRate: SIMD3(1, 2, 3), orientation: orientation)
         expect(npad(basis.accelerometer), expectedBasis)
         expect(npad(basis.gravity), expectedBasis)
         expect(npad(basis.gyroscope) * (Float.pi / 180), expectedBasis)
+        // 同时含有倾斜、转动和三轴平移时，仅水平平移允许镜像；重力 X 也必须保持原值。
+        let mixed = PhoneMotionTransform.driverSample(gravity: SIMD3(1, 2, 3), userAcceleration: SIMD3(0.25, -0.5, -0.75), rotationRate: SIMD3(1, 2, 3), orientation: orientation)
+        expect(mixed.gravity, basis.gravity)
+        expect(mixed.gyroscope, basis.gyroscope)
+        expect(npad(mixed.accelerometer - basis.accelerometer), expectedTranslation)
+        for factor in [Float(-1), 0, 1] {
+            let controls = PhoneMotionControls(translationFactors: SIMD3(repeating: factor), rotationFactors: SIMD3(factor, 0, -1))
+            let controlled = PhoneMotionTransform.driverSample(gravity: SIMD3(1, 2, 3), userAcceleration: SIMD3(0.25, -0.5, -0.75), rotationRate: SIMD3(1, 2, 3), orientation: orientation, controls: controls)
+            expect(controlled.gravity, basis.gravity)
+            expect(controlled.gyroscope, basis.gyroscope)
+            expect(controlled.rotationFactors, controls.rotationFactors)
+            let untranslated = SIMD3(-expectedTranslation.x, expectedTranslation.y, expectedTranslation.z)
+            expect(npad(controlled.accelerometer - basis.accelerometer), untranslated * factor)
+        }
         let yaw = PhoneMotionTransform.driverSample(gravity: SIMD3(0, 0, -1), userAcceleration: .zero, rotationRate: yawAxis, orientation: orientation)
         expect(npad(yaw.gyroscope) * (Float.pi / 180), SIMD3(0, -1, 0))
         let roll = PhoneMotionTransform.driverSample(gravity: SIMD3(0, 0, -1), userAcceleration: .zero, rotationRate: SIMD3(0, 0, 1), orientation: orientation)
@@ -151,7 +212,9 @@ struct ControllerInputTests {
                 let input = PhoneMotionTransform.driverSample(gravity: gravity, userAcceleration: translation, rotationRate: .zero, orientation: orientation)
                 expect(input.gravity, stationary.gravity)
                 expect(input.gyroscope, .zero)
-                expect(npad(input.accelerometer - stationary.accelerometer), SIMD3(horizontal, 0, 0))
+                expect(npad(input.accelerometer - stationary.accelerometer), SIMD3(-horizontal, 0, 0))
+                // MotionInput 对游戏加速度执行整体负号；NativeMotion.Tests 复核真实 HLE 出口。
+                expect(-npad(input.accelerometer - stationary.accelerometer), SIMD3(horizontal, 0, 0))
                 samples.append(encoded(input, index: index))
             }
             return Trace(name: "\(orientation.rawValue)-\(name)", kind: "translation", samples: samples)
@@ -162,7 +225,8 @@ struct ControllerInputTests {
         let accel = npad(sample.accelerometer)
         let gyro = npad(sample.gyroscope)
         let gravity = npad(sample.gravity)
-        return Sample(acceleration: [accel.x, accel.y, accel.z], gyroscope: [gyro.x, gyro.y, gyro.z], gravity: [gravity.x, gravity.y, gravity.z], timestamp: UInt64(index + 1) * 16_666)
+        let factors = sample.rotationFactors
+        return Sample(acceleration: [accel.x, accel.y, accel.z], gyroscope: [gyro.x, gyro.y, gyro.z], gravity: [gravity.x, gravity.y, gravity.z], rotationFactors: [factors.x, factors.y, factors.z], timestamp: UInt64(index + 1) * 16_666)
     }
 
     /// 重现生产 NpadController 的固定变换，防止 Swift 端遗漏或重复换轴。

@@ -20,11 +20,11 @@ final class SteamController: NativeController {
         self.setMotionEnabled = setMotionEnabled
         self.sendRumble = sendRumble
         super.init(nativeController: GCController.withExtendedGamepad())
-        applyMapping(ControllerMappingStore.shared.mapping(for: self))
+        applyMapping(ControllerMappingStore.shared.runtimeMapping(for: self))
     }
     
     override func setupController() {
-        applyMapping(ControllerMappingStore.shared.mapping(for: self))
+        applyMapping(ControllerMappingStore.shared.runtimeMapping(for: self))
         cool()
     }
     
@@ -38,8 +38,11 @@ final class SteamController: NativeController {
     }
     
     func receive(_ state: SteamControllerState) {
+        let generation = InGameInputSession.shared.activeGeneration
         inputQueue.async { [weak self] in
             guard let self, self.isActive, let pad = self.nativeController?.extendedGamepad else { return }
+            // 编辑期间仍可捕获映射，但跨越挂起/恢复边界的旧帧不能重新进入游戏。
+            guard InGameInputSession.shared.activeGeneration == generation else { return }
             let buttons: [(GCControllerButtonInput?, UInt32)] = [
                 (pad.buttonA, 0x01), (pad.buttonB, 0x02),
                 (pad.buttonX, 0x04), (pad.buttonY, 0x08),
@@ -62,14 +65,18 @@ final class SteamController: NativeController {
             
             pad.rightThumbstick.setValueForXAxis(right.x, yAxis: right.y)
             
-            guard self.activeMapping.motionEnabled else { return }
+            guard self.activeMapping.motionEnabled, let generation else { return }
             
             if let accel = state.accelerometer {
-                Ryujinx.setGamepadMotion(self.pointer, motionType: 1, axis: accel)
+                InGameInputSession.shared.performIfActive(generation: generation) {
+                    Ryujinx.setGamepadMotion(self.pointer, motionType: 1, axis: accel)
+                }
             }
             
             if let gyro = state.gyroscope {
-                Ryujinx.setGamepadMotion(self.pointer, motionType: 2, axis: gyro)
+                InGameInputSession.shared.performIfActive(generation: generation) {
+                    Ryujinx.setGamepadMotion(self.pointer, motionType: 2, axis: gyro)
+                }
             }
         }
     }

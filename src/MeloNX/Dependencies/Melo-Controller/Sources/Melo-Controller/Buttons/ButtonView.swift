@@ -16,9 +16,11 @@ public struct ButtonView: View {
     var gameId: String?
     var joystickDpadPoint: JoystickDPadPoint = .shared
 
-    @AppStorage("onscreenhandheld") var onscreenjoy: Bool = false
-    @AppStorage("buttonSlide") private var buttonSlide = true
-    @AppStorage("On-ScreenControllerScale") var controllerScale: Double = 1.0
+    @AppStorage("buttonSlide") private var globalButtonSlide = true
+    @AppStorage("On-ScreenControllerScale") private var globalControllerScale: Double = 1.0
+    @Environment(\.controllerAppearance) private var appearance
+    private var controllerScale: Double { appearance?.scale ?? globalControllerScale }
+    private var buttonSlide: Bool { appearance?.buttonSlide ?? globalButtonSlide }
     @Environment(\.presentationMode) var presentationMode
 
     @State private var isPressed = false
@@ -59,11 +61,10 @@ public struct ButtonView: View {
                 size = calculateButtonSize()
             }
             .onDisappear {
-                if toggleState {
-                    toggleState = false
-                    isPressed = false
-                    sendRelease()
-                }
+                // 运行态叠层在打开编辑器时卸载；普通按住和锁定按键都必须释放。
+                if toggleState || isPressed { sendRelease() }
+                toggleState = false
+                isPressed = false
             }
             .onChange(of: controllerScale) { _ in
                 size = calculateButtonSize()
@@ -130,11 +131,11 @@ public struct ButtonView: View {
 
     private var joystickDpad: Bool {
         let defaults = UserDefaults.standard
-        let key = "joystickDpad-\(gameId ?? "global")"
+        let key = "joystickDpad-\(gameId.flatMap { $0.isEmpty ? nil : $0 } ?? "global")"
         if defaults.object(forKey: key) != nil {
             return defaults.bool(forKey: key)
         }
-        return defaults.bool(forKey: "joystickDpad")
+        return defaults.bool(forKey: "joystickDpad-global")
     }
 
     private func sendPress() {

@@ -15,6 +15,9 @@ namespace Ryujinx.Input.Native
         private readonly float[] _stickStates; 
         private readonly Vector3[] _motionStates; 
         private Vector3? _motionGravity;
+        private Vector3? _motionRotationFactors;
+        private ulong _motionEpoch;
+        private bool _isMotionSuspended;
 
         private static readonly GamepadButtonInputId[] ButtonMapping = new GamepadButtonInputId[17]
         {
@@ -125,8 +128,10 @@ namespace Ryujinx.Input.Native
                 }
 
                 // 实体手柄逐轴提交不带独立重力；即使数值相同，也必须清除手机采样遗留的重力。
-                bool clearedGravity = _motionGravity.HasValue;
+                bool clearedGravity = _motionGravity.HasValue || _motionRotationFactors.HasValue || _isMotionSuspended;
                 _motionGravity = null;
+                _motionRotationFactors = null;
+                _isMotionSuspended = false;
 
                 if (motionType == (int)MotionInputId.Accelerometer)
                 {
@@ -156,11 +161,11 @@ namespace Ryujinx.Input.Native
         /// <summary>
         /// 手机完整采样在同一把锁内替换，消费者不会看到总加速度、角速度和重力分属不同帧。
         /// </summary>
-        internal bool SetMotionSampleInternal(Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity)
+        internal bool SetMotionSampleInternal(Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity, Vector3 rotationFactors)
         {
             lock (_stateLock)
             {
-                if (_motionStates[0] == accelerometer && _motionStates[1] == gyroscope && _motionGravity == gravity)
+                if (!_isMotionSuspended && _motionStates[0] == accelerometer && _motionStates[1] == gyroscope && _motionGravity == gravity && _motionRotationFactors == rotationFactors)
                 {
                     return false;
                 }
@@ -168,6 +173,29 @@ namespace Ryujinx.Input.Native
                 _motionStates[0] = accelerometer;
                 _motionStates[1] = gyroscope;
                 _motionGravity = gravity;
+                _motionRotationFactors = rotationFactors;
+                _isMotionSuspended = false;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// 挂起只清瞬时输入，保留手机来源与控制系数。代数随挂起递增，确保消费者即使没读到暂停帧也能断开时间积分。
+        /// 与采样读写共用锁；调用方必须先关闭输入屏障，防止挂起后旧采样再次激活。
+        /// </summary>
+        internal bool SuspendMotionInternal()
+        {
+            lock (_stateLock)
+            {
+                if (_isMotionSuspended)
+                {
+                    return false;
+                }
+
+                _motionStates[0] = _motionGravity ?? Vector3.Zero;
+                _motionStates[1] = Vector3.Zero;
+                _isMotionSuspended = true;
+                _motionEpoch = unchecked(_motionEpoch + 1);
                 return true;
             }
         }
@@ -176,7 +204,7 @@ namespace Ryujinx.Input.Native
         {
             lock (_stateLock)
             {
-                return new GamepadMotionSample(_motionStates[0], _motionStates[1], _motionGravity);
+                return new GamepadMotionSample(_motionStates[0], _motionStates[1], _motionGravity, _motionRotationFactors, _motionEpoch, _isMotionSuspended);
             }
         }
 
@@ -230,6 +258,8 @@ namespace Ryujinx.Input.Native
                 Array.Clear(_stickStates, 0, _stickStates.Length);
                 Array.Clear(_motionStates, 0, _motionStates.Length);
                 _motionGravity = null;
+                _motionRotationFactors = null;
+                _isMotionSuspended = false;
             }
         }
 

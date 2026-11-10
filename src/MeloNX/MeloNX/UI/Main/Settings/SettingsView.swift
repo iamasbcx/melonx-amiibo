@@ -13,7 +13,7 @@ import NavigationStackBackport
 
 struct SettingsView: View {
     @EnvironmentObject var ryujinxController: RyujinxController
-    @ObservedObject public var nativeSettingsManager = NativeSettingsManager.shared
+    @StateObject public var nativeSettingsManager = NativeSettingsManager()
     @ObservedObject var controllerManager = ControllerManager.shared
     let appEnvironment: AppEnvironment = .shared
 
@@ -32,7 +32,6 @@ struct SettingsView: View {
     @State private var showingAppIconSwitcher = false
     @State private var showingMemoryLimit = false
     @State private var showingThemePicker = false
-    @State private var showingKeyboardConfig = false
     @FocusState private var isArgumentsKeyboardVisible: Bool
 
 
@@ -733,44 +732,7 @@ struct SettingsView: View {
 
     var inputForm: some View {
         Form {
-            Section {
-                if controllerManager.selectedControllers.isEmpty {
-                    Text("未选择手柄，将使用键盘")
-                        .foregroundColor(.secondary)
-                } else {
-                    ForEach(Array(controllerManager.resolvedSelection.enumerated()), id: \.offset) { index, entry in
-                        ControllerRow(index: index, controllerId: entry.id, controllerManager: controllerManager)
-                    }
-                }
-                if hasAvailableControllers {
-                    Menu {
-                        ForEach(controllerManager.allControllers.filter {
-                            !contains(controllerManager.selectedControllers, value: $0)
-                        }) { controller in
-                            Button(controller.name) {
-                                controllerManager.selectController(controller)
-                            }
-                        }
-                    } label: {
-                        Label("添加手柄", systemImage: "plus.circle.fill")
-                    }
-                }
-            } header: {
-                Text("手柄选择")
-            } footer: {
-                Text("Long-press the virtual controller to switch controller type.")
-            }
-
-            if controllerManager.selectedControllers.isEmpty {
-                Section {
-                    Button("Map Keyboard") {
-                        showingKeyboardConfig = true
-                    }
-                    .sheet(isPresented: $showingKeyboardConfig) {
-                        KeyboardConfigView()
-                    }
-                }
-            }
+            ScopedControllerSelectionView(gameId: nil)
 
             // On-Screen Controller
             Section("全局屏幕手柄选项") {
@@ -822,6 +784,7 @@ struct SettingsView: View {
                                 info: "Swipe the right side of the screen to control the right stick camera view. This uses the swipe area instead of game touch input.")
 
                 TouchLookSensitivityRow(settings: nativeSettingsManager)
+                PhoneMotionSettingsRows(settings: nativeSettingsManager)
 
                 NativeToggleRow("Invert Touch Look X", icon: "arrow.left.and.right",
                                 isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertX", default: false).projectedValue)
@@ -1126,15 +1089,6 @@ struct SettingsView: View {
         }
     }
 
-    private var hasAvailableControllers: Bool {
-        !ControllerManager.shared.allControllers
-            .filter { !contains(ControllerManager.shared.selectedControllers, value: $0) }
-            .isEmpty
-    }
-
-    func contains(_ array: [String], value: BaseController) -> Bool {
-        array.contains { $0 == value.id }
-    }
 
     private func loadSettings() { ryujinxController.loadConfig() }
 }

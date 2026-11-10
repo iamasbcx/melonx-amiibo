@@ -10,6 +10,7 @@ import SwiftUI
 struct ControllerRow: View {
     let index: Int
     let controllerId: String
+    let gameId: String?
     @ObservedObject var controllerManager: ControllerManager
     @EnvironmentObject var ryujinxController: RyujinxController
 
@@ -47,7 +48,7 @@ struct ControllerRow: View {
                     .accessibilityLabel("Controller Settings")
 
                     Button {
-                        controllerManager.deselectController(controller)
+                        controllerManager.deselectController(controller, gameId: gameId)
                     } label: {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.secondary)
@@ -58,12 +59,11 @@ struct ControllerRow: View {
 
             }
             .sheet(isPresented: $showingMapping) {
-                ControllerMappingView(controller: controller, playerIndex: index)
+                ControllerMappingView(controller: controller, playerIndex: index, gameId: gameId)
                     .environmentObject(ryujinxController)
             }
             .contextMenu {
-                // Controller type lives in the settings panel now, alongside the bindings
-                // and the stick previews it affects.
+                // 类型与映射共享明确的编辑作用域，不依赖当前运行游戏。
                 Button {
                     showingMapping = true
                 } label: {

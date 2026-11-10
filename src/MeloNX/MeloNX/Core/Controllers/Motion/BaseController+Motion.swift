@@ -13,7 +13,7 @@ import UIKit
 extension BaseController {
     func setupMotion() {
         if let nativeController, nativeController.motion != nil, !self.usesDeviceHandlers {
-            guard ControllerMappingStore.shared.mapping(for: self).motionEnabled else {
+            guard ControllerMappingStore.shared.runtimeMapping(for: self).motionEnabled else {
                 nativeController.motion?.valueChangedHandler = nil
                 nativeController.motion?.sensorsActive = false
                 
@@ -26,7 +26,8 @@ extension BaseController {
             nativeController.motion?.valueChangedHandler = { [weak self] m in
                 guard let self = self else { return }
                 
-                guard self.shouldSubmitMotion() else { return }
+                guard let generation = InGameInputSession.shared.activeGeneration,
+                      self.shouldSubmitMotion() else { return }
                 
                 let rawAccelX = Float(m.acceleration.x)
                 let rawAccelY = Float(m.acceleration.y)
@@ -41,7 +42,7 @@ extension BaseController {
                 let accel = SIMD3(-rawAccelX, -rawAccelZ, rawAccelY)
                 let gyro = SIMD3(rawGyroDeg.x, rawGyroDeg.z, -rawGyroDeg.y)
                 
-                self.submitMotion(accelerometer: accel, gyroscope: gyro)
+                self.submitMotion(accelerometer: accel, gyroscope: gyro, generation: generation)
             }
         } else {
             guard self.motionManager.isDeviceMotionAvailable else { return }
@@ -50,7 +51,8 @@ extension BaseController {
             _ = self.currentMotionInterfaceOrientation()
             self.motionManager.startDeviceMotionUpdates(to: self.motionOperation) { [weak self] (data, error) in
                 guard let self = self, let m = data else { return }
-                guard self.shouldSubmitMotion() else { return }
+                guard let generation = InGameInputSession.shared.activeGeneration,
+                      self.shouldSubmitMotion() else { return }
                 
                 let interfaceOrientation = self.currentMotionInterfaceOrientation()
                 guard let transformOrientation = self.phoneMotionOrientation(interfaceOrientation) else { return }
@@ -66,9 +68,10 @@ extension BaseController {
                         Float(m.rotationRate.y),
                         Float(m.rotationRate.z)
                     ),
-                    orientation: transformOrientation
+                    orientation: transformOrientation,
+                    controls: self.currentPhoneMotionControls()
                 )
-                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope, gravity: sample.gravity)
+                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope, gravity: sample.gravity, rotationFactors: sample.rotationFactors, generation: generation)
             }
         }
     }
@@ -83,6 +86,7 @@ extension BaseController {
     }
     
     private func shouldSubmitMotion() -> Bool {
+        guard !InGameInputSession.shared.isSuspended else { return false }
         let now = DispatchTime.now().uptimeNanoseconds
         
         guard now &- lastMotionSubmit >= motionSubmitInterval else { return false }
@@ -93,20 +97,33 @@ extension BaseController {
     }
     
     /// 手机携带独立重力，完整采样在核心中原子保存；实体手柄没有该数据时继续提交自身传感器。
-    private func submitMotion(accelerometer: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>? = nil) {
-        guard isActive else { return }
+    private func submitMotion(accelerometer: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>? = nil, rotationFactors: SIMD3<Float> = SIMD3(repeating: 1), generation: UInt64) {
+        guard isActive, !InGameInputSession.shared.isSuspended else { return }
         
         let pointer = self.pointer
         
         motionQueue.async { [weak self] in
-            guard self?.isActive == true else { return }
+            guard self?.isActive == true, !InGameInputSession.shared.isSuspended else { return }
             
-            if let gravity {
-                Ryujinx.setGamepadMotionSample(pointer, acceleration: accelerometer, gyroscope: gyroscope, gravity: gravity)
-            } else {
-                Ryujinx.setGamepadMotion(pointer, motionType: 1, axis: accelerometer)
-                Ryujinx.setGamepadMotion(pointer, motionType: 2, axis: gyroscope)
+            // 与编辑会话的清空动作互斥，防止检查后才到达的旧帧重新写入运动状态。
+            InGameInputSession.shared.performIfActive(generation: generation) {
+                if let gravity {
+                    Ryujinx.setGamepadMotionSample(pointer, acceleration: accelerometer, gyroscope: gyroscope, gravity: gravity, rotationFactors: rotationFactors)
+                } else {
+                    Ryujinx.setGamepadMotion(pointer, motionType: 1, axis: accelerometer)
+                    Ryujinx.setGamepadMotion(pointer, motionType: 2, axis: gyroscope)
+                }
             }
+        }
+    }
+
+    /// 同一局始终读取当前游戏的覆盖及全局回退；设置改动从下一帧开始生效。
+    private func currentPhoneMotionControls() -> PhoneMotionControls {
+        if Thread.isMainThread {
+            return PhoneMotionControls.read(from: NativeSettingsManager.shared)
+        }
+        return DispatchQueue.main.sync {
+            PhoneMotionControls.read(from: NativeSettingsManager.shared)
         }
     }
     

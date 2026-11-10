@@ -7,48 +7,83 @@
 
 import SwiftUI
 
-func pullKeyboardConfig() -> KeyboardConfigNative {
-    guard let data = try? Data(contentsOf: .keyboardConfigURL) else {
-        return Ryujinx.defaultKeyboard
-    }
-    
-    let decoder = JSONDecoder()
-    guard let decoded = try? decoder.decode(KeyboardConfigNative.self, from: data) else {
-        return Ryujinx.defaultKeyboard
-    }
-    
-    return decoded
+private func keyboardConfigURL(gameId: String?) -> URL {
+    guard let gameId = ControllerInputProfile.normalizedGameId(gameId) else { return .keyboardConfigURL }
+    return URL.configFolderURL.appendingPathComponent(gameId).appendingPathComponent("keyboardConfig.json")
 }
 
-func writeKeyboardConfig(_ config: KeyboardConfigNative)  {
-    let encoder = JSONEncoder()
-    
-    guard let data = try? encoder.encode(config) else { return }
-    
-    FileManager.default.createFile(atPath: URL.keyboardConfigURL.path, contents: data)
+/// 当前游戏没有键盘覆盖时读取全局；损坏文件明确记录错误，不改写原文件。
+func pullKeyboardConfig(gameId: String? = nil) -> KeyboardConfigNative {
+    let url = keyboardConfigURL(gameId: gameId)
+    guard FileManager.default.fileExists(atPath: url.path) else {
+        return ControllerInputProfile.normalizedGameId(gameId) == nil ? Ryujinx.defaultKeyboard : pullKeyboardConfig(gameId: nil)
+    }
+    do { return try JSONDecoder().decode(KeyboardConfigNative.self, from: Data(contentsOf: url)) }
+    catch {
+        NSLog("Keyboard configuration read failed: %@", error.localizedDescription)
+        return Ryujinx.defaultKeyboard
+    }
+}
+
+func writeKeyboardConfig(_ config: KeyboardConfigNative, gameId: String?) throws {
+    if let error = keyboardConfigReadError(gameId: gameId) { throw InputConfigurationError.unreadable(error) }
+    let url = keyboardConfigURL(gameId: gameId)
+    try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try JSONEncoder().encode(config).write(to: url, options: .atomic)
+}
+
+func keyboardConfigReadError(gameId: String?) -> String? {
+    let url = keyboardConfigURL(gameId: gameId)
+    guard FileManager.default.fileExists(atPath: url.path) else {
+        return ControllerInputProfile.normalizedGameId(gameId) == nil ? nil : keyboardConfigReadError(gameId: nil)
+    }
+    do {
+        _ = try JSONDecoder().decode(KeyboardConfigNative.self, from: Data(contentsOf: url))
+        return nil
+    } catch {
+        return "keyboardConfig.json (\(ControllerInputProfile.normalizedGameId(gameId) ?? "global")): \(error.localizedDescription)"
+    }
+}
+
+func hasKeyboardConfigOverride(gameId: String) -> Bool {
+    FileManager.default.fileExists(atPath: keyboardConfigURL(gameId: gameId).path)
+}
+
+func resetKeyboardConfig(gameId: String?) throws {
+    let url = keyboardConfigURL(gameId: gameId)
+    if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
 }
 
 struct KeyboardConfigView: View {
+    let gameId: String?
     @State var keyboardConfig: KeyboardConfigNative = Ryujinx.defaultKeyboard
     @Environment(\.dismiss) var dismiss
+    @State private var dirty = false
+    @State private var saveError: String?
+
+    init(gameId: String? = nil) { self.gameId = ControllerInputProfile.normalizedGameId(gameId) }
+
+    private var configBinding: Binding<KeyboardConfigNative> {
+        Binding(get: { keyboardConfig }, set: { keyboardConfig = $0; dirty = true })
+    }
  
     var body: some View {
         NavigationStack {
             List {
                 Section("Right Joycon") {
-                    KeyboardRightJoyconView(keyboardConfig: $keyboardConfig)
+                    KeyboardRightJoyconView(keyboardConfig: configBinding)
                 }
                 
                 Section("Right Stick") {
-                    KeyboardRightJoyconStickView(keyboardConfig: $keyboardConfig)
+                    KeyboardRightJoyconStickView(keyboardConfig: configBinding)
                 }
                 
                 Section("Left Joycon") {
-                    KeyboardLeftJoyconView(keyboardConfig: $keyboardConfig)
+                    KeyboardLeftJoyconView(keyboardConfig: configBinding)
                 }
                 
                 Section("Left Stick") {
-                    KeyboardLeftJoyconStickView(keyboardConfig: $keyboardConfig)
+                    KeyboardLeftJoyconStickView(keyboardConfig: configBinding)
                 }
                 
             }
@@ -56,7 +91,11 @@ struct KeyboardConfigView: View {
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
-                        dismiss()
+                        do {
+                            if dirty { try writeKeyboardConfig(keyboardConfig, gameId: gameId) }
+                            dirty = false
+                            dismiss()
+                        } catch { saveError = error.localizedDescription }
                     } label: {
                         Text("Done")
                     }
@@ -64,20 +103,27 @@ struct KeyboardConfigView: View {
                 
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        self.keyboardConfig = Ryujinx.defaultKeyboard
-                        writeKeyboardConfig(self.keyboardConfig)
-                        dismiss()
+                        do {
+                            try resetKeyboardConfig(gameId: gameId)
+                            keyboardConfig = pullKeyboardConfig(gameId: gameId)
+                            dirty = false
+                        } catch { saveError = error.localizedDescription }
                     } label: {
                         Text("Reset")
                     }
                 }
             }
             .onAppear() {
-                self.keyboardConfig = pullKeyboardConfig()
+                self.keyboardConfig = pullKeyboardConfig(gameId: gameId)
+                if let error = keyboardConfigReadError(gameId: gameId) {
+                    saveError = InputConfigurationError.unreadable(error).localizedDescription
+                }
             }
-            .onDisappear {
-                Ryujinx.setKeyboardConfig(self.keyboardConfig)
-                writeKeyboardConfig(self.keyboardConfig)
+            .interactiveDismissDisabled(dirty)
+            .alert("Input Settings Error", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(verbatim: saveError ?? "")
             }
         }
     }

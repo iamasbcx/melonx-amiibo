@@ -302,7 +302,7 @@ namespace Ryujinx.Input.HLE
                             // 手机供应独立重力且按完整样本同步读取；其他设备仍使用自身的运动数据接口。
                             GamepadMotionSample sample = gamepad is IMotionSampleGamepad sampleGamepad
                                 ? sampleGamepad.GetMotionSample()
-                                : new GamepadMotionSample(gamepad.GetMotionData(MotionInputId.Accelerometer), gamepad.GetMotionData(MotionInputId.Gyroscope), null);
+                                : new GamepadMotionSample(gamepad.GetMotionData(MotionInputId.Accelerometer), gamepad.GetMotionData(MotionInputId.Gyroscope), null, null);
                             Vector3 accelerometer = sample.Accelerometer;
                             Vector3 gyroscope = sample.Gyroscope;
                             Vector3? gravity = sample.Gravity;
@@ -314,7 +314,8 @@ namespace Ryujinx.Input.HLE
                                 gravity = new Vector3(gravityValue.X, -gravityValue.Z, gravityValue.Y);
                             }
 
-                            _leftMotionInput.Update(accelerometer, gyroscope, (ulong)PerformanceCounter.ElapsedNanoseconds / 1000, controllerConfig.Motion.Sensitivity, (float)controllerConfig.Motion.GyroDeadzone, gravity);
+                            // 控制系数已经使用核心屏幕轴，不参与上面的传感器驱动换轴。
+                            _leftMotionInput.Update(accelerometer, gyroscope, (ulong)PerformanceCounter.ElapsedNanoseconds / 1000, controllerConfig.Motion.Sensitivity, (float)controllerConfig.Motion.GyroDeadzone, gravity, sample.RotationFactors, sample.MotionEpoch, sample.IsMotionSuspended);
 
                             if (controllerConfig.ControllerType == ConfigControllerType.JoyconPair)
                             {

@@ -12,18 +12,21 @@ class JoystickDPadUIHandler: ObservableObject {
 
     var joystickDpad: Bool {
         get {
-            UserDefaults.standard.bool(forKey: "joystickDpad-\(gameId ?? "global")")
+            let defaults = UserDefaults.standard
+            let scope = gameId.flatMap { $0.isEmpty ? nil : $0 } ?? "global"
+            return defaults.object(forKey: "joystickDpad-\(scope)") as? Bool
+                ?? defaults.bool(forKey: "joystickDpad-global")
         }
         set {
-            UserDefaults.standard.set(newValue, forKey: "joystickDpad-\(gameId ?? "global")")
+            let scope = gameId.flatMap { $0.isEmpty ? nil : $0 } ?? "global"
+            UserDefaults.standard.set(newValue, forKey: "joystickDpad-\(scope)")
             objectWillChange.send()
         }
     }
 }
 
 struct LayoutEditorView: View {
-    @AppStorage("On-ScreenControllerScale") private var controllerScale: Double = 1.0
-    @AppStorage("buttonSlide") private var buttonSlide = true
+    @ObservedObject var preferences: ControllerPreferences
     @StateObject var joystickDpad = JoystickDPadUIHandler()
 
     @Binding var hideDpad: Bool
@@ -188,13 +191,14 @@ struct LayoutEditorView: View {
 
             EditorSliderRow(
                 title: "手柄大小",
-                value: Binding(get: { CGFloat(controllerScale) }, set: { controllerScale = Double($0) })
+                value: Binding(get: { CGFloat(preferences.scale) }, set: { preferences.scale = Double($0) }),
+                range: 0.1...3.0
             )
 
             EditorToggleRow(
                 title: "按键间滑动",
                 subtitle: "手指从一个按键直线滑动到另一个按键。",
-                isOn: $buttonSlide
+                isOn: $preferences.buttonSlide
             )
 
             Button {

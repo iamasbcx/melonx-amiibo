@@ -185,16 +185,25 @@ namespace Ryujinx.Library
             NativeGamepadDriver.SetMotionData(idPtr, motionType, x, y, z);
         }
 
-        // 手机完整采样 ABI：九个分量依次为总加速度、角速度、独立重力，均为驱动坐标。
-        [UnmanagedCallersOnly(EntryPoint = "set_gamepad_motion_sample")]
+        // 挂起保留物理融合及游戏姿态，不用逐轴零值冒充实体手柄采样。
+        [UnmanagedCallersOnly(EntryPoint = "suspend_gamepad_motion")]
+        static void SuspendMotion(IntPtr idPtr)
+        {
+            NativeGamepadDriver.SuspendMotion(idPtr);
+        }
+
+        // 当前手机采样 ABI：三组驱动坐标向量，再加一组核心屏幕坐标的旋转控制系数。
+        [UnmanagedCallersOnly(EntryPoint = "set_gamepad_motion_sample_with_controls")]
         static void SetMotionSample(IntPtr idPtr,
             float ax, float ay, float az, float gx, float gy, float gz,
-            float gravityX, float gravityY, float gravityZ)
+            float gravityX, float gravityY, float gravityZ,
+            float rotationFactorX, float rotationFactorY, float rotationFactorZ)
         {
             NativeGamepadDriver.SetMotionSample(idPtr,
                 new System.Numerics.Vector3(ax, ay, az),
                 new System.Numerics.Vector3(gx, gy, gz),
-                new System.Numerics.Vector3(gravityX, gravityY, gravityZ));
+                new System.Numerics.Vector3(gravityX, gravityY, gravityZ),
+                new System.Numerics.Vector3(rotationFactorX, rotationFactorY, rotationFactorZ));
         }
     }
     

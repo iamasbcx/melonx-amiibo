@@ -60,6 +60,8 @@ xcrun swiftc -parse-as-library \
 "${BUILD_DIR}/AmiiboCatalogParserTests" 2>&1 | tee "${LOG_DIR}/amiibo-parser-tests.log"
 # 使用应用的同一份 Swift 数学模块生成运动回放，再交给生产 C# 滤波器验证停止后的姿态。
 xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Controllers/InGameInputSession.swift \
+  src/MeloNX/MeloNX/Core/Controllers/Motion/PhoneMotionControls.swift \
   src/MeloNX/MeloNX/Core/Controllers/Motion/PhoneMotionTransform.swift \
   src/MeloNX/MeloNX/UI/Main/Settings/TouchLookSensitivityConfiguration.swift \
   tests/ControllerInputTests.swift \
@@ -67,6 +69,13 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   2>&1 | tee "${LOG_DIR}/controller-input-build.log"
 "${BUILD_DIR}/ControllerInputTests" "${BUILD_DIR}/controller-motion-traces.json" \
   2>&1 | tee "${LOG_DIR}/controller-input-tests.log"
+# 使用隔离的 UserDefaults suite 检查真实作用域存储，不读写构建机的应用配置。
+xcrun swiftc -parse-as-library -default-isolation MainActor -target arm64-apple-macosx14.0 \
+  src/MeloNX/MeloNX/Core/Controllers/ControllerInputProfile.swift \
+  tests/InputProfileTests.swift \
+  -o "${BUILD_DIR}/InputProfileTests" \
+  2>&1 | tee "${LOG_DIR}/input-profile-build.log"
+"${BUILD_DIR}/InputProfileTests" 2>&1 | tee "${LOG_DIR}/input-profile-tests.log"
 bash "${SCRIPT_DIR}/bootstrap-dotnet.sh" 2>&1 | tee "${LOG_DIR}/dotnet-bootstrap.log"
 export DOTNET_ROOT
 export PATH="${DOTNET_ROOT}:${PATH}"
@@ -131,7 +140,7 @@ touch "${CORE_PUBLISH_STAMP}"
 test -s "${CORE_DYLIB}"
 test "${CORE_DYLIB}" -nt "${CORE_PUBLISH_STAMP}"
 nm -gU "${CORE_DYLIB}" > "${LOG_DIR}/core-symbols.log"
-for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_motion_sample; do
+for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_motion_sample_with_controls suspend_gamepad_motion; do
   if ! awk '{print $NF}' "${LOG_DIR}/core-symbols.log" | grep -qx "_${symbol}"; then
     echo "新核心缺少导出：${symbol}" >&2
     exit 1

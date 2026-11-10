@@ -39,7 +39,7 @@ class NativeController: BaseController {
     override public func setupController() {
         menuHandler = nil
         
-        applyMapping(ControllerMappingStore.shared.mapping(for: self))
+        applyMapping(ControllerMappingStore.shared.runtimeMapping(for: self))
         
         setupHaptics()
         

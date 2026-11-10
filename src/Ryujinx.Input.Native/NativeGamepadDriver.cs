@@ -1,4 +1,5 @@
 using Ryujinx.Common.Configuration.Hid;
+using Ryujinx.Common.Logging;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -140,14 +141,30 @@ namespace Ryujinx.Input.Native
         /// <summary>
         /// 提交手机同一帧的完整运动采样；发布事件前已原子替换全部运动字段。
         /// </summary>
-        public static void SetMotionSample(nint idPtr, Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity)
+        public static void SetMotionSample(nint idPtr, Vector3 accelerometer, Vector3 gyroscope, Vector3 gravity, Vector3 rotationFactors)
         {
+            if (!GamepadMotionSample.AreRotationFactorsValid(rotationFactors))
+            {
+                Logger.Error?.Print(LogClass.Hid, "Invalid phone motion rotation factors; expected -1, 0 or 1.");
+                return;
+            }
             if (_instance != null && _instance._gamepads.TryGetValue(idPtr, out var gamepad))
             {
-                if (gamepad.SetMotionSampleInternal(accelerometer, gyroscope, gravity))
+                if (gamepad.SetMotionSampleInternal(accelerometer, gyroscope, gravity, rotationFactors))
                 {
                     NotifyInputUpdated();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 设置页挂起运动，保留姿态控制来源；下一份传感器样本自动恢复采样。
+        /// </summary>
+        public static void SuspendMotion(nint idPtr)
+        {
+            if (_instance != null && _instance._gamepads.TryGetValue(idPtr, out var gamepad) && gamepad.SuspendMotionInternal())
+            {
+                NotifyInputUpdated();
             }
         }
 

@@ -84,11 +84,17 @@ final class Ryujinx {
     }
 
     /// 使用 C 声明传递完整手机采样，独立重力仅供核心姿态滤波；仅复制数值，可从运动队列调用。
-    nonisolated static func setGamepadMotionSample(_ id: UnsafeMutableRawPointer?, acceleration: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>) {
-        MeloNX.set_gamepad_motion_sample(
+    nonisolated static func setGamepadMotionSample(_ id: UnsafeMutableRawPointer?, acceleration: SIMD3<Float>, gyroscope: SIMD3<Float>, gravity: SIMD3<Float>, rotationFactors: SIMD3<Float>) {
+        MeloNX.set_gamepad_motion_sample_with_controls(
             id, acceleration.x, acceleration.y, acceleration.z,
-            gyroscope.x, gyroscope.y, gyroscope.z, gravity.x, gravity.y, gravity.z
+            gyroscope.x, gyroscope.y, gyroscope.z, gravity.x, gravity.y, gravity.z,
+            rotationFactors.x, rotationFactors.y, rotationFactors.z
         )
+    }
+
+    /// 保留运动姿态并挂起采样积分；下一份有效采样恢复时间基准。
+    nonisolated static func suspendGamepadMotion(_ id: UnsafeMutableRawPointer?) {
+        MeloNX.suspend_gamepad_motion(id)
     }
 
     static func initDualMapping() -> Bool {

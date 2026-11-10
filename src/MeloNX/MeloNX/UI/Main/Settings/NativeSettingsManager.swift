@@ -122,6 +122,22 @@ extension TouchLookSensitivityConfiguration {
     }
 }
 
+extension PhoneMotionControls {
+    /// 设置对象仅在主线程访问；返回值不持有对象引用，可传给后台运动队列。
+    @MainActor static func read(from settings: NativeSettingsManager) -> PhoneMotionControls {
+        func value(_ axis: PhoneMotionAxis) -> Float {
+            factor(
+                enabled: settings.setting(forKey: axis.enabledKey, default: true).value,
+                inverted: settings.setting(forKey: axis.invertedKey, default: axis.defaultInverted).value
+            )
+        }
+        return PhoneMotionControls(
+            translationFactors: SIMD3(value(.translationX), value(.translationY), value(.translationZ)),
+            rotationFactors: SIMD3(value(.rotationX), value(.rotationY), value(.rotationZ))
+        )
+    }
+}
+
 protocol AnySettingProtocol {
     var name: String { get }
 }

@@ -18,10 +18,25 @@ class ControllerManager: ObservableObject {
     private let controllerQueue = DispatchQueue(label: "com.stossy11.melonx.controllermanager", attributes: .concurrent)
 
     private var _privAllControllers: [BaseController] = []
+    /// 仅 controllerQueue 访问；保留设备引用直到解绑，防止断开时指针提前释放。
+    private struct AttachedController {
+        let controller: BaseController
+        let playerIndex: Int
+        let type: ControllerType
+    }
+    private var attachedControllers: [String: AttachedController] = [:]
     @Published var allControllers: [BaseController] = []
 
     @Published var selectedControllers: [String] = []
     private var didInitControllerObservers = false
+    private let scopeLock = NSLock()
+    private var _activeGameId: String?
+
+    var activeGameId: String? {
+        scopeLock.lock()
+        defer { scopeLock.unlock() }
+        return _activeGameId
+    }
 
     @Published private(set) var hasPhysicalController = false
 
@@ -43,12 +58,10 @@ class ControllerManager: ObservableObject {
     }
 
 
-    func refreshControllersList(_ inGameSelector: Bool = false) {
-        let nativeSettingsManager: NativeSettingsManager = .shared
+    func refreshControllersList() {
         let connectedNativeControllers = GCController.controllers()
         let connectedSet = Set(connectedNativeControllers)
         let steamControllers = Thread.isMainThread ? SteamControllerBackend.shared.controllers : DispatchQueue.main.sync { SteamControllerBackend.shared.controllers }
-        let previousSelection = selectedControllerIdsSnapshot()
 
         controllerQueue.async(flags: .barrier) { [weak self] in
             guard let self = self else { return }
@@ -95,27 +108,12 @@ class ControllerManager: ObservableObject {
             // Full Keyboard Support may come eventually, i'm just too lazy :3
             // _privAllControllers.append(KBController()) // This was just an experiment, yes it did work, no i'm not bothered to fully implement it.
 
-            let physicalControllers = self._privAllControllers.prefix(7).filter { !$0.virtual }.compactMap(\.id) as [String]
             let controllers = Array(self._privAllControllers.prefix(7))
-            var selectedControllerIds: [String]
-
-            // 游戏运行期间设备连接/断开只刷新可用列表，不应把用户当前选择重置为
-            // 物理手柄列表，否则虚拟手柄会在后台刷新后从 UI 和底层 attach 列表消失。
-            let preserveSelection = inGameSelector || RyujinxController.shared.isRunning.isRunning()
-            if preserveSelection {
-                let known = Set(self._privAllControllers.map(\.id))
-                selectedControllerIds = previousSelection.filter { known.contains($0) }
-                if selectedControllerIds.isEmpty, !self.virtualControllerDefaultOff {
-                    selectedControllerIds = [self.virtualController.id]
-                }
-            } else if !nativeSettingsManager.virtualControllerOffDefault(ProcessInfo.processInfo.isiOSAppOnMac).value {
-                selectedControllerIds = physicalControllers.isEmpty ? [self.virtualController.id] : physicalControllers
-            } else {
-                selectedControllerIds = physicalControllers
-            }
 
             DispatchQueue.main.async {
                 self.allControllers = controllers
+                // 刷新完成时读取最新运行范围，避免启动/关闭设置期间的异步结果覆盖新范围。
+                let selectedControllerIds = self.resolvedControllerIds(controllers: controllers, gameId: self.activeGameId)
                 self.selectedControllers = selectedControllerIds
                 self.hasPhysicalController = controllers.contains { !$0.virtual }
                 if RyujinxController.shared.isRunning.isRunning(), !RyujinxController.shared.isStopping {
@@ -127,80 +125,124 @@ class ControllerManager: ObservableObject {
 
     func attachAllControllers() {
         guard !RyujinxController.shared.isStopping else { return }
-        var selectedControllerIds = selectedControllerIdsSnapshot()
-        // refreshControllersList 使用后台队列，启动很快时可能尚未回写选择列表。
-        // 只有“默认启用虚拟手柄”时才补齐，用户明确关闭默认选择后仍保持空列表。
-        if selectedControllerIds.isEmpty, !virtualControllerDefaultOff {
-            selectedControllerIds = [virtualController.id]
-            DispatchQueue.main.async { [weak self] in
-                self?.selectedControllers = selectedControllerIds
-            }
+        let selectedControllerIds = controllerQueue.sync {
+            resolvedControllerIds(controllers: Array(_privAllControllers.prefix(7)), gameId: activeGameId)
         }
+        DispatchQueue.main.async { [weak self] in self?.selectedControllers = selectedControllerIds }
         attachAllControllers(selectedControllerIds: selectedControllerIds)
     }
 
-    /// 更新当前选择的控制器，并在游戏运行时立即重新绑定到底层输入系统。
-    /// 虚拟手柄的对象 ID 由内存地址生成，不能直接持久化；选择虚拟手柄时同步保存
-    /// 现有的“默认取消选择虚拟手柄”开关，应用重启后由刷新流程恢复选择。
-    func selectController(_ controller: BaseController) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            guard !self.selectedControllers.contains(controller.id) else { return }
-            self.selectedControllers.append(controller.id)
-            self.persistVirtualControllerSelection()
-            if RyujinxController.shared.isRunning.isRunning() { self.attachAllControllers() }
+    /// 启动前只激活缓存，禁止在 native 输入系统就绪前调用 attach 或键盘接口。
+    func activateInputProfile(gameId: String?) {
+        let gameId = ControllerInputProfile.normalizedGameId(gameId)
+        scopeLock.lock()
+        _activeGameId = gameId
+        scopeLock.unlock()
+        ControllerMappingStore.shared.activate(gameId: gameId)
+    }
+
+    /// 在主线程、游戏仍暂停时应用设置；所有编辑页退出后统一由此恢复输入。
+    func applyInputProfile(gameId: String?) {
+        precondition(Thread.isMainThread)
+        activateInputProfile(gameId: gameId)
+        selectedControllers = selectedControllerIds(gameId: activeGameId)
+        guard RyujinxController.shared.isRunning.isRunning(), !RyujinxController.shared.isStopping else { return }
+        Ryujinx.setKeyboardConfig(pullKeyboardConfig(gameId: activeGameId))
+        attachAllControllers(selectedControllerIds: selectedControllers)
+    }
+
+    func selectedControllerIds(gameId: String?) -> [String] {
+        resolvedControllerIds(controllers: allControllers, gameId: gameId)
+    }
+
+    func selectController(_ controller: BaseController, gameId: String?) {
+        var ids = selectedControllerIds(gameId: gameId)
+        guard !ids.contains(controller.id) else { return }
+        ids.append(controller.id)
+        persistSelection(ids, gameId: gameId)
+    }
+
+    func deselectController(_ controller: BaseController, gameId: String?) {
+        persistSelection(selectedControllerIds(gameId: gameId).filter { $0 != controller.id }, gameId: gameId)
+    }
+
+    private func persistentKeys(controllers: [BaseController]) -> [String: String] {
+        var counts: [String: Int] = [:]
+        var keys: [String: String] = [:]
+        for controller in controllers {
+            let name = ControllerMappingStore.key(for: controller)
+            let index = counts[name, default: 0]
+            counts[name] = index + 1
+            keys[controller.id] = controller.virtual ? "virtual" : "\(name)#\(index)"
         }
+        return keys
     }
 
-    /// 移除当前控制器，并在游戏运行时同步解除后重新绑定控制器列表。
-    func deselectController(_ controller: BaseController) {
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            self.selectedControllers.removeAll { $0 == controller.id }
-            self.persistVirtualControllerSelection()
-            if RyujinxController.shared.isRunning.isRunning() { self.attachAllControllers() }
+    private func resolvedControllerIds(controllers: [BaseController], gameId: String?) -> [String] {
+        let off = ControllerInputProfile.virtualControllerOff(gameId: gameId)
+        if let saved = ControllerInputProfile.selection(gameId: gameId) {
+            let keys = persistentKeys(controllers: controllers)
+            var ids = saved.compactMap { savedKey in controllers.first(where: { keys[$0.id] == savedKey })?.id }
+            if off { ids.removeAll { $0 == virtualController.id } }
+            if !off, !ids.contains(virtualController.id) { ids.append(virtualController.id) }
+            return ids
         }
+        let physical = controllers.filter { !$0.virtual }.map(\.id)
+        return physical.isEmpty && !off ? [virtualController.id] : physical
     }
 
-    private func persistVirtualControllerSelection() {
-        let selected = selectedControllers.contains(virtualController.id)
-        // 必须通过 NativeSettingsManager 写入当前作用域。运行游戏时该对象可能绑定到
-        // titleId，直接写裸 UserDefaults 会造成界面状态与游戏实际使用的设置不一致。
-        NativeSettingsManager.shared.virtualControllerOffDefault(ProcessInfo.processInfo.isiOSAppOnMac).value = !selected
-    }
-
-    /// 当前作用域的“默认取消虚拟手柄”设置。游戏专属配置优先，全局配置作为回退。
-    private var virtualControllerDefaultOff: Bool {
-        NativeSettingsManager.shared.virtualControllerOffDefault(ProcessInfo.processInfo.isiOSAppOnMac).value
+    private func persistSelection(_ ids: [String], gameId: String?) {
+        precondition(Thread.isMainThread)
+        let keys = persistentKeys(controllers: allControllers)
+        ControllerInputProfile.setSelection(ids.compactMap { keys[$0] }, gameId: gameId)
+        let suffix = ControllerInputProfile.normalizedGameId(gameId) ?? ""
+        UserDefaults.standard.set(!ids.contains(virtualController.id), forKey: "virtualControllerOffDefault" + suffix)
+        objectWillChange.send()
+        if !RyujinxController.shared.isRunning.isRunning() { applyInputProfile(gameId: nil) }
     }
 
     private func attachAllControllers(selectedControllerIds: [String]) {
-        // 游戏运行时优先使用当前游戏配置，避免全局配置覆盖游戏专属控制器类型。
-        let config = RyujinxController.shared.currentSettings
-        controllerQueue.sync {
-            for controller in _privAllControllers { Ryujinx.detachGamepad(controller.pointer) }
+        let gameId = activeGameId
+        controllerQueue.sync(flags: .barrier) {
+            var desired: [String: AttachedController] = [:]
             var playerIndex = 0
             for controllerId in selectedControllerIds {
                 guard let cont = _privAllControllers.first(where: { $0.id == controllerId }) else { continue }
-                let configuredType = config.controllerType(for: playerIndex)
-                let configuredTypeIsInvalid = configuredType == nil || configuredType?.rawValue == ControllerType.none.rawValue
-                // 旧配置缺少 controllerType 时会解码为 None。虚拟手柄使用 None
-                // 会被底层 Npad 当作未连接，界面仍会显示但所有按键都会被丢弃。
-                let fallbackType = cont.controllerType == ControllerType.none ? ControllerType.proController : cont.controllerType
-                let resolvedType = configuredTypeIsInvalid ? fallbackType : (configuredType ?? fallbackType)
-                cont.controllerType = resolvedType
-                cont.attach(playerIndex, controllerType: resolvedType)
+                let resolvedType = ControllerInputProfile.type(index: playerIndex, gameId: gameId)
+                desired[controllerId] = AttachedController(controller: cont, playerIndex: playerIndex, type: resolvedType)
                 playerIndex += 1
             }
+
+            // 标量参数和布局变化不重新创建 native 运动设备，保留陀螺仪姿态与重力基准。
+            for (id, attached) in attachedControllers {
+                if let next = desired[id], next.playerIndex == attached.playerIndex, next.type == attached.type { continue }
+                Ryujinx.detachGamepad(attached.controller.pointer)
+            }
+            for id in selectedControllerIds {
+                guard let next = desired[id] else { continue }
+                if let previous = attachedControllers[id], previous.playerIndex == next.playerIndex, previous.type == next.type {
+                    if let native = next.controller as? NativeController {
+                        let mapping = ControllerMappingStore.shared.runtimeMapping(for: native)
+                        if native.activeMapping != mapping {
+                            let motionChanged = native.activeMapping.motionEnabled != mapping.motionEnabled
+                            native.applyMapping(mapping)
+                            if motionChanged { native.refreshMotion() }
+                        }
+                    }
+                } else {
+                    next.controller.controllerType = next.type
+                    next.controller.attach(next.playerIndex, controllerType: next.type)
+                }
+            }
+            attachedControllers = desired
         }
     }
 
     /// 在模拟线程完成退出后解绑所有输入设备，避免旧窗口已销毁时仍向 native 层发送输入。
     func detachAllControllers() {
-        controllerQueue.sync {
-            for controller in _privAllControllers {
-                Ryujinx.detachGamepad(controller.pointer)
-            }
+        controllerQueue.sync(flags: .barrier) {
+            for attached in attachedControllers.values { Ryujinx.detachGamepad(attached.controller.pointer) }
+            attachedControllers.removeAll()
         }
     }
 
@@ -320,9 +362,10 @@ class ControllerManager: ObservableObject {
 
     func toggleController(_ baseController: BaseController) {
         if selectedControllers.contains(baseController.id) {
-            deselectController(baseController)
+            deselectController(baseController, gameId: activeGameId)
         } else {
-            selectController(baseController)
+            selectController(baseController, gameId: activeGameId)
         }
+        applyInputProfile(gameId: activeGameId)
     }
 }

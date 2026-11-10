@@ -52,8 +52,9 @@ public struct ControllerView: View {
     private let touchLookInvertY: Bool
     private let visualOpacity: Double
     @StateObject var controllerHandler = ControllerHandler()
-    @AppStorage("On-ScreenControllerScale") private var controllerScale: Double = 1.0
-    @AppStorage("stickButton") private var stickButton = false
+    @StateObject private var preferences: ControllerPreferences
+    private var controllerScale: Double { preferences.scale }
+    private var stickButton: Bool { preferences.stickButton }
     @State private var hideDpad = false
     @State private var hideABXY = false
     @State private var selectedButton: String?
@@ -109,6 +110,7 @@ public struct ControllerView: View {
         self._isEditing = State(initialValue: isEditing)
         self.gameId = gameId
         self.gameName = gameName
+        self._preferences = StateObject(wrappedValue: ControllerPreferences(gameId: gameId))
         self.controller = controller
         self.touchLookEnabled = touchLookEnabled
         self.touchLookSensitivity = touchLookSensitivity
@@ -133,6 +135,7 @@ public struct ControllerView: View {
         self._isEditing = State(initialValue: isEditing)
         self.gameId = gameId
         self.gameName = gameName
+        self._preferences = StateObject(wrappedValue: ControllerPreferences(gameId: gameId))
         self.controller = controller
         self.touchLookEnabled = touchLookEnabled
         self.touchLookSensitivity = touchLookSensitivity
@@ -200,7 +203,7 @@ public struct ControllerView: View {
             }
             .onChange(of: isEditingInput) { isEditing = $0 }
             .onChange(of: controllerHandler.isPortrait) { _ in
-                if let loadedLayoutOrientation {
+                if isEditing, let loadedLayoutOrientation {
                     LayoutManager.shared.save(layout, for: gameId, orientation: loadedLayoutOrientation)
                 }
                 loadedLayoutOrientation = layoutOrientation
@@ -216,6 +219,7 @@ public struct ControllerView: View {
             if isEditing {
                 if showEditControls {
                     LayoutEditorView(
+                        preferences: preferences,
                         hideDpad: $hideDpad,
                         hideABXY: $hideABXY,
                         isEditing: $isEditing,
@@ -255,6 +259,7 @@ public struct ControllerView: View {
             }
         }
         .environmentObject(controllerHandler)
+        .environment(\.controllerAppearance, preferences.snapshot)
     }
 
     private func loadLayout() {

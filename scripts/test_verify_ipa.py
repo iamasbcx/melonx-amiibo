@@ -89,7 +89,7 @@ class IpaVerificationTests(unittest.TestCase):
         )
         self.core_path.write_bytes(self.core)
         self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
-        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_set_gamepad_motion_sample"):
+        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_set_gamepad_motion_sample_with_controls"):
             self.check(self.entries)
 
     def test_missing_amiibo_export_with_motion_export_present(self) -> None:
@@ -101,6 +101,17 @@ class IpaVerificationTests(unittest.TestCase):
         self.core_path.write_bytes(self.core)
         self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
         with self.assertRaisesRegex(ValueError, "缺少必需导出.*_mlx_amiibo_scan"):
+            self.check(self.entries)
+
+    def test_missing_motion_suspend_export(self) -> None:
+        # 完整采样接口存在也不足以支持游戏内编辑，必须同时具备保留姿态的挂起接口。
+        self.core = make_macho(
+            dependencies=("/usr/lib/libicucore.A.dylib", "/System/Library/Frameworks/Foundation.framework/Foundation"),
+            symbols=tuple(sorted(CORE_SYMBOLS - {"_suspend_gamepad_motion"})),
+        )
+        self.core_path.write_bytes(self.core)
+        self.entries[APP_PREFIX + "Frameworks/Ryujinx.Library.dylib"] = self.core
+        with self.assertRaisesRegex(ValueError, "缺少必需导出.*_suspend_gamepad_motion"):
             self.check(self.entries)
 
     def test_valid_package_without_icu_dat(self) -> None:

@@ -18,6 +18,7 @@ private enum BindingTarget: Hashable {
 struct ControllerMappingView: View {
     let controller: BaseController
     let playerIndex: Int
+    let gameId: String?
 
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var ryujinxController: RyujinxController
@@ -25,12 +26,14 @@ struct ControllerMappingView: View {
     @State private var mapping: ControllerMapping = .standard()
     @State private var listening: BindingTarget?
     @State private var controllerType: ControllerType = .proController
+    @State private var saveError: String?
 
     @State private var visualizer: StickVisualizer
 
-    init(controller: BaseController, playerIndex: Int) {
+    init(controller: BaseController, playerIndex: Int, gameId: String?) {
         self.controller = controller
         self.playerIndex = playerIndex
+        self.gameId = ControllerInputProfile.normalizedGameId(gameId)
 
         _visualizer = State(wrappedValue: StickVisualizer(controller: controller as? NativeController))
     }
@@ -100,8 +103,9 @@ struct ControllerMappingView: View {
                 }
             }
             .onAppear {
-                mapping = ControllerMappingStore.shared.mapping(for: controller)
-                controllerType = controller.controllerType
+                mapping = ControllerMappingStore.shared.mapping(for: controller, gameId: gameId)
+                controllerType = ControllerInputProfile.type(index: playerIndex, gameId: gameId)
+                saveError = ControllerMappingStore.shared.readError(gameId: gameId)
 
                 visualizer.start()
             }
@@ -114,15 +118,13 @@ struct ControllerMappingView: View {
                 save()
             }
             .onChange(of: controllerType) { type in
-                controller.controllerType = type
-
-                ryujinxController.updateControllerType(index: playerIndex, to: type)
-                if ryujinxController.isRunning.isRunning() {
-                    ControllerManager.shared.attachAllControllers()
-                }
+                guard type != ControllerInputProfile.type(index: playerIndex, gameId: gameId) else { return }
+                ControllerInputProfile.setType(type, index: playerIndex, gameId: gameId)
             }
-            .onChange(of: mapping.motionEnabled) { _ in
-                nativeController?.refreshMotion()
+            .alert("Input Settings Error", isPresented: Binding(get: { saveError != nil }, set: { if !$0 { saveError = nil } })) {
+                Button("OK", role: .cancel) { saveError = nil }
+            } message: {
+                Text(verbatim: saveError ?? "")
             }
         }
     }
@@ -317,18 +319,24 @@ struct ControllerMappingView: View {
 
 
     private func save() {
-        ControllerMappingStore.shared.setMapping(mapping, for: controller)
-
-        if listening == nil {
-            nativeController?.applyMapping(mapping)
+        let store = ControllerMappingStore.shared
+        // 初次加载与重置的状态同步不能生成覆盖；只保存用户实际修改的值。
+        guard mapping != store.mapping(for: controller, gameId: gameId) else { return }
+        do { try store.setMapping(mapping, for: controller, gameId: gameId) }
+        catch {
+            saveError = error.localizedDescription
+            mapping = store.mapping(for: controller, gameId: gameId)
         }
     }
 
     private func reset() {
         stopListening()
 
-        ControllerMappingStore.shared.resetMapping(for: controller)
-
-        mapping = ControllerMappingStore.shared.mapping(for: controller)
+        do {
+            try ControllerMappingStore.shared.resetMapping(for: controller, gameId: gameId)
+            ControllerInputProfile.resetType(index: playerIndex, gameId: gameId)
+            mapping = ControllerMappingStore.shared.mapping(for: controller, gameId: gameId)
+            controllerType = ControllerInputProfile.type(index: playerIndex, gameId: gameId)
+        } catch { saveError = error.localizedDescription }
     }
 }

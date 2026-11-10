@@ -19,7 +19,8 @@ struct EditableJoystickView: View {
     @Binding var selectedButton: String?
     @Binding var selectedTouchLook: Bool
     @GestureState private var dragOffset = CGSize.zero
-    @AppStorage("On-ScreenControllerScale") var controllerScale: Double = 1.0
+    @Environment(\.controllerAppearance) private var appearance
+    private var controllerScale: Double { appearance?.scale ?? 1 }
 
     private var editorPlaceholder: some View {
         ZStack {

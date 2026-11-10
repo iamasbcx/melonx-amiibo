@@ -1,22 +1,42 @@
 # 手机运动输入与滑动视角
 
+## 游戏内完整输入设置与作用域
+
+游戏内齿轮提供“输入设置”和“编辑虚拟手柄布局”，均可选择“当前游戏 / 全局默认”。输入页也可随时切换范围，并跳转到同一范围的布局编辑器。没有有效游戏 ID 时只使用全局。
+
+| 项目 | 存储及继承规则 |
+| --- | --- |
+| 手柄选择 | `SelectedControllerProfiles` 加游戏 ID 后缀；未覆盖时读取全局。虚拟手柄使用稳定标识，实体手柄使用设备名称和同名序号，不保存内存地址 |
+| 玩家类型 | `ControllerTypePlayer0...7` 分别覆盖；核心启动参数和设备绑定使用同一来源 |
+| 按键、摇杆、扳机阈值、运动映射 | 全局 `controllerMappings.json`；游戏 `config/<titleId>/controllerMappings.json`，以设备映射为覆盖单位 |
+| 键盘映射 | 全局 `keyboardConfig.json`；游戏 `config/<titleId>/keyboardConfig.json`，以整套键盘映射为覆盖单位 |
+| 触摸、滑动视角、倍率、方向控制、手柄大小/透明度、L3/R3、按键滑动、默认显示及菜单按钮 | `NativeSettingsManager` 按设置键逐项回退；修改全局不会替换游戏已有覆盖 |
+| 左摇杆方向键模式 | `joystickDpad-global` / `joystickDpad-<titleId>`，游戏缺省时回退全局 |
+| 按钮、摇杆、滑动区域位置/大小/显示、网格 | `LayoutManager` 按全局/游戏及 portrait/landscape 分别存储；重置只操作当前范围、当前方向 |
+
+只浏览设置不会创建游戏覆盖。输入页“使用全局输入默认值”清除本页的输入覆盖，保留其他模拟器设置与布局文件；布局重置在布局编辑器单独执行。旧的 Options 控制器类型不再作为配置来源，不做历史数据迁移。
+
+进入编辑时，`EmulationView` 保存原暂停状态，挂起输入、释放按键/摇杆/触摸并暂停游戏。设置页切换到布局页保持同一会话；退出时应用当前游戏的有效配置，重新加载布局，然后恢复原暂停状态。游戏退出时不重新恢复运行。弹层挂在稳定宿主上，横竖屏切换不会因画面分支重建而关闭编辑器。后台输入写入通过同一屏障串行化，避免释放后旧事件再次写入。
+
+运动释放使用 `suspend_gamepad_motion(id)`，保留独立重力与旋转控制，清除瞬时运动并冻结姿态；恢复后的首帧重建时间基准，避免把整个暂停时长用于角速度积分。单纯调整倍率、方向或布局不重新创建设备，只有设备选择、玩家顺序或类型变化才重新绑定。
+
 ## 灵敏度倍数
 
 全局设置和单游戏设置共用“视角灵敏度倍数”输入行。输入后点击“应用”或键盘“完成”保存；未应用的草稿不会影响游戏。支持小数，空值、非法字符和范围外数值会显示错误并保留输入内容。
 
-- 范围 `0.25...100`，默认 `1.0`；感觉偏慢可先试 `2～3`，精细操作可试 `0.5`。
+- 范围 `0.25...9999`，默认 `1.0`；感觉偏慢可先试 `2～3`，精细操作可试 `0.5`。
 - 持久化键为 `TouchLookSensitivityMultiplier`，通过 `NativeSettingsManager` 使用全局/单游戏作用域。
-- 系数统一为 `0.012 × 倍数`（每个 UIKit 逻辑点对应的摇杆增量）。`EmulationView` 的独立触摸层和 `MetalView` 使用同一配置，100 倍对应 `1.2`，不会被旧的 10 倍上限截断。
-- 输出仍限制为右摇杆 `-1...1`，受游戏自身的转向速度上限约束。高倍率更快达到摇杆满幅，100 倍输入系数不等于游戏视角转速提高 100 倍。
+- 系数统一为 `0.012 × 倍数`（每个 UIKit 逻辑点对应的摇杆增量）。`EmulationView` 的独立触摸层和 `MetalView` 使用同一配置，9999 倍对应 `119.988`，不会被旧的上限截断。
+- 输出仍限制为右摇杆 `-1...1`，受游戏自身的转向速度上限约束。高倍率更快达到摇杆满幅，9999 倍输入系数不等于游戏视角转速提高 9999 倍。
 - 当前设计不读取旧的 `TouchLookSensitivity` 配置；第一次使用新倍数设置默认为 `1.0`。
 
 ## 陀螺仪坐标契约
 
-`PhoneMotionTransform` 是无状态数学模块，可从 CoreMotion 后台回调调用。输入为手机独立重力 `gravity`、平移加速度 `userAcceleration`（g）及 `rotationRate`（rad/s），输出为 NativeGamepad 的总加速度、独立重力与 deg/s 角速度。三项使用同一坐标变换，按完整采样原子提交。
+`PhoneMotionTransform` 是无状态数学模块，可从 CoreMotion 后台回调调用。输入为手机独立重力 `gravity`、平移加速度 `userAcceleration`（g）、`rotationRate`（rad/s）及方向控制快照；输出为 NativeGamepad 的游戏加速度、独立重力、deg/s 角速度和旋转控制系数。三种物理向量使用同一基础坐标变换，游戏加速度另应用平移控制系数，按完整采样原子提交。设置对象只在主线程读取，后台使用不持有对象引用的值快照。
 
-三个向量使用同一右手旋转：先 `D(x,y,z)=(x,-y,-z)`，再按当前 `UIInterfaceOrientation` 在屏幕平面旋转。最终送入核心的向量如下；角速度额外乘以 `180/π`。
+三个输入向量先使用同一右手旋转：先 `D(x,y,z)=(x,-y,-z)`，再按当前 `UIInterfaceOrientation` 在屏幕平面旋转。基础变换如下；角速度额外乘以 `180/π`。水平平移校正在此变换之后，故横竖屏都以当前屏幕左右为准。
 
-| 界面方向 | CoreMotion 向量 `(x,y,z)` 的最终结果 |
+| 界面方向 | CoreMotion 向量 `(x,y,z)` 的基础坐标变换结果 |
 | --- | --- |
 | portrait | `(x,-y,-z)` |
 | portraitUpsideDown | `(-x,y,-z)` |
@@ -33,13 +53,27 @@
 
 “手机姿势不变，整部手机向左/右平移”与“朝左/右转向”不同。平移的理想角速度为零，只有 `userAcceleration` 改变，不能直接当成方向反转而给陀螺仪轴取反。
 
-此前 Mahony 用总加速度判断重力方向，平移中的加速/减速会让该方向发生偏转，从而在零角速度下制造视角变化。当前手机路径把 `gravity` 单独传给姿态滤波；游戏读取的总加速度仍包含平移分量，保留摇晃等加速度玩法。
+此前 Mahony 用总加速度判断重力方向，平移中的加速/减速会让该方向发生偏转，从而在零角速度下制造视角变化。手机路径把 `gravity` 单独传给姿态滤波，但游戏仍可直接读取加速度，因此只分离滤波不能改变游戏读取的平移方向。
 
-- `MotionBridge.h` 声明 `set_gamepad_motion_sample`：手柄标识加 9 个 `float`，顺序为总加速度 XYZ、角速度 XYZ、重力 XYZ。C# 与 Swift 同步更新，构建会拒绝缺少该导出的核心。
-- `NativeGamepad` 在同一把锁内保存/读取完整采样；`NpadController` 通过 `IMotionSampleGamepad` 读取，分别对三个向量应用固定换轴。
-- `MotionInput.Update` 使用独立重力做姿态校正，`Accelerometer` 仍输出总加速度。真实转向、俯仰及侧倾的角速度符号保持不变。
-- 没有独立重力的实体手柄仍使用其传感器数据；每次逐轴提交及状态重置清除旧的手机重力，避免切换来源后残留。
-- 该修复消除模拟器额外滤波造成的假倾斜；若游戏本身根据原始加速度旋转镜头，其行为仍由游戏决定。CoreMotion 的实际重力分离效果须在手机上验收。
+当前在屏幕坐标下令重力为 `g`、平移加速度为 `u`，游戏加速度输入为 `g + u * translationFactors`，乘法逐轴进行。默认平移系数为 `(-1,1,1)`；旋转控制默认为 `(1,1,1)`。默认时 `MotionInput` 原有全局负号保持不变，最终游戏的平移增量从 `(-u.x,-u.y,-u.z)` 改为 `(+u.x,-u.y,-u.z)`。纯倾斜、角速度及上下/前后平移保持原有方向，实体手柄不受影响。这是针对手机的水平控制方向调整，不代表证实了硬件坐标错误。
+
+平移加速度表示加速或减速；向右移动后的刹停会产生向左加速度，匀速段接近零。这次调整会同时反转加速与减速的水平响应，不能承诺整个向右位移过程持续向右转动镜头，也不把加速度积分成位移。
+
+- `MotionBridge.h` 声明 `set_gamepad_motion_sample_with_controls`：手柄标识加 12 个 `float`，顺序为游戏加速度 XYZ、角速度 XYZ、重力 XYZ、旋转系数 XYZ。Swift/C/C# 同步更新；旧手机导出已删除，构建会拒绝缺少新导出的核心。
+- `NativeGamepad` 在同一把锁内保存/读取完整采样；`NpadController` 通过 `IMotionSampleGamepad` 读取，对三个物理向量应用固定换轴。旋转系数已经处于核心屏幕坐标，不能再次换轴。
+- `MotionInput.Update` 始终使用物理角速度和独立重力做姿态校正；游戏输出另应用旋转控制，详见下节。
+- 没有独立重力的实体手柄仍使用其传感器数据；每次逐轴提交及状态重置清除旧的手机重力和旋转控制，避免切换来源后残留。
+- 合成回归验证滤波隔离及游戏加速度出口的符号；具体游戏如何使用加速度、角速度和姿态矩阵仍由游戏决定，实际镜头方向须在手机上验收。
+
+## 六项启用与反向控制
+
+“视角灵敏度倍数”下方提供六项手机运动控制，每项都有独立“启用”和“反向”。平移左右/上下/前后对应屏幕 X/Y/Z；左右转向、上下俯仰、左右倾斜对应旋转 Y/X/Z。开关键为 `PhoneMotion.<TranslationX|TranslationY|TranslationZ|RotationX|RotationY|RotationZ>.Enabled` 和 `.Inverted`。全部默认启用，仅左右平移默认反向。
+
+关闭时系数为 `0`，启用正向为 `1`，启用反向为 `-1`；关闭某轴时保留反向选择，重新启用会恢复所选方向。这些开关控制手机输入，实体手柄保留自身映射设置；滑动视角仍有独立的 X/Y 反向开关。
+
+不能把反向后的角速度直接送入 Mahony，否则物理重力反馈会把姿态拉回。`MotionAxisTransform` 从相邻物理姿态求局部四元数增量，将旋转向量逐轴乘控制系数，再累积游戏姿态。切换控制只改变后续增量，不把游戏姿态跳回物理姿态；一直使用默认旋转系数时逐位保留原滤波结果。
+
+自定义旋转时，游戏加速度使用“已调整的平移分量 + 与游戏姿态一致的虚拟重力”，避免游戏自行融合加速度时抵消反向效果。切换回实体输入时清除手机虚拟姿态偏置。此设计控制的是角速度/姿态增量，不把手机平移转换成位置或摇杆。
 
 ## 验证与构建
 
@@ -47,6 +81,7 @@
 
 ```powershell
 & '_杂项/工具/dotnet-10.0.100/dotnet.exe' run --project tests/MotionInput.Tests/MotionInput.Tests.csproj -c Release
+& '_杂项/工具/dotnet-10.0.100/dotnet.exe' run --project tests/NativeMotion.Tests/NativeMotion.Tests.csproj -c Release
 ```
 
 测试直接链接生产 `MotionInput.cs` 和 `MotionSensorFilter.cs`。合成“静止 0.5 秒 → 抬起 30° → 静止 3 秒”的结果：
@@ -62,22 +97,29 @@
 
 Codemagic 的 `scripts/build-ios-unsigned.sh` 已加入：
 
-1. 编译应用同一份 `PhoneMotionTransform.swift`、`TouchLookSensitivityConfiguration.swift` 与 `tests/ControllerInputTests.swift`，使用应用的 `MainActor` 默认隔离规则。
-2. 检查 100 倍解析、上下界、非有限值、四种方向的俯仰/左右映射，并生成 `build/controller-motion-traces.json`。
+1. 编译应用同一份 `InGameInputSession.swift`、`PhoneMotionControls.swift`、`PhoneMotionTransform.swift`、`TouchLookSensitivityConfiguration.swift` 与 `tests/ControllerInputTests.swift`，使用应用的 `MainActor` 默认隔离规则。
+2. 检查 9999 倍解析、上下界、非有限值、六轴键和默认值、平移/旋转系数、四种方向的俯仰/左右映射，并生成 `build/controller-motion-traces.json`。
 3. 把 Swift 生成的 4 组俯仰和 12 组平移轨迹送入生产 C# 滤波器再次验证。平移覆盖四个界面方向以及平放、竖持、斜持，逐帧与同姿势无平移基线比较。
-4. 执行 `tests/NativeMotion.Tests`，验证完整采样、来源切换和重置；检查 C 桥接声明及新导出。
+4. 执行 `tests/NativeMotion.Tests`，验证完整采样、来源切换、重置和实际 `NpadController.GetHLEMotionState` 的加速度方向；检查 C 桥接声明及新导出。
+5. C# 合成测试覆盖旋转三轴正向/反向/禁用、切换连续性、虚拟重力、默认输出一致、俯仰停后保持、无效系数拒绝；无效系数测试出现一条预期错误日志不代表测试失败。
+6. `InputProfileTests.swift` 与真实 `ControllerInputProfile.swift` 一起编译，使用独立 UserDefaults suite 检查范围隔离、动态回退、只读不创建覆盖、显式空选择、重置及启动 Options 投影。Swift 会话测试拒绝挂起前排队、恢复后才到达的旧帧；C# 验证有/无暂停轮询时均不积分暂停时长。
 
-回放 JSON 当前契约为 `name/kind/samples`，`kind` 为 `pitch` 或 `translation`；采样必须包含 `acceleration/gyroscope/gravity/timestamp`。缺少字段会明确失败。
+回放 JSON 当前契约为 `name/kind/samples`，`kind` 为 `pitch` 或 `translation`；采样必须包含 `acceleration/gyroscope/gravity/rotationFactors/timestamp`。缺少字段会明确失败。现有 Swift 俯仰/平移回放使用默认旋转系数，自定义旋转由独立 C# 测试覆盖。
 
-对应日志为 `controller-input-build.log`、`controller-input-tests.log`、`controller-motion-tests.log`。
+对应日志为 `controller-input-build.log`、`controller-input-tests.log`、`controller-motion-tests.log`、`native-motion-tests.log`、`input-profile-build.log`、`input-profile-tests.log`。
 
 Windows 已执行 C# 合成轨迹、本地化检查及差异检查；没有 Apple SDK，Swift 编译、完整 IPA 构建及手机效果须由 Codemagic 和实机验收。数学轨迹通过不等于游戏实测通过。
 
 ## 实机验收
 
-- 分别输入 `0.5`、`2.5`、`10`、`50`、`100` 并应用，确认系数变化和重启保存；清空、输入非数字和 `100.01` 应报错。
+- 分别输入 `0.5`、`2.5`、`10`、`100.01`、`500`、`500.01`、`9999` 并应用，确认系数变化和重启保存；清空、输入非数字、`9999.01` 和 `10000` 应报错。
 - 单游戏覆盖与全局值分别验证；关闭滑动视角时不接管触摸，启用后仍给按钮和摇杆让出命中。
+- 齿轮分别打开输入设置与布局编辑，检查当前游戏/全局默认；先改全局，再建立游戏覆盖，再改全局，确认未覆盖项跟随全局、覆盖项保持游戏值。
+- 逐一验证手柄选择、玩家类型、按键映射、键盘映射、L3/R3、透明度、大小、左右摇杆与滑动区域显示。只打开映射页再退出，不应创建游戏覆盖；重启后值保持。
+- 输入页跳转布局期间游戏持续暂停；原先手动暂停的游戏关闭编辑后仍暂停；按住按钮进入设置后退出无粘键，编辑期间不透传按钮、触摸或运动。编辑时旋转不丢失弹层，退出后加载对应方向布局。
+- 当前游戏/全局、横屏/竖屏分别调整位置和重置，确认只影响所选范围及方向；输入页恢复全局不清布局或图形/CPU配置。
+- 六项运动各验证启用、反向、禁用；平移设置不改变纯旋转，关闭旋转轴后相应游戏姿态增量停止。切换控制后不应瞬间跳回物理姿态。
 - 两侧横屏分别上下转动后保持不动至少 3 秒，检查停止后的反向回拉；左右转向保持原效果。
 - 竖屏检查左右及上下；切换屏幕方向后重复，分别测试初次进入、返回后再次进入游戏。
-- 保持手机姿势不变做左右平移，覆盖加速、减速与停下；与原地不动比较，检查不再额外扭转镜头。随后检查左右倾斜与真正转向的方向仍正确。
+- 保持手机姿势不变做左右平移，分别检查加速、减速与停下时的游戏方向，注意减速本身是反向加速度；随后确认左右倾斜与真正转向仍保持原方向。
 - 若仍有持续漂移，需记录真实传感器采样和核心姿态，不能只凭画面推定剩余问题是零偏。

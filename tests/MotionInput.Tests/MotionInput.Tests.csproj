@@ -8,5 +8,7 @@
   <ItemGroup>
     <Compile Include="../../src/Ryujinx.Input/Motion/MotionInput.cs" Link="Production/MotionInput.cs" />
     <Compile Include="../../src/Ryujinx.Input/Motion/MotionSensorFilter.cs" Link="Production/MotionSensorFilter.cs" />
+    <Compile Include="../../src/Ryujinx.Input/Motion/MotionAxisTransform.cs" Link="Production/MotionAxisTransform.cs" />
+    <Compile Include="../../src/Ryujinx.Input/IMotionSampleGamepad.cs" Link="Production/IMotionSampleGamepad.cs" />
   </ItemGroup>
 </Project>
