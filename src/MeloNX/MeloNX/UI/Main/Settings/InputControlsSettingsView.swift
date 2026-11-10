@@ -1,5 +1,6 @@
 // 游戏内输入设置。当前游戏与全局管理器相互独立，切换编辑范围不会替换运行态 shared。
 import SwiftUI
+import Combine
 
 enum InputSettingsScope: String, CaseIterable, Identifiable {
     case currentGame
