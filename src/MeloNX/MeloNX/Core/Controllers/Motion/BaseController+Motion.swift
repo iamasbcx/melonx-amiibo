@@ -47,8 +47,12 @@ extension BaseController {
             guard self.motionManager.isDeviceMotionAvailable else { return }
             
             self.motionManager.deviceMotionUpdateInterval = 1.0 / 60.0 // 60Hz
+            // 只在启动采样时读取一次界面方向。不能在每个传感器回调中读取
+            // UIDeviceOrientation，否则设备短暂处于 faceUp/portrait 时会切换坐标矩阵。
+            let interfaceOrientation = self.captureMotionInterfaceOrientation()
             self.motionManager.startDeviceMotionUpdates(to: self.motionOperation) { [weak self] (data, error) in
                 guard let self = self, let m = data else { return }
+                guard self.shouldSubmitMotion() else { return }
                 
                 let rawAccel = SIMD3<Float>(
                     -Float(m.gravity.x + m.userAcceleration.x),
@@ -62,8 +66,16 @@ extension BaseController {
                     -Float(m.rotationRate.z)
                 ) * (180.0 / .pi)
                 
-                let (mappedAccel, mappedGyro) = self.remapToSwitchCoords(accel: rawAccel, gyro: rawGyro)
-                self.submitMotion(accelerometer: mappedAccel, gyroscope: mappedGyro)
+                let (mappedAccel, mappedGyro) = self.remapToSwitchCoords(
+                    accel: rawAccel,
+                    gyro: rawGyro,
+                    interfaceOrientation: interfaceOrientation
+                )
+                // NpadController 仍会把 GamepadDriver 坐标转换为 Switch 坐标，
+                // 这里传入其逆变换，避免手机路径重复换轴。
+                let driverAccel = SIMD3<Float>(mappedAccel.x, mappedAccel.z, -mappedAccel.y)
+                let driverGyro = SIMD3<Float>(mappedGyro.x, mappedGyro.z, -mappedGyro.y)
+                self.submitMotion(accelerometer: driverAccel, gyroscope: driverGyro)
             }
         }
     }
@@ -100,19 +112,26 @@ extension BaseController {
         }
     }
     
-    private func remapToSwitchCoords(accel: SIMD3<Float>, gyro: SIMD3<Float>) -> (SIMD3<Float>, SIMD3<Float>) {
-        let orientation = currentMotionOrientation()
-        
+    /// 将固定的 iOS 界面坐标转换为 Switch 目标坐标，再由调用方转换为
+    /// native GamepadDriver 坐标。坐标系只允许在这一处按界面方向旋转。
+    /// UIInterfaceOrientation 与 UIDeviceOrientation 的横屏枚举相反，不能直接混用。
+    private func remapToSwitchCoords(
+        accel: SIMD3<Float>,
+        gyro: SIMD3<Float>,
+        interfaceOrientation: UIInterfaceOrientation
+    ) -> (SIMD3<Float>, SIMD3<Float>) {
         var finalAccel: SIMD3<Float>
         var finalGyro: SIMD3<Float>
         
-        switch orientation {
+        switch interfaceOrientation {
         case .landscapeLeft:
-            finalAccel = SIMD3<Float>(accel.y, -accel.x, accel.z)
-            finalGyro = SIMD3<Float>(gyro.y, -gyro.x, gyro.z)
-        case .landscapeRight:
+            // UI landscapeLeft 对应 UIDevice landscapeRight。
             finalAccel = SIMD3<Float>(-accel.y, accel.x, accel.z)
             finalGyro = SIMD3<Float>(-gyro.y, gyro.x, gyro.z)
+        case .landscapeRight:
+            // UI landscapeRight 对应 UIDevice landscapeLeft。
+            finalAccel = SIMD3<Float>(accel.y, -accel.x, accel.z)
+            finalGyro = SIMD3<Float>(gyro.y, -gyro.x, gyro.z)
         case .portraitUpsideDown:
             finalAccel = SIMD3<Float>(-accel.x, accel.z, accel.y)
             finalGyro = SIMD3<Float>(-gyro.x, gyro.z, gyro.y)
@@ -124,13 +143,26 @@ extension BaseController {
         return (finalAccel, finalGyro)
     }
     
-    private func currentMotionOrientation() -> UIDeviceOrientation {
-        let currentOrientation = UIDevice.current.orientation
-        
-        if currentOrientation.isValidInterfaceOrientation {
-            orientation = currentOrientation
+    /// 在采样开始时获取稳定的界面方向。这里显式把设备方向转换为界面方向，
+    /// 后续采样不再根据设备物理姿态切换矩阵，避免游戏锁定横屏时坐标轴跳变。
+    private func captureMotionInterfaceOrientation() -> UIInterfaceOrientation {
+        let deviceOrientation = UIDevice.current.orientation.isValidInterfaceOrientation
+            ? UIDevice.current.orientation
+            : orientation
+
+        switch deviceOrientation {
+        case .portrait:
+            return .portrait
+        case .portraitUpsideDown:
+            return .portraitUpsideDown
+        case .landscapeLeft:
+            // UIDeviceOrientation.landscapeLeft 对应 UIInterfaceOrientation.landscapeRight。
+            return .landscapeRight
+        case .landscapeRight:
+            // UIDeviceOrientation.landscapeRight 对应 UIInterfaceOrientation.landscapeLeft。
+            return .landscapeLeft
+        default:
+            return .landscapeRight
         }
-        
-        return orientation
     }
 }
