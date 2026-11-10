@@ -118,7 +118,7 @@ class ControllerManager: ObservableObject {
                 self.allControllers = controllers
                 self.selectedControllers = selectedControllerIds
                 self.hasPhysicalController = controllers.contains { !$0.virtual }
-                if RyujinxController.shared.isRunning.isRunning() {
+                if RyujinxController.shared.isRunning.isRunning(), !RyujinxController.shared.isStopping {
                     self.attachAllControllers(selectedControllerIds: selectedControllerIds)
                 }
             }
@@ -126,6 +126,7 @@ class ControllerManager: ObservableObject {
     }
 
     func attachAllControllers() {
+        guard !RyujinxController.shared.isStopping else { return }
         var selectedControllerIds = selectedControllerIdsSnapshot()
         // refreshControllersList 使用后台队列，启动很快时可能尚未回写选择列表。
         // 只有“默认启用虚拟手柄”时才补齐，用户明确关闭默认选择后仍保持空列表。
@@ -190,6 +191,15 @@ class ControllerManager: ObservableObject {
                 cont.controllerType = resolvedType
                 cont.attach(playerIndex, controllerType: resolvedType)
                 playerIndex += 1
+            }
+        }
+    }
+
+    /// 在模拟线程完成退出后解绑所有输入设备，避免旧窗口已销毁时仍向 native 层发送输入。
+    func detachAllControllers() {
+        controllerQueue.sync {
+            for controller in _privAllControllers {
+                Ryujinx.detachGamepad(controller.pointer)
             }
         }
     }

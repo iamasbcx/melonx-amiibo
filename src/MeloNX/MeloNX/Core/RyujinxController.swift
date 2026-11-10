@@ -177,6 +177,9 @@ public final class RyujinxController: ObservableObject {
     @Published var _isPaused: Bool = false
     
     @Published var wasManuallyPaused: Bool = false
+
+    /// 标记底层模拟线程正在退出。退出请求发出后保持游戏视图，直到 mainRyu 真正返回，避免提前销毁 Metal 视图。
+    @Published private(set) var isStopping: Bool = false
     
     var isPaused: Bool {
         get {
@@ -216,7 +219,7 @@ public final class RyujinxController: ObservableObject {
     
     
     func startGame(_ game: GameInfo) {
-        guard !emulationThreadActive, !isRunning.hasStarted() else { return }
+        guard !emulationThreadActive, !isRunning.hasStarted(), !isStopping else { return }
         
         loadConfig()
         
@@ -290,13 +293,50 @@ public final class RyujinxController: ObservableObject {
             DispatchQueue.main.async {
                 self.emulationThreadActive = false
                 
-                if response != 0 {
+                if self.isStopping {
+                    self.finishStopping()
+                } else if response != 0 {
                     self.isRunning = .crashed(result: "Code: \(response)")
                 } else {
                     self.isRunning = .stopped
                 }
             }
         }
+    }
+
+    /// 请求退出当前游戏。Native stop 在后台执行，避免阻塞 SwiftUI 主线程；界面资源在 mainRyu 返回后统一释放。
+    @MainActor
+    func stopGame() {
+        guard !isStopping else { return }
+
+        // 只有 native 入口仍在运行时才发送停止请求；若线程已经返回，仅需完成 UI 收尾，
+        // 避免在上一局结束后把停止标记误留给下一局启动。
+        guard emulationThreadActive else {
+            finishStopping()
+            return
+        }
+
+        isStopping = true
+        _isPaused = false
+        wasManuallyPaused = false
+        // 先停止向 native 输入层提交事件，给窗口和渲染线程留下完整的释放窗口。
+        controllerManager.detachAllControllers()
+        AmiiboService.shared.stop()
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            Ryujinx.stopEmulation()
+        }
+    }
+
+    /// 仅在主线程调用；此时 native 模拟线程已返回，可以安全销毁 Metal 视图并解绑输入。
+    @MainActor
+    private func finishStopping() {
+        dispatchPrecondition(condition: .onQueue(.main))
+        Ryujinx.emulationView = nil
+        _isPaused = false
+        wasManuallyPaused = false
+        isStopping = false
+        isRunning = .stopped
     }
     
     

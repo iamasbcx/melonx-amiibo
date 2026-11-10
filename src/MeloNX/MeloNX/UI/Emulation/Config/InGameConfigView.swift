@@ -113,16 +113,15 @@ struct InGameConfigView: View {
 
 
         Button(role: .destructive) {
-            Ryujinx.stopEmulation()
-            Ryujinx.emulationView = nil
-            ryujinxController.isRunning = .stopped
+            ryujinxController.stopGame()
         } label: {
             Label {
-                Text(LocalizedStringKey("Exit (Unstable)"))
+                Text(LocalizedStringKey(ryujinxController.isStopping ? "Exiting..." : "Exit Game"))
             } icon: {
-                Image(systemName: "x.circle")
+                Image(systemName: ryujinxController.isStopping ? "hourglass" : "x.circle")
             }
         }
+        .disabled(ryujinxController.isStopping)
 
     }
 

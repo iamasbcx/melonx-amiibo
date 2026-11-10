@@ -88,10 +88,22 @@ namespace Ryujinx.Library
         private static readonly Lock metalLayerLock = new();
         private static readonly Lock inputConfigurationLock = new();
         private static KeyboardConfigNative? _keyboardConfig = null;
+        // 记录窗口创建前收到的退出请求，避免启动竞态导致停止信号丢失。
+        private static int _stopRequested;
+        // 标记 native 主入口仍在运行，避免入口已返回后迟到的停止调用污染下一局。
+        private static int _mainExternalActive;
+
+        // 创建应用级输入管理器；其 NativeGamepadDriver 必须跨游戏重启保持有效。
+        private static InputManager CreateInputManager()
+        {
+            return new InputManager(new SDL3KeyboardDriver(), new NativeGamepadDriver());
+        }
 
         [UnmanagedCallersOnly(EntryPoint = "main_ryujinx_sdl")]
         public static unsafe int MainExternal(OptionsNative* nativeOptions)
         {
+            Interlocked.Exchange(ref _mainExternalActive, 1);
+
             try
             {
                 Options managed = OptionsNativeHelper.FromNative(nativeOptions);
@@ -102,6 +114,12 @@ namespace Ryujinx.Library
             {
                 Console.WriteLine(e.ToString());
                 return -1;
+            }
+            finally
+            {
+                // 本次 native 入口已经结束，清除可能由启动竞态留下的停止请求。
+                Interlocked.Exchange(ref _mainExternalActive, 0);
+                Interlocked.Exchange(ref _stopRequested, 0);
             }
 
             return 0;
@@ -142,7 +160,7 @@ namespace Ryujinx.Library
             // :3
             NativeLibrary.SetDllImportResolver(typeof(SDL3Type).Assembly, (_, assembly, path) => NativeLibrary.Load("@rpath/SDL3.framework/SDL3", assembly, path));
 
-            _inputManager = new InputManager(new SDL3KeyboardDriver(), new NativeGamepadDriver());
+            _inputManager = CreateInputManager();
             _inputConfiguration = new List<InputConfig>();
             _enableKeyboard = true;
             _enableMouse = false;
@@ -182,11 +200,21 @@ namespace Ryujinx.Library
         [UnmanagedCallersOnly(EntryPoint = "stop_emulation")]
         public static void StopEmulation()
         {
-            if (_window != null)
+            // 主入口已返回时窗口和上下文已经清理，迟到的调用不应影响下一局。
+            if (Volatile.Read(ref _mainExternalActive) == 0)
+            {
+                return;
+            }
+
+            Interlocked.Exchange(ref _stopRequested, 1);
+            // 使用局部引用，避免执行线程清理并置空静态字段后，停止线程再次解引用 null。
+            WindowBase window = _window;
+            Switch context = _emulationContext;
+            if (window != null)
             {
                 // 先撤销虚拟标签入口并结束检测任务，禁止 UI 在核心释放时继续提交。
-                EndAmiiboSession(_emulationContext);
-                _window.Exit();
+                EndAmiiboSession(context);
+                window.Exit();
             }
         }
         
@@ -901,6 +929,15 @@ namespace Ryujinx.Library
         
         static void Load(Options option)
         {
+            // 正常情况下输入管理器由 Initialize 创建并贯穿应用生命周期；保留空值兜底，
+            // 避免外部调用顺序异常时窗口初始化直接失败。
+            if (_inputManager == null)
+            {
+                _inputManager = CreateInputManager();
+                _enableKeyboard = true;
+                _enableMouse = false;
+            }
+
             _libHacHorizonManager = new LibHacHorizonManager();
             _libHacHorizonManager.InitializeFsServer(_virtualFileSystem);
             _libHacHorizonManager.InitializeArpServer();
@@ -967,8 +1004,6 @@ namespace Ryujinx.Library
 
                 _userChannelPersistence.ShouldRestart = false;
             }
-
-            _inputManager.Dispose();
 
             GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
 
@@ -1115,6 +1150,13 @@ namespace Ryujinx.Library
             {
                 _window.Initialize(_emulationContext, _inputConfiguration, _enableKeyboard, _enableMouse);
                 BeginAmiiboSession(_emulationContext);
+
+                // StopEmulation 可能早于窗口创建返回；此处补发退出，确保本次启动不会遗留后台模拟线程。
+                if (Volatile.Read(ref _stopRequested) != 0)
+                {
+                    _window.Exit();
+                }
+
                 _window.Execute();
             }
             finally
@@ -1124,6 +1166,8 @@ namespace Ryujinx.Library
                 _window.Exit();
                 _emulationContext.Dispose();
                 _window.Dispose();
+                _emulationContext = null;
+                _window = null;
 
                 if (OperatingSystem.IsWindows())
                 {
