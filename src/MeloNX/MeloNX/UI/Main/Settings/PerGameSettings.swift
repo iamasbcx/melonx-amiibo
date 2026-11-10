@@ -593,6 +593,14 @@ struct PerGameSettingsView: View {
                 NativeToggleRow("Menu Button (in-game)", icon: "arrow.left.circle",
                                 isOn: nativeSettingsManager.showScreenShotButton(true).projectedValue,
                                 info: "Shows an in-game menu button to exit, lock orientation (iPhone only), change aspect ratio, or change controllers.")
+
+                NativeToggleRow("Touch Look", icon: "hand.draw",
+                                isOn: nativeSettingsManager.setting(forKey: "TouchLookEnabled", default: false).projectedValue,
+                                info: "Swipe the right side of the screen to control the right stick camera view.")
+                NativeToggleRow("Invert Touch Look X", icon: "arrow.left.and.right",
+                                isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertX", default: false).projectedValue)
+                NativeToggleRow("Invert Touch Look Y", icon: "arrow.up.and.down",
+                                isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertY", default: false).projectedValue)
                 
             }
         }

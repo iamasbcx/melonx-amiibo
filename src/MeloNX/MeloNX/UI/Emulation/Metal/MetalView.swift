@@ -10,15 +10,43 @@ import MetalKit
 
 class MetalView: MTKView {
     @ObservedObject var menuViewShower: InGameConfigView_MenuView = .shared
-    private var activeTouches: [UITouch] = []
-    private var ignoredTouches: Set<UITouch> = []
+    // 原生触摸使用稳定槽位；释放中间触点时不再让其他触点的 index 改变。
+    private var activeTouches: [ObjectIdentifier: Int] = [:]
+    private var freeTouchIndices: [Int] = []
+    private var nextTouchIndex: Int = 0
+
+    // 屏幕滑动视角状态。设置页可在创建/复用 MetalView 后更新这些属性。
+    var touchLookEnabled: Bool = false
+    var touchLookSensitivity: CGFloat = 0.012
+    var touchLookDeadZone: CGFloat = 0.5
+    var touchLookInvertX: Bool = false
+    var touchLookInvertY: Bool = false
+    /// 归一化视角区域，默认是右半屏；区域外仍发送游戏触摸事件。
+    var touchLookActivationRect: CGRect = CGRect(x: 0.5, y: 0, width: 0.5, height: 1)
+    /// 视角输入的短暂保持时间，避免单个移动事件被游戏采样遗漏。
+    var touchLookHoldDuration: TimeInterval = 0.04
+    private var touchLookTouches: [ObjectIdentifier: CGPoint] = [:]
+    private var touchLookResetWorkItem: DispatchWorkItem?
 
     private var aspectRatio: AspectRatio = .fixed16x9
 
     func setAspectRatio() {
         self.aspectRatio = RyujinxController.shared.currentSettings.aspectRatio
+        syncTouchLookSettings()
         Ryujinx.setViewSize(self.bounds)
         updateUnboundedPresentTargetFps()
+    }
+
+    /// 从当前全局/单游戏设置同步滑动视角参数，保证游戏启动后设置立即生效。
+    private func syncTouchLookSettings() {
+        let settings = NativeSettingsManager.shared
+        touchLookEnabled = settings.setting(forKey: "TouchLookEnabled", default: false).value
+        let sensitivity = CGFloat(settings.setting(forKey: "TouchLookSensitivity", default: 0.012).value)
+        touchLookSensitivity = sensitivity.isFinite ? min(0.05, max(0.001, sensitivity)) : 0.012
+        let deadZone = CGFloat(settings.setting(forKey: "TouchLookDeadZone", default: 0.5).value)
+        touchLookDeadZone = deadZone.isFinite ? min(20, max(0, deadZone)) : 0.5
+        touchLookInvertX = settings.setting(forKey: "TouchLookInvertX", default: false).value
+        touchLookInvertY = settings.setting(forKey: "TouchLookInvertY", default: false).value
     }
 
     private func updateUnboundedPresentTargetFps() {
@@ -28,6 +56,10 @@ class MetalView: MTKView {
     override func didMoveToWindow() {
         super.didMoveToWindow()
         updateUnboundedPresentTargetFps()
+        syncTouchLookSettings()
+        if window == nil {
+            resetTouchTracking()
+        }
     }
 
     override func layoutSubviews() {
@@ -40,28 +72,106 @@ class MetalView: MTKView {
     }
 
     private func getNextAvailableIndex() -> Int {
-        return activeTouches.endIndex
+        if let index = freeTouchIndices.popLast() {
+            return index
+        }
+        defer { nextTouchIndex += 1 }
+        return nextTouchIndex
+    }
+
+    private func slot(for touch: UITouch) -> Int {
+        let id = ObjectIdentifier(touch)
+        if let index = activeTouches[id] {
+            return index
+        }
+        let index = getNextAvailableIndex()
+        activeTouches[id] = index
+        return index
+    }
+
+    private func releaseSlot(for touch: UITouch) -> Int? {
+        let id = ObjectIdentifier(touch)
+        guard let index = activeTouches.removeValue(forKey: id) else { return nil }
+        freeTouchIndices.append(index)
+        return index
+    }
+
+    private func resolvedTouchLookRect() -> CGRect {
+        let rect = touchLookActivationRect
+        let normalized = rect.minX >= 0 && rect.minY >= 0 && rect.maxX <= 1 && rect.maxY <= 1
+        if normalized {
+            return CGRect(
+                x: bounds.minX + rect.minX * bounds.width,
+                y: bounds.minY + rect.minY * bounds.height,
+                width: rect.width * bounds.width,
+                height: rect.height * bounds.height
+            )
+        }
+        return rect.intersection(bounds)
+    }
+
+    private func isTouchLookStart(_ location: CGPoint) -> Bool {
+        guard touchLookEnabled else { return false }
+        return resolvedTouchLookRect().contains(location)
+    }
+
+    private func submitTouchLookDelta(_ raw: CGPoint) {
+        let deadZone = max(0, touchLookDeadZone)
+        guard abs(raw.x) >= deadZone || abs(raw.y) >= deadZone else { return }
+
+        var delta = CGPoint(
+            x: raw.x * touchLookSensitivity,
+            y: raw.y * touchLookSensitivity
+        )
+        if touchLookInvertX { delta.x = -delta.x }
+        if touchLookInvertY { delta.y = -delta.y }
+        delta.x = max(-1, min(1, delta.x))
+        delta.y = max(-1, min(1, delta.y))
+
+        VirtualControllerManager.shared.joystickMoved(position: delta, right: true)
+        touchLookResetWorkItem?.cancel()
+        let reset = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            VirtualControllerManager.shared.joystickMoved(position: .zero, right: true)
+            self.touchLookResetWorkItem = nil
+        }
+        touchLookResetWorkItem = reset
+        DispatchQueue.main.asyncAfter(deadline: .now() + max(0.01, touchLookHoldDuration), execute: reset)
+    }
+
+    private func resetTouchLook() {
+        touchLookTouches.removeAll(keepingCapacity: true)
+        touchLookResetWorkItem?.cancel()
+        touchLookResetWorkItem = nil
+        VirtualControllerManager.shared.joystickMoved(position: .zero, right: true)
     }
 
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesBegan(touches, with: event)
         
-        Task.detached {
-            await self.menuViewShower.triggerButton()
-        }
-        
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
         guard !disabled else { return }
         
         setAspectRatio()
+        var shouldShowMenu = false
         
         for touch in touches {
             let location = touch.location(in: self)
-            let index = getNextAvailableIndex()
-            activeTouches.append(touch)
-            print("Touch location: \(location)")
+            let id = ObjectIdentifier(touch)
+            if isTouchLookStart(location) {
+                // 视角触点不进入 Ryujinx 触摸协议，归属在开始时固定。
+                touchLookTouches[id] = location
+                continue
+            }
+
+            shouldShowMenu = true
+            let index = slot(for: touch)
             let transformed = transformToTargetCoordinates(location)
             Ryujinx.touchBegan(transformed, index: index)
+        }
+
+        if shouldShowMenu {
+            menuViewShower.triggerButton()
         }
     }
 
@@ -72,25 +182,25 @@ class MetalView: MTKView {
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
         guard !disabled else {
             for touch in touches {
-                ignoredTouches.remove(touch)
-                if let index = activeTouches.firstIndex(of: touch) {
-                    activeTouches.remove(at: index)
-                }
+                _ = releaseSlot(for: touch)
+                touchLookTouches.removeValue(forKey: ObjectIdentifier(touch))
             }
+            if touchLookTouches.isEmpty { resetTouchLook() }
             return
         }
         
         for touch in touches {
-            if ignoredTouches.remove(touch) != nil {
+            let id = ObjectIdentifier(touch)
+            if touchLookTouches.removeValue(forKey: id) != nil {
+                // 视角触点结束时最后一个触点必须立即归零，避免松手后继续转动。
+                if touchLookTouches.isEmpty {
+                    resetTouchLook()
+                }
                 continue
             }
             
-            if let touchIndex = activeTouches.firstIndex(where: { $0 == touch }) {
+            if let touchIndex = releaseSlot(for: touch) {
                 Ryujinx.touchEnded(index: touchIndex)
-                
-                if let arrayIndex = activeTouches.firstIndex(of: touch) {
-                    activeTouches.remove(at: arrayIndex)
-                }
             }
         }
     }
@@ -98,22 +208,22 @@ class MetalView: MTKView {
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         super.touchesMoved(touches, with: event)
         
-        Task.detached {
-            await self.menuViewShower.triggerButton()
-        }
-        
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
         guard !disabled else { return }
         
         setAspectRatio()
         
         for touch in touches {
-            if ignoredTouches.contains(touch), !activeTouches.contains(touch) {
+            let id = ObjectIdentifier(touch)
+            if let previous = touchLookTouches[id] {
+                let current = touch.location(in: self)
+                touchLookTouches[id] = current
+                submitTouchLookDelta(CGPoint(x: current.x - previous.x, y: current.y - previous.y))
                 continue
             }
             
             
-            guard let touchIndex = activeTouches.firstIndex(where: { $0 == touch }) else {
+            guard let touchIndex = activeTouches[id] else {
                 continue
             }
             
@@ -128,30 +238,38 @@ class MetalView: MTKView {
         let disabled = UserDefaults.standard.bool(forKey: "disableTouch")
         guard !disabled else {
             for touch in touches {
-                ignoredTouches.remove(touch)
-                if let index = activeTouches.firstIndex(of: touch) {
-                    activeTouches.remove(at: index)
-                }
+                _ = releaseSlot(for: touch)
+                touchLookTouches.removeValue(forKey: ObjectIdentifier(touch))
             }
+            if touchLookTouches.isEmpty { resetTouchLook() }
             return
         }
         
         for touch in touches {
-            if ignoredTouches.remove(touch) != nil {
+            let id = ObjectIdentifier(touch)
+            if touchLookTouches.removeValue(forKey: id) != nil {
+                if touchLookTouches.isEmpty {
+                    resetTouchLook()
+                }
                 continue
             }
             
-            if let touchIndex = activeTouches.firstIndex(where: { $0 == touch }) {
+            if let touchIndex = releaseSlot(for: touch) {
                 Ryujinx.touchEnded(index: touchIndex)
-                activeTouches.remove(at: touchIndex)
             }
         }
     }
     
 
     func resetTouchTracking() {
+        // 页面退出或失焦时主动结束仍在协议层的触点，避免游戏收到永久按下状态。
+        for index in activeTouches.values {
+            Ryujinx.touchEnded(index: index)
+        }
         activeTouches.removeAll()
-        ignoredTouches.removeAll()
+        freeTouchIndices.removeAll(keepingCapacity: true)
+        nextTouchIndex = 0
+        resetTouchLook()
     }
 }
 

@@ -817,6 +817,32 @@ struct SettingsView: View {
                 NativeToggleRow("Show Stick Buttons (L3/R3)", icon: "l.joystick.press.down",
                                 isOn: nativeSettingsManager.stickButton.projectedValue,
                                 info: "Shows L3 and R3 buttons (left and right joystick press) on the virtual controller.")
+                NativeToggleRow("Touch Look", icon: "hand.draw",
+                                isOn: nativeSettingsManager.setting(forKey: "TouchLookEnabled", default: false).projectedValue,
+                                info: "Swipe the right side of the screen to control the right stick camera view. This uses the swipe area instead of game touch input.")
+
+                SliderRow(
+                    "Touch Look Sensitivity",
+                    value: Binding(
+                        get: {
+                            Float(nativeSettingsManager.setting(forKey: "TouchLookSensitivity", default: 0.012).value)
+                        },
+                        set: { value in
+                            nativeSettingsManager.setting(forKey: "TouchLookSensitivity", default: 0.012).value = Double(min(0.05, max(0.001, value)))
+                        }
+                    ),
+                    range: 0.001...0.05,
+                    step: 0.001,
+                    minLabel: "Slow",
+                    maxLabel: "Fast",
+                    format: "%.3f",
+                    suffix: ""
+                )
+
+                NativeToggleRow("Invert Touch Look X", icon: "arrow.left.and.right",
+                                isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertX", default: false).projectedValue)
+                NativeToggleRow("Invert Touch Look Y", icon: "arrow.up.and.down",
+                                isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertY", default: false).projectedValue)
                 NativeToggleRow("Deselected by Default", icon: "formfitting.gamecontroller.fill",
                                 isOn: nativeSettingsManager.virtualControllerOffDefault(ProcessInfo.processInfo.isiOSAppOnMac).projectedValue,
                                 info: "Deselects the virtual controller by default, regardless of whether a physical controller is connected.")
