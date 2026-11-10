@@ -4249,7 +4249,77 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "视角滑动灵敏度"
+            "value": "视角灵敏度倍数"
+          }
+        }
+      }
+    },
+    "Touch Look Sensitivity Multiplier": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "视角滑动灵敏度倍数"
+          }
+        }
+      }
+    },
+    "Apply": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "应用"
+          }
+        }
+      }
+    },
+    "Try 2–3x if swiping feels slow. 1x is the original speed; 0.5x gives finer control.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "滑动偏慢时建议从 2～3 倍开始调整。1 倍为原速，0.5 倍适合精细瞄准。"
+          }
+        }
+      }
+    },
+    "Range: 0.25–10x. Tap Apply to save. The game's right-stick speed limit still applies.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "范围：0.25～10 倍，点击“应用”保存。最终转向速度仍受游戏自身的右摇杆上限限制。"
+          }
+        }
+      }
+    },
+    "Enter a sensitivity multiplier.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入灵敏度倍数。"
+          }
+        }
+      }
+    },
+    "Enter a valid decimal number, such as 2.5.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入有效的小数，例如 2.5。"
+          }
+        }
+      }
+    },
+    "Enter a multiplier from 0.25 to 10.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请输入 0.25～10 之间的倍数。"
           }
         }
       }
@@ -5318,6 +5388,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "显示摇杆按键（L3/R3）"
+          }
+        }
+      }
+    },
+    "Edit Note": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "修改备注"
+          }
+        }
+      }
+    },
+    "Game Note": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "游戏备注"
+          }
+        }
+      }
+    },
+    "Note is too long. Remove %lld characters before saving.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "备注过长，请删除 %lld 个字符后再保存。"
+          }
+        }
+      }
+    },
+    "Save Note": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "保存备注"
+          }
+        }
+      }
+    },
+    "Shown below the game name and developer. Leave empty to hide the note. Up to 500 characters.": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示在游戏名和公司名下方。清空并保存即可隐藏备注，最多 500 字。"
           }
         }
       }

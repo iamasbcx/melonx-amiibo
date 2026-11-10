@@ -54,6 +54,15 @@ xcrun swiftc -parse-as-library \
   -o "${BUILD_DIR}/AmiiboCatalogParserTests" \
   2>&1 | tee "${LOG_DIR}/amiibo-parser-build.log"
 "${BUILD_DIR}/AmiiboCatalogParserTests" 2>&1 | tee "${LOG_DIR}/amiibo-parser-tests.log"
+# 使用应用的同一份 Swift 数学模块生成运动回放，再交给生产 C# 滤波器验证停止后的姿态。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Controllers/Motion/PhoneMotionTransform.swift \
+  src/MeloNX/MeloNX/UI/Main/Settings/TouchLookSensitivityConfiguration.swift \
+  tests/ControllerInputTests.swift \
+  -o "${BUILD_DIR}/ControllerInputTests" \
+  2>&1 | tee "${LOG_DIR}/controller-input-build.log"
+"${BUILD_DIR}/ControllerInputTests" "${BUILD_DIR}/controller-motion-traces.json" \
+  2>&1 | tee "${LOG_DIR}/controller-input-tests.log"
 bash "${SCRIPT_DIR}/bootstrap-dotnet.sh" 2>&1 | tee "${LOG_DIR}/dotnet-bootstrap.log"
 export DOTNET_ROOT
 export PATH="${DOTNET_ROOT}:${PATH}"
@@ -62,6 +71,9 @@ export DOTNET_NOLOGO=1
 DOTNET="${DOTNET_ROOT}/dotnet"
 "${DOTNET}" --info | tee "${LOG_DIR}/dotnet-info.log"
 "${DOTNET}" workload list | tee "${LOG_DIR}/dotnet-workloads.log"
+"${DOTNET}" run --project tests/MotionInput.Tests/MotionInput.Tests.csproj \
+  -c Release -- "${BUILD_DIR}/controller-motion-traces.json" \
+  2>&1 | tee "${LOG_DIR}/controller-motion-tests.log"
 "${DOTNET}" run --project tests/AmiiboContract.Tests/AmiiboContract.Tests.csproj \
   -c Release 2>&1 | tee "${LOG_DIR}/amiibo-contract-tests.log"
 "${DOTNET}" run --project tests/HleAmiibo.Tests/HleAmiibo.Tests.csproj \

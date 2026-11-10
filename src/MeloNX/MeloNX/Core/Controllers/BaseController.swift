@@ -77,6 +77,8 @@ class BaseController: Equatable, Identifiable {
         
         self.inputQueue = DispatchQueue(label: queueLabel, qos: .userInteractive)
         self.motionQueue = DispatchQueue(label: queueLabel + ".motion", qos: .userInitiated)
+        // 按采样先后读取界面方向并提交运动，避免旋转时新旧方向的样本交错。
+        self.motionOperation.maxConcurrentOperationCount = 1
         
     }
     

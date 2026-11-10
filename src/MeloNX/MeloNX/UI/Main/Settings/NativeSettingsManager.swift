@@ -102,6 +102,26 @@ class NativeSettingsManager: ObservableObject {
     }
 }
 
+/// 倍数与其他设置使用同一作用域：单游戏设置优先，未覆盖时读取全局值。
+/// 只读写当前倍数配置，不读取或转换旧的触摸像素系数配置。
+extension TouchLookSensitivityConfiguration {
+    private static let multiplierKey = "TouchLookSensitivityMultiplier"
+
+    static func multiplier(from settings: NativeSettingsManager) -> Double {
+        let value = settings.setting(forKey: multiplierKey, default: defaultMultiplier).value
+        return normalizedMultiplier(value)
+    }
+
+    static func coefficient(from settings: NativeSettingsManager) -> Double {
+        coefficient(for: multiplier(from: settings))
+    }
+
+    /// 调用方须先校验输入；持久化边界再次限幅，避免非法数值进入触摸计算。
+    static func setMultiplier(_ value: Double, in settings: NativeSettingsManager) {
+        settings.setting(forKey: multiplierKey, default: defaultMultiplier).value = normalizedMultiplier(value)
+    }
+}
+
 protocol AnySettingProtocol {
     var name: String { get }
 }

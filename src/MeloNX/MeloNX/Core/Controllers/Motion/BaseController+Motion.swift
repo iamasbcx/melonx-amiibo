@@ -52,29 +52,22 @@ extension BaseController {
                 guard let self = self, let m = data else { return }
                 guard self.shouldSubmitMotion() else { return }
                 
-                let rawAccel = SIMD3<Float>(
-                    -Float(m.gravity.x + m.userAcceleration.x),
-                     -Float(m.gravity.y + m.userAcceleration.y),
-                     -Float(m.gravity.z + m.userAcceleration.z)
-                )
-                
-                let rawGyro = SIMD3<Float>(
-                    Float(m.rotationRate.x),
-                    -Float(m.rotationRate.y),
-                    -Float(m.rotationRate.z)
-                ) * (180.0 / .pi)
-                
                 let interfaceOrientation = self.currentMotionInterfaceOrientation()
-                let (mappedAccel, mappedGyro) = self.remapToSwitchCoords(
-                    accel: rawAccel,
-                    gyro: rawGyro,
-                    interfaceOrientation: interfaceOrientation
+                guard let transformOrientation = self.phoneMotionOrientation(interfaceOrientation) else { return }
+                let sample = PhoneMotionTransform.driverSample(
+                    acceleration: SIMD3<Float>(
+                        Float(m.gravity.x + m.userAcceleration.x),
+                        Float(m.gravity.y + m.userAcceleration.y),
+                        Float(m.gravity.z + m.userAcceleration.z)
+                    ),
+                    rotationRate: SIMD3<Float>(
+                        Float(m.rotationRate.x),
+                        Float(m.rotationRate.y),
+                        Float(m.rotationRate.z)
+                    ),
+                    orientation: transformOrientation
                 )
-                // NpadController 会继续执行固定的 GamepadDriver→Switch 换轴，
-                // 这里先还原为 driver 坐标，避免同一方向矩阵被重复应用。
-                let driverAccel = SIMD3<Float>(mappedAccel.x, mappedAccel.z, -mappedAccel.y)
-                let driverGyro = SIMD3<Float>(mappedGyro.x, mappedGyro.z, -mappedGyro.y)
-                self.submitMotion(accelerometer: driverAccel, gyroscope: driverGyro)
+                self.submitMotion(accelerometer: sample.accelerometer, gyroscope: sample.gyroscope)
             }
         }
     }
@@ -111,37 +104,6 @@ extension BaseController {
         }
     }
     
-    /// 将固定的 iOS 界面坐标转换为 Switch 目标坐标，再由调用方转换为
-    /// native GamepadDriver 坐标。坐标系只允许在这一处按界面方向旋转。
-    /// UIInterfaceOrientation 与 UIDeviceOrientation 的横屏枚举相反，不能直接混用。
-    private func remapToSwitchCoords(
-        accel: SIMD3<Float>,
-        gyro: SIMD3<Float>,
-        interfaceOrientation: UIInterfaceOrientation
-    ) -> (SIMD3<Float>, SIMD3<Float>) {
-        var finalAccel: SIMD3<Float>
-        var finalGyro: SIMD3<Float>
-        
-        switch interfaceOrientation {
-        case .landscapeLeft:
-            // UI landscapeLeft 对应 UIDevice landscapeRight。
-            finalAccel = SIMD3<Float>(-accel.y, accel.x, accel.z)
-            finalGyro = SIMD3<Float>(-gyro.y, gyro.x, gyro.z)
-        case .landscapeRight:
-            // UI landscapeRight 对应 UIDevice landscapeLeft。
-            finalAccel = SIMD3<Float>(accel.y, -accel.x, accel.z)
-            finalGyro = SIMD3<Float>(gyro.y, -gyro.x, gyro.z)
-        case .portraitUpsideDown:
-            finalAccel = SIMD3<Float>(-accel.x, accel.z, accel.y)
-            finalGyro = SIMD3<Float>(-gyro.x, gyro.z, gyro.y)
-        default:
-            finalAccel = SIMD3<Float>(accel.x, accel.z, -accel.y)
-            finalGyro = SIMD3<Float>(gyro.x, gyro.z, -gyro.y)
-        }
-        
-        return (finalAccel, finalGyro)
-    }
-    
     /// 获取当前窗口的界面方向。方向变化后下一帧立即使用新矩阵，未知方向沿用上次有效值。
     private func currentMotionInterfaceOrientation() -> UIInterfaceOrientation {
         let sceneOrientation: UIInterfaceOrientation?
@@ -171,6 +133,16 @@ extension BaseController {
             return true
         default:
             return false
+        }
+    }
+
+    nonisolated private func phoneMotionOrientation(_ orientation: UIInterfaceOrientation) -> PhoneMotionTransform.Orientation? {
+        switch orientation {
+        case .portrait: return .portrait
+        case .portraitUpsideDown: return .portraitUpsideDown
+        case .landscapeLeft: return .landscapeLeft
+        case .landscapeRight: return .landscapeRight
+        default: return nil
         }
     }
 }

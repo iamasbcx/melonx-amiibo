@@ -821,23 +821,7 @@ struct SettingsView: View {
                                 isOn: nativeSettingsManager.setting(forKey: "TouchLookEnabled", default: false).projectedValue,
                                 info: "Swipe the right side of the screen to control the right stick camera view. This uses the swipe area instead of game touch input.")
 
-                SliderRow(
-                    "Touch Look Sensitivity",
-                    value: Binding(
-                        get: {
-                            Float(nativeSettingsManager.setting(forKey: "TouchLookSensitivity", default: 0.012).value)
-                        },
-                        set: { value in
-                            nativeSettingsManager.setting(forKey: "TouchLookSensitivity", default: 0.012).value = Double(min(0.05, max(0.001, value)))
-                        }
-                    ),
-                    range: 0.001...0.05,
-                    step: 0.001,
-                    minLabel: "Slow",
-                    maxLabel: "Fast",
-                    format: "%.3f",
-                    suffix: ""
-                )
+                TouchLookSensitivityRow(settings: nativeSettingsManager)
 
                 NativeToggleRow("Invert Touch Look X", icon: "arrow.left.and.right",
                                 isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertX", default: false).projectedValue)

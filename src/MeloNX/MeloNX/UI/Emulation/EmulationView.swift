@@ -39,8 +39,7 @@ struct EmulationView: View {
     }
 
     private var touchLookSensitivity: CGFloat {
-        let value = CGFloat(nativeSettingsManager.setting(forKey: "TouchLookSensitivity", default: 0.012).value)
-        return value.isFinite ? min(0.05, max(0.001, value)) : 0.012
+        CGFloat(TouchLookSensitivityConfiguration.coefficient(from: nativeSettingsManager))
     }
 
     private var touchLookInvertX: Bool {

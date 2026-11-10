@@ -154,13 +154,16 @@ struct GameCardView: View {
                         .lineLimit(1)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                GameRemarkLine(game: game)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             
             Spacer()
         }
         .padding(12)
-        .frame(width: 174, height: 220)
+        // 内容自然增高，避免备注第三行和两行长标题被原固定高度裁切。
+        .frame(width: 174)
+        .frame(minHeight: 220)
         .background {
             RoundedRectangle(cornerRadius: 16)
                 .fill(.thinMaterial)

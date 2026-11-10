@@ -148,6 +148,12 @@ extension GamesListView {
                 } label: {
                     Label("Game Info", systemImage: "info.circle")
                 }
+
+                Button {
+                    activeSheet = .gameNote(game: game)
+                } label: {
+                    Label("Edit Note", systemImage: "square.and.pencil")
+                }
                 
                 Button {
                     activeSheet = .perGameSettings(game: game)
@@ -234,6 +240,13 @@ extension GamesListView {
         ) { _ in
             activeSheet = .perGameSettings(game: game)
         }
+
+        let noteAction = UIAction(
+            title: String(localized: "Edit Note"),
+            image: UIImage(systemName: "square.and.pencil")
+        ) { _ in
+            activeSheet = .gameNote(game: game)
+        }
         
         let controllerLayoutAction = UIAction(
             title: "Controller Layout",
@@ -245,7 +258,7 @@ extension GamesListView {
         let coreSection = UIMenu(
             title: "",
             options: .displayInline,
-            children: [playAction, infoAction, settingsAction, controllerLayoutAction]
+            children: [playAction, infoAction, noteAction, settingsAction, controllerLayoutAction]
         )
         
         let updateAction = UIAction(

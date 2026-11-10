@@ -12,6 +12,7 @@ import Melo_Controller
 enum ActiveSheet: Identifiable, Equatable{
     case gameInfo(game: GameInfo)
     case perGameSettings(game: GameInfo)
+    case gameNote(game: GameInfo)
     // needs to be a full screen sheet so commented out
     // case gameController(game: Game)
     case dlc(game: GameInfo)
@@ -21,13 +22,18 @@ enum ActiveSheet: Identifiable, Equatable{
 
     var id: String {
         switch self {
-        case .gameInfo(let game),
-             .perGameSettings(let game),
-             // .gameController(let game),
-             .dlc(let game),
-             .mods(let game),
-             .update(let game):
-            return "\(type(of: self))-\(game.id)"
+        case .gameInfo(let game):
+            return "game-info-\(game.id)"
+        case .perGameSettings(let game):
+            return "game-settings-\(game.id)"
+        case .gameNote(let game):
+            return "game-note-\(game.id)"
+        case .dlc(let game):
+            return "game-dlc-\(game.id)"
+        case .mods(let game):
+            return "game-mods-\(game.id)"
+        case .update(let game):
+            return "game-update-\(game.id)"
         case .account:
             return "account"
         }
@@ -179,6 +185,8 @@ struct GamesListView: View {
                 GameInfoSheet(game: game)
             case .perGameSettings(let game):
                 PerGameSettingsView(game.titleId)
+            case .gameNote(let game):
+                GameRemarkEditor(game: game)
             case .dlc(let game):
                 DLCManagerSheet(game: game)
             case .update(let game):

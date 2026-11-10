@@ -65,6 +65,7 @@ struct GameRowView: View {
                                 .foregroundColor(.secondary)
                         }
                     }
+                    GameRemarkLine(game: game)
                 }
                 
                 Spacer()

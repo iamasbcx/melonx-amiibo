@@ -58,8 +58,7 @@ class MetalView: MTKView {
     private func syncTouchLookSettings() {
         let settings = NativeSettingsManager.shared
         touchLookEnabled = settings.setting(forKey: "TouchLookEnabled", default: false).value
-        let sensitivity = CGFloat(settings.setting(forKey: "TouchLookSensitivity", default: 0.012).value)
-        touchLookSensitivity = sensitivity.isFinite ? min(0.05, max(0.001, sensitivity)) : 0.012
+        touchLookSensitivity = CGFloat(TouchLookSensitivityConfiguration.coefficient(from: settings))
         let deadZone = CGFloat(settings.setting(forKey: "TouchLookDeadZone", default: 0.5).value)
         touchLookDeadZone = deadZone.isFinite ? min(20, max(0, deadZone)) : 0.5
         touchLookInvertX = settings.setting(forKey: "TouchLookInvertX", default: false).value

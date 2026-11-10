@@ -597,6 +597,7 @@ struct PerGameSettingsView: View {
                 NativeToggleRow("Touch Look", icon: "hand.draw",
                                 isOn: nativeSettingsManager.setting(forKey: "TouchLookEnabled", default: false).projectedValue,
                                 info: "Swipe the right side of the screen to control the right stick camera view.")
+                TouchLookSensitivityRow(settings: nativeSettingsManager)
                 NativeToggleRow("Invert Touch Look X", icon: "arrow.left.and.right",
                                 isOn: nativeSettingsManager.setting(forKey: "TouchLookInvertX", default: false).projectedValue)
                 NativeToggleRow("Invert Touch Look Y", icon: "arrow.up.and.down",
