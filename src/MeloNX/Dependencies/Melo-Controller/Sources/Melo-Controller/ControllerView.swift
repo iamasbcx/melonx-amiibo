@@ -192,6 +192,8 @@ public struct ControllerView: View {
                 }
             }
             .padding()
+            // 编辑时实体按钮和摇杆必须高于滑动视角区域，确保重叠位置仍可切换选择。
+            .zIndex(isEditing ? 0.7 : 0)
             .onChange(of: verticalSizeClass) { _ in controllerHandler.updateOrientation() }
             .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
                 controllerHandler.updateOrientation()
