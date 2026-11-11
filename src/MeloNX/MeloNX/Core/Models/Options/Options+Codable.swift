@@ -114,7 +114,8 @@ extension Options: Codable {
         disableVSync               = try c.decodeIfPresent(Bool.self,   forKey: .disableVSync)             ?? false
         vSyncMode                  = VSyncMode(rawValue: try c.decodeIfPresent(Int32.self, forKey: .vSyncMode) ?? (disableVSync ? VSyncMode.unbounded.rawValue : VSyncMode.switchMode.rawValue)) ?? .switchMode
         customVSyncInterval        = try c.decodeIfPresent(Int32.self,  forKey: .customVSyncInterval)      ?? 120
-        disableShaderCache         = try c.decodeIfPresent(Bool.self,   forKey: .disableShaderCache)       ?? true
+        // 缺少旧配置字段时采用与新安装一致的默认值；已有显式 false/true 保持不变。
+        disableShaderCache         = try c.decodeIfPresent(Bool.self,   forKey: .disableShaderCache)       ?? false
         enableTextureRecompression = try c.decodeIfPresent(Bool.self,   forKey: .enableTextureRecompression) ?? true
         disableDockedMode          = try c.decodeIfPresent(Bool.self,   forKey: .disableDockedMode)        ?? true
         systemTimeZone             = try c.decodeIfPresent(String.self, forKey: .systemTimeZone)           ?? "UTC"

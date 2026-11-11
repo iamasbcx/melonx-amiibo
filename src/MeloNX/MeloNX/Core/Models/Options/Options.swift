@@ -167,7 +167,8 @@ struct Options {
     var disableVSync: Bool = false
     var vSyncMode: VSyncMode = .switchMode
     var customVSyncInterval: Int32 = 120
-    var disableShaderCache: Bool = true
+    // 新安装默认保留磁盘着色器缓存；启动时可预加载已收集的着色器，减少重复编译卡顿。
+    var disableShaderCache: Bool = false
     var enableTextureRecompression: Bool = true
     var disableDockedMode: Bool = true
     var systemLanguage: SystemLanguage = .americanEnglish
