@@ -49,6 +49,12 @@ struct MetalViewContainer: View {
                     if portrait && !isStretched {
                         Color.clear
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .if(nativeSettingsManager.showScreenShotButton(true).bool) { view in
+                                view
+                                    .overlay(alignment: .topLeading) {
+                                        InGameConfigView()
+                                    }
+                            }
                             .overlay(alignment: overlayAlignment) {
                                 if showPerformanceBelow { performanceOverlay }
                             }
@@ -71,6 +77,13 @@ struct MetalViewContainer: View {
             .onChange(of: portrait) { newValue in
                 updateOrientation(newValue)
             }
+        }
+        // 横屏时齿轮相对整个渲染容器定位到左上边框；竖屏时由游戏画面下方的区域承载。
+        .if(!(isPortrait && !isStretched) && nativeSettingsManager.showScreenShotButton(true).bool) { view in
+            view
+                .overlay(alignment: .topLeading) {
+                    InGameConfigView()
+                }
         }
         .statusBarHidden(true)
         .ignoresSafeArea(.container, edges: isPortrait && !isStretched ? .horizontal : .all)

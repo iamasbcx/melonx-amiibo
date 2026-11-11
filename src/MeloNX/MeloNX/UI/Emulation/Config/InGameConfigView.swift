@@ -59,8 +59,9 @@ struct InGameConfigView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .padding()
-        // 闲置时淡化但保持可点；关闭原生触屏或扩大滑动区域都不能使设置入口消失。
-        .opacity(menuViewHandler.showButton ? 1 : 0.45)
+        // 触摸后短暂显示；闲置时完全隐藏，避免齿轮遮挡横屏游戏画面。
+        .opacity(menuViewHandler.showButton ? 1 : 0)
+        .allowsHitTesting(menuViewHandler.showButton)
         .animation(.easeInOut(duration: 0.6), value: menuViewHandler.showButton)
         .sheet(isPresented: $showAmiiboSelection) {
             AmiiboSelectionView()

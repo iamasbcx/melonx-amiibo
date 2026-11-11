@@ -91,12 +91,6 @@ struct EmulationView: View {
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                // 菜单位于输入层之上且遵守安全区，全屏滑动区域不能遮住齿轮。
-                .overlay(alignment: .topLeading) {
-                    if nativeSettingsManager.showScreenShotButton(true).bool && !editingInput {
-                        InGameConfigView()
-                    }
-                }
         }
     }
     
