@@ -217,7 +217,7 @@ run_dotnet_test presentation-pacing-tests tests/PresentationPacing.Tests/Present
 run_dotnet_test host-loop-tests tests/HostLoop.Tests/HostLoop.Tests.csproj
 run_dotnet_test core-optimization-tests tests/CoreOptimization.Tests/CoreOptimization.Tests.csproj
 run_dotnet_test graphics-optimization-tests tests/GraphicsOptimization.Tests/GraphicsOptimization.Tests.csproj
-run_dotnet_test graphics-link-tests tests/GraphicsLink.Tests/GraphicsLink.Tests.csproj
+run_dotnet_test graphics-link-tests tests/GraphicsLink.Tests/GraphicsLink.Tests.csproj --runtime osx-arm64
 run_dotnet_test apple-audio-tests tests/AppleAudio.Tests/AppleAudio.Tests.csproj
 run_dotnet_test alert-contract-tests tests/AlertContract.Tests/AlertContract.Tests.csproj
 run_dotnet_test runtime-boundary-tests tests/RuntimeBoundary.Tests/RuntimeBoundary.Tests.csproj

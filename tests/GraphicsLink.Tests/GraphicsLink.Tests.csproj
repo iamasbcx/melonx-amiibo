@@ -6,6 +6,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <!-- GraphicsShutdownTests 创建真实 VulkanRenderer；macOS 初始化会调用 MoltenVK，测试输出必须携带同一原生依赖。 -->
+    <PackageReference Include="Ryujinx.Graphics.Vulkan.Dependencies.MoltenVK" />
     <ProjectReference Include="../../src/Ryujinx.Graphics.Vulkan/Ryujinx.Graphics.Vulkan.csproj" />
   </ItemGroup>
 </Project>
