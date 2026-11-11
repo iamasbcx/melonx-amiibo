@@ -3,6 +3,25 @@
 # 不请求证书，不采用现成核心；失败保留日志，全部校验通过才报告完成。
 set -euo pipefail
 
+# 记录 CI 退出码 134 的命令、管道和环境。
+LOG_DIR_PREINIT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../build/logs" && pwd)"
+mkdir -p "${LOG_DIR_PREINIT}"
+_failure_context() {
+  local status=$? pipeline_text="${PIPESTATUS[*]}" command="$BASH_COMMAND"
+  {
+    printf '[failure] status=%s\n' "$status"
+    printf '[failure] command=%q\n' "$command"
+    printf '[failure] pipeline_status=%s\n' "$pipeline_text"
+    printf '[failure] uname=%s\n' "$(uname -a 2>/dev/null || true)"
+    printf '[failure] bash=%s\n' "${BASH_VERSION:-unknown}"
+    printf '[failure] dotnet_root=%s\n' "${DOTNET_ROOT:-unset}"
+    printf '[failure] cwd=%s\n' "$PWD"
+    date -u '+[failure] time=%Y-%m-%dT%H:%M:%SZ'
+  } >> "${LOG_DIR_PREINIT}/failure-context.log"
+  exit "$status"
+}
+trap _failure_context ERR
+
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 BUILD_DIR="${PROJECT_ROOT}/build"
@@ -52,6 +71,7 @@ xcrun --sdk iphoneos --show-sdk-version
 xcrun clang -x c -std=c11 -Wall -Wextra -Werror -fsyntax-only \
   src/MeloNX/MeloNX/Core/Models/MotionBridge.h \
   src/MeloNX/MeloNX/Core/Models/PerformanceBridge.h \
+  src/MeloNX/MeloNX/Core/Models/CheatBridge.h \
   2>&1 | tee "${LOG_DIR}/motion-bridge-header.log"
 xcrun swiftc -parse-as-library \
   src/MeloNX/MeloNX/Core/Amiibo/AmiiboCatalogParser.swift \
@@ -59,6 +79,35 @@ xcrun swiftc -parse-as-library \
   -o "${BUILD_DIR}/AmiiboCatalogParserTests" \
   2>&1 | tee "${LOG_DIR}/amiibo-parser-build.log"
 "${BUILD_DIR}/AmiiboCatalogParserTests" 2>&1 | tee "${LOG_DIR}/amiibo-parser-tests.log"
+# 弹窗协议直接编译生产解析器，覆盖取消、空字符串和会话关闭的当前版本契约。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Common/TextInputRequest.swift \
+  tests/AlertProtocolTests.swift \
+  -o "${BUILD_DIR}/AlertProtocolTests" \
+  2>&1 | tee "${LOG_DIR}/alert-protocol-build.log"
+"${BUILD_DIR}/AlertProtocolTests" 2>&1 | tee "${LOG_DIR}/alert-protocol-tests.log"
+# 直接验证金手指的生产协议和会话状态，旧游戏回执不得改变新一局的开关。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Cheats/CheatSessionState.swift \
+  tests/CheatSessionStateTests.swift \
+  -o "${BUILD_DIR}/CheatSessionStateTests" \
+  2>&1 | tee "${LOG_DIR}/cheat-session-build.log"
+"${BUILD_DIR}/CheatSessionStateTests" 2>&1 | tee "${LOG_DIR}/cheat-session-tests.log"
+# 功能开关的磁盘契约与核心读取器保持一致；未执行不能作为启动前设置已验收。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Cheats/CheatFeatureSettings.swift \
+  tests/CheatFeatureSettingsTests.swift \
+  -o "${BUILD_DIR}/CheatFeatureSettingsTests" \
+  2>&1 | tee "${LOG_DIR}/cheat-feature-build.log"
+"${BUILD_DIR}/CheatFeatureSettingsTests" 2>&1 | tee "${LOG_DIR}/cheat-feature-tests.log"
+# 启动前按游戏目录读取和编辑 TXT；ABI 2 的代次、互斥组和保存后重启语义由生产状态模型验证。
+xcrun swiftc -parse-as-library -default-isolation MainActor \
+  src/MeloNX/MeloNX/Core/Cheats/CheatSessionState.swift \
+  src/MeloNX/MeloNX/Core/Cheats/CheatCatalogState.swift \
+  tests/CheatCatalogStateTests.swift \
+  -o "${BUILD_DIR}/CheatCatalogStateTests" \
+  2>&1 | tee "${LOG_DIR}/cheat-catalog-state-build.log"
+"${BUILD_DIR}/CheatCatalogStateTests" 2>&1 | tee "${LOG_DIR}/cheat-catalog-state-tests.log"
 # 使用应用的同一份 Swift 数学模块生成运动回放，再交给生产 C# 滤波器验证停止后的姿态。
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   src/MeloNX/MeloNX/Core/Controllers/InGameInputSession.swift \
@@ -133,29 +182,49 @@ export PATH="${DOTNET_ROOT}:${PATH}"
 export DOTNET_CLI_TELEMETRY_OPTOUT=1
 export DOTNET_NOLOGO=1
 DOTNET="${DOTNET_ROOT}/dotnet"
+
+run_dotnet_test() {
+  local name="$1"
+  local project="$2"
+  shift 2
+  local log_file="${LOG_DIR}/${name}.log"
+  local start_epoch
+  start_epoch="$(date +%s)"
+  printf '[test-start] name=%s project=%s\n' "$name" "$project" | tee "$log_file"
+  set +e
+  "${DOTNET}" run --project "$project" -c Release "$@" 2>&1 | tee -a "$log_file"
+  local -a pipeline_status=("${PIPESTATUS[@]}")
+  set -e
+  local test_status="${pipeline_status[0]:-1}"
+  local tee_status="${pipeline_status[1]:-1}"
+  local elapsed=$(( $(date +%s) - start_epoch ))
+  printf '[test-end] name=%s status=%s tee_status=%s elapsed_seconds=%s\n' \
+    "$name" "$test_status" "$tee_status" "$elapsed" | tee -a "$log_file"
+  if [[ "$test_status" != 0 ]]; then
+    printf '[test-failure] name=%s status=%s\n' "$name" "$test_status" >> "${LOG_DIR}/failure-context.log"
+    return "$test_status"
+  fi
+}
 "${DOTNET}" --info | tee "${LOG_DIR}/dotnet-info.log"
 "${DOTNET}" workload list | tee "${LOG_DIR}/dotnet-workloads.log"
-"${DOTNET}" run --project tests/MotionInput.Tests/MotionInput.Tests.csproj \
-  -c Release -- "${BUILD_DIR}/controller-motion-traces.json" \
-  2>&1 | tee "${LOG_DIR}/controller-motion-tests.log"
-"${DOTNET}" run --project tests/NativeMotion.Tests/NativeMotion.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/native-motion-tests.log"
-"${DOTNET}" run --project tests/AmiiboContract.Tests/AmiiboContract.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/amiibo-contract-tests.log"
-"${DOTNET}" run --project tests/HleAmiibo.Tests/HleAmiibo.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/amiibo-hle-tests.log"
-"${DOTNET}" run --project tests/PresentationPacing.Tests/PresentationPacing.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/presentation-pacing-tests.log"
-"${DOTNET}" run --project tests/HostLoop.Tests/HostLoop.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/host-loop-tests.log"
-"${DOTNET}" run --project tests/CoreOptimization.Tests/CoreOptimization.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/core-optimization-tests.log"
-"${DOTNET}" run --project tests/GraphicsOptimization.Tests/GraphicsOptimization.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/graphics-optimization-tests.log"
-"${DOTNET}" run --project tests/GraphicsLink.Tests/GraphicsLink.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/graphics-link-tests.log"
-"${DOTNET}" run --project tests/AppleAudio.Tests/AppleAudio.Tests.csproj \
-  -c Release 2>&1 | tee "${LOG_DIR}/apple-audio-tests.log"
+run_dotnet_test controller-motion-tests tests/MotionInput.Tests/MotionInput.Tests.csproj -- "${BUILD_DIR}/controller-motion-traces.json"
+run_dotnet_test native-motion-tests tests/NativeMotion.Tests/NativeMotion.Tests.csproj
+run_dotnet_test amiibo-contract-tests tests/AmiiboContract.Tests/AmiiboContract.Tests.csproj
+run_dotnet_test amiibo-hle-tests tests/HleAmiibo.Tests/HleAmiibo.Tests.csproj
+run_dotnet_test presentation-pacing-tests tests/PresentationPacing.Tests/PresentationPacing.Tests.csproj
+run_dotnet_test host-loop-tests tests/HostLoop.Tests/HostLoop.Tests.csproj
+run_dotnet_test core-optimization-tests tests/CoreOptimization.Tests/CoreOptimization.Tests.csproj
+run_dotnet_test graphics-optimization-tests tests/GraphicsOptimization.Tests/GraphicsOptimization.Tests.csproj
+run_dotnet_test graphics-link-tests tests/GraphicsLink.Tests/GraphicsLink.Tests.csproj
+run_dotnet_test apple-audio-tests tests/AppleAudio.Tests/AppleAudio.Tests.csproj
+run_dotnet_test alert-contract-tests tests/AlertContract.Tests/AlertContract.Tests.csproj
+run_dotnet_test runtime-boundary-tests tests/RuntimeBoundary.Tests/RuntimeBoundary.Tests.csproj
+run_dotnet_test kernel-lifecycle-tests tests/KernelLifecycle.Tests/KernelLifecycle.Tests.csproj
+run_dotnet_test code-patch-coordinator-tests tests/CodePatchCoordinator.Tests/CodePatchCoordinator.Tests.csproj
+run_dotnet_test tamper-runtime-tests tests/TamperRuntime.Tests/TamperRuntime.Tests.csproj
+run_dotnet_test tamper-memory-tests tests/TamperMemory.Tests/TamperMemory.Tests.csproj
+run_dotnet_test cheat-catalog-tests tests/CheatCatalog.Tests/CheatCatalog.Tests.csproj
+run_dotnet_test cheat-bridge-tests tests/CheatBridge.Tests/CheatBridge.Tests.csproj
 
 # 所有可复用的输入先记录摘要；SPM 只接受现有锁文件，禁止构建时自动升级。
 python3 - "${PROJECT_ROOT}" "${ARTIFACT_DIR}" <<'PY'
@@ -203,7 +272,7 @@ touch "${CORE_PUBLISH_STAMP}"
 test -s "${CORE_DYLIB}"
 test "${CORE_DYLIB}" -nt "${CORE_PUBLISH_STAMP}"
 nm -gU "${CORE_DYLIB}" > "${LOG_DIR}/core-symbols.log"
-for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion set_statistics_enabled; do
+for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion set_statistics_enabled mlx_cheats_get_abi mlx_cheats_get_snapshot mlx_cheats_set_enabled mlx_cheats_get_catalog mlx_cheats_set_catalog_enabled mlx_cheats_edit_catalog; do
   if ! awk '{print $NF}' "${LOG_DIR}/core-symbols.log" | grep -qx "_${symbol}"; then
     echo "新核心缺少导出：${symbol}" >&2
     exit 1
@@ -221,7 +290,7 @@ xcrun otool -L "${CORE_NORMALIZED}" | tee "${LOG_DIR}/core-dependencies.log"
 python3 - "${SCRIPT_DIR}" "${CORE_NORMALIZED}" "${ARTIFACT_DIR}/core-verification.json" <<'PY'
 import json, pathlib, sys
 sys.path.insert(0, sys.argv[1])
-from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, PERFORMANCE_SYMBOLS, sha256, validate_system_icu, verify_core
+from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, PERFORMANCE_SYMBOLS, CHEAT_SYMBOLS, sha256, validate_system_icu, verify_core
 data = pathlib.Path(sys.argv[2]).read_bytes()
 core = verify_core(data)
 report = {
@@ -229,6 +298,7 @@ report = {
     "amiibo_symbols": sorted(AMIIBO_SYMBOLS),
     "motion_symbols": sorted(MOTION_SYMBOLS),
     "performance_symbols": sorted(PERFORMANCE_SYMBOLS),
+    "cheat_symbols": sorted(CHEAT_SYMBOLS),
     "dependencies": list(core.dependencies),
     "globalization": {"mode": "apple-system-icu", "dependency": validate_system_icu(core)},
     "scope": "NativeAOT 核心的平台、导出与依赖结构；未完成真机运行验证",

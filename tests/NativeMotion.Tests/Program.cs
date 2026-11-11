@@ -6,7 +6,18 @@ using Ryujinx.Input;
 using Ryujinx.Input.HLE;
 using Ryujinx.Input.Native;
 
+// CI 可能把未捕获托管异常显示为 134；记录原始异常和阶段名。
+AppDomain.CurrentDomain.UnhandledException += (_, eventArgs) =>
+    Console.Error.WriteLine($"NativeMotion.Tests: unhandled exception (terminating={eventArgs.IsTerminating}): {eventArgs.ExceptionObject}");
+TaskScheduler.UnobservedTaskException += (_, eventArgs) =>
+{
+    Console.Error.WriteLine($"NativeMotion.Tests: unobserved task exception: {eventArgs.Exception}");
+    eventArgs.SetObserved();
+};
+void Stage(string name) => Console.WriteLine($"NativeMotion.Tests: stage={name}");
+
 // 通过生产驱动的公共入口验证采样事务、输入源切换和重置，避免用替身重复实现锁逻辑。
+Stage("init");
 using var driver = new NativeGamepadDriver();
 nint id = new(0x2345);
 NativeGamepadDriver.AttachGamepad("Motion regression", id);
@@ -20,6 +31,7 @@ void Require(bool success, string message)
     if (!success) throw new InvalidOperationException(message);
 }
 
+Stage("sample-concurrency");
 Submit(first);
 Require(gamepad.GetMotionSample() == first, "完整采样没有保留全部向量");
 int inconsistent = 0;
@@ -41,6 +53,7 @@ Require(inconsistent == 0, "原子读取看到了混合帧");
 
 // 相同角速度也必须清除重力，否则手机采样切换为实体手柄后会遗留融合来源。
 Submit(first);
+Stage("axis-reset");
 NativeGamepadDriver.SetMotionData(id, (int)MotionInputId.Gyroscope, first.Gyroscope.X, first.Gyroscope.Y, first.Gyroscope.Z);
 Require(gamepad.GetMotionSample().Gravity is null && gamepad.GetMotionSample().RotationFactors is null && gamepad.GetMotionSample().ScreenOrientation is null, "逐轴角速度输入没有清除手机元数据");
 Submit(first);
@@ -59,6 +72,7 @@ Require(gamepad.GetMotionSample() == validBeforeInvalid, "非法屏幕方向改�
 
 // 直接经过生产 NpadController，验证游戏最终收到的符号，而不是仅检查驱动中的中间值。
 // CemuHook 在 GamepadDriver 模式下不会使用；本测试只注入真实 Native 驱动。
+Stage("npad-hle");
 using var npad = new NpadController(null!);
 var configuration = new StandardControllerInputConfig
 {
@@ -114,6 +128,7 @@ var controlled = npad.GetHLEMotionState();
 Require(Vector3.Distance(controlled.Gyroscope, new Vector3(-0.027f, 0, 0.054f)) < 0.002f, "HLE 未应用各轴启用/反向控制，或控制系数被重复换轴");
 
 // 设置挂起不能用逐轴写零代替，否则来源会变成实体设备并清除手机姿态控制。
+Stage("suspend-resume");
 ulong beforeSuspensionEpoch = gamepad.GetMotionSample().MotionEpoch;
 NativeGamepadDriver.SuspendMotion(id);
 var suspended = gamepad.GetMotionSample();
@@ -148,6 +163,7 @@ Require(Vector3.Distance(npad.GetHLEMotionState().Gyroscope, new Vector3(-0.027f
     "暂停恢复后未继续输出受控旋转");
 
 // 从完整 Native 样本穿过真实 Npad 到 HLE，验证转屏与暂停期间姿态变化不会延迟回拉。
+Stage("orientation-boundary");
 var beforeBoundary = npad.GetHLEMotionState();
 Vector3 changedDriverGravity = Vector3.Normalize(new Vector3(0.5f, 0.5f, 0.7071f));
 Submit(new GamepadMotionSample(changedDriverGravity, Vector3.Zero, changedDriverGravity, new Vector3(-1, 0, 1), 2));
@@ -173,6 +189,7 @@ Require(afterChangedPause.Orientation.AsSpan().SequenceEqual(beforeBoundary.Orie
     "暂停期间改变手机姿态后 HLE 仍持续运动");
 
 // 两次方向切换在同一次轮询前完成，最终方向码相同也必须保留时间边界。
+Stage("unobserved-orientation");
 var beforeUnobservedOrientation = npad.GetHLEMotionState();
 Submit(new GamepadMotionSample(Vector3.UnitX, new Vector3(100, 0, 0), Vector3.UnitX, Vector3.One, 3));
 Submit(new GamepadMotionSample(Vector3.UnitX, new Vector3(100, 0, 0), Vector3.UnitX, Vector3.One, 2));
@@ -181,6 +198,7 @@ var afterUnobservedOrientation = npad.GetHLEMotionState();
 Require(afterUnobservedOrientation.Orientation.AsSpan().SequenceEqual(beforeUnobservedOrientation.Orientation.AsSpan()) && afterUnobservedOrientation.Gyroscope == Vector3.Zero,
     "未轮询到中间方向时丢失坐标基变化边界");
 // 使用已配置手机运动源的真实 Npad 采样，验证左右姿态快照不产生逐帧堆数组。
+Stage("allocation-free-snapshot");
 for (int index = 0; index < 100; index++) _ = npad.GetHLEMotionState();
 long allocationBefore = GC.GetAllocatedBytesForCurrentThread();
 for (int index = 0; index < 10000; index++)
