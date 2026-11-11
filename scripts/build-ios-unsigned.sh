@@ -73,7 +73,6 @@ xcrun --sdk iphoneos --show-sdk-version
 xcrun clang -x c -std=c11 -Wall -Wextra -Werror -fsyntax-only \
   src/MeloNX/MeloNX/Core/Models/MotionBridge.h \
   src/MeloNX/MeloNX/Core/Models/PerformanceBridge.h \
-  src/MeloNX/MeloNX/Core/Models/CheatBridge.h \
   2>&1 | tee "${LOG_DIR}/motion-bridge-header.log"
 xcrun swiftc -parse-as-library \
   src/MeloNX/MeloNX/Core/Amiibo/AmiiboCatalogParser.swift \
@@ -88,28 +87,6 @@ xcrun swiftc -parse-as-library -default-isolation MainActor \
   -o "${BUILD_DIR}/AlertProtocolTests" \
   2>&1 | tee "${LOG_DIR}/alert-protocol-build.log"
 "${BUILD_DIR}/AlertProtocolTests" 2>&1 | tee "${LOG_DIR}/alert-protocol-tests.log"
-# 直接验证金手指的生产协议和会话状态，旧游戏回执不得改变新一局的开关。
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  src/MeloNX/MeloNX/Core/Cheats/CheatSessionState.swift \
-  tests/CheatSessionStateTests.swift \
-  -o "${BUILD_DIR}/CheatSessionStateTests" \
-  2>&1 | tee "${LOG_DIR}/cheat-session-build.log"
-"${BUILD_DIR}/CheatSessionStateTests" 2>&1 | tee "${LOG_DIR}/cheat-session-tests.log"
-# 功能开关的磁盘契约与核心读取器保持一致；未执行不能作为启动前设置已验收。
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  src/MeloNX/MeloNX/Core/Cheats/CheatFeatureSettings.swift \
-  tests/CheatFeatureSettingsTests.swift \
-  -o "${BUILD_DIR}/CheatFeatureSettingsTests" \
-  2>&1 | tee "${LOG_DIR}/cheat-feature-build.log"
-"${BUILD_DIR}/CheatFeatureSettingsTests" 2>&1 | tee "${LOG_DIR}/cheat-feature-tests.log"
-# 启动前按游戏目录读取和编辑 TXT；ABI 2 的代次、互斥组和保存后重启语义由生产状态模型验证。
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  src/MeloNX/MeloNX/Core/Cheats/CheatSessionState.swift \
-  src/MeloNX/MeloNX/Core/Cheats/CheatCatalogState.swift \
-  tests/CheatCatalogStateTests.swift \
-  -o "${BUILD_DIR}/CheatCatalogStateTests" \
-  2>&1 | tee "${LOG_DIR}/cheat-catalog-state-build.log"
-"${BUILD_DIR}/CheatCatalogStateTests" 2>&1 | tee "${LOG_DIR}/cheat-catalog-state-tests.log"
 # 使用应用的同一份 Swift 数学模块生成运动回放，再交给生产 C# 滤波器验证停止后的姿态。
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   src/MeloNX/MeloNX/Core/Controllers/InGameInputSession.swift \
@@ -225,8 +202,6 @@ run_dotnet_test kernel-lifecycle-tests tests/KernelLifecycle.Tests/KernelLifecyc
 run_dotnet_test code-patch-coordinator-tests tests/CodePatchCoordinator.Tests/CodePatchCoordinator.Tests.csproj
 run_dotnet_test tamper-runtime-tests tests/TamperRuntime.Tests/TamperRuntime.Tests.csproj
 run_dotnet_test tamper-memory-tests tests/TamperMemory.Tests/TamperMemory.Tests.csproj
-run_dotnet_test cheat-catalog-tests tests/CheatCatalog.Tests/CheatCatalog.Tests.csproj
-run_dotnet_test cheat-bridge-tests tests/CheatBridge.Tests/CheatBridge.Tests.csproj
 
 # 所有可复用的输入先记录摘要；SPM 只接受现有锁文件，禁止构建时自动升级。
 python3 - "${PROJECT_ROOT}" "${ARTIFACT_DIR}" <<'PY'
@@ -274,7 +249,7 @@ touch "${CORE_PUBLISH_STAMP}"
 test -s "${CORE_DYLIB}"
 test "${CORE_DYLIB}" -nt "${CORE_PUBLISH_STAMP}"
 nm -gU "${CORE_DYLIB}" > "${LOG_DIR}/core-symbols.log"
-for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion set_statistics_enabled mlx_cheats_get_abi mlx_cheats_get_snapshot mlx_cheats_set_enabled mlx_cheats_get_catalog mlx_cheats_set_catalog_enabled mlx_cheats_edit_catalog; do
+for symbol in mlx_amiibo_get_abi mlx_amiibo_get_state mlx_amiibo_scan set_gamepad_phone_motion_sample suspend_gamepad_motion set_statistics_enabled; do
   if ! awk '{print $NF}' "${LOG_DIR}/core-symbols.log" | grep -qx "_${symbol}"; then
     echo "新核心缺少导出：${symbol}" >&2
     exit 1
@@ -292,7 +267,7 @@ xcrun otool -L "${CORE_NORMALIZED}" | tee "${LOG_DIR}/core-dependencies.log"
 python3 - "${SCRIPT_DIR}" "${CORE_NORMALIZED}" "${ARTIFACT_DIR}/core-verification.json" <<'PY'
 import json, pathlib, sys
 sys.path.insert(0, sys.argv[1])
-from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, PERFORMANCE_SYMBOLS, CHEAT_SYMBOLS, sha256, validate_system_icu, verify_core
+from verify_ipa import AMIIBO_SYMBOLS, MOTION_SYMBOLS, PERFORMANCE_SYMBOLS, sha256, validate_system_icu, verify_core
 data = pathlib.Path(sys.argv[2]).read_bytes()
 core = verify_core(data)
 report = {
@@ -300,7 +275,6 @@ report = {
     "amiibo_symbols": sorted(AMIIBO_SYMBOLS),
     "motion_symbols": sorted(MOTION_SYMBOLS),
     "performance_symbols": sorted(PERFORMANCE_SYMBOLS),
-    "cheat_symbols": sorted(CHEAT_SYMBOLS),
     "dependencies": list(core.dependencies),
     "globalization": {"mode": "apple-system-icu", "dependency": validate_system_icu(core)},
     "scope": "NativeAOT 核心的平台、导出与依赖结构；未完成真机运行验证",
