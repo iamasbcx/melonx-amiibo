@@ -4,7 +4,9 @@
 set -euo pipefail
 
 # 记录 CI 退出码 134 的命令、管道和环境。
-LOG_DIR_PREINIT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../build/logs" && pwd)"
+SCRIPT_DIR_PREINIT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT_PREINIT="$(cd -- "${SCRIPT_DIR_PREINIT}/.." && pwd)"
+LOG_DIR_PREINIT="${PROJECT_ROOT_PREINIT}/build/logs"
 mkdir -p "${LOG_DIR_PREINIT}"
 _failure_context() {
   local status=$? pipeline_text="${PIPESTATUS[*]}" command="$BASH_COMMAND"
