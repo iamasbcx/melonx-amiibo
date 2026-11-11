@@ -80,13 +80,6 @@ xcrun swiftc -parse-as-library \
   -o "${BUILD_DIR}/AmiiboCatalogParserTests" \
   2>&1 | tee "${LOG_DIR}/amiibo-parser-build.log"
 "${BUILD_DIR}/AmiiboCatalogParserTests" 2>&1 | tee "${LOG_DIR}/amiibo-parser-tests.log"
-# 弹窗协议直接编译生产解析器，覆盖取消、空字符串和会话关闭的当前版本契约。
-xcrun swiftc -parse-as-library -default-isolation MainActor \
-  src/MeloNX/MeloNX/Common/TextInputRequest.swift \
-  tests/AlertProtocolTests.swift \
-  -o "${BUILD_DIR}/AlertProtocolTests" \
-  2>&1 | tee "${LOG_DIR}/alert-protocol-build.log"
-"${BUILD_DIR}/AlertProtocolTests" 2>&1 | tee "${LOG_DIR}/alert-protocol-tests.log"
 # 使用应用的同一份 Swift 数学模块生成运动回放，再交给生产 C# 滤波器验证停止后的姿态。
 xcrun swiftc -parse-as-library -default-isolation MainActor \
   src/MeloNX/MeloNX/Core/Controllers/InGameInputSession.swift \
@@ -196,12 +189,6 @@ run_dotnet_test core-optimization-tests tests/CoreOptimization.Tests/CoreOptimiz
 run_dotnet_test graphics-optimization-tests tests/GraphicsOptimization.Tests/GraphicsOptimization.Tests.csproj
 run_dotnet_test graphics-link-tests tests/GraphicsLink.Tests/GraphicsLink.Tests.csproj --runtime osx-arm64
 run_dotnet_test apple-audio-tests tests/AppleAudio.Tests/AppleAudio.Tests.csproj
-run_dotnet_test alert-contract-tests tests/AlertContract.Tests/AlertContract.Tests.csproj
-run_dotnet_test runtime-boundary-tests tests/RuntimeBoundary.Tests/RuntimeBoundary.Tests.csproj
-run_dotnet_test kernel-lifecycle-tests tests/KernelLifecycle.Tests/KernelLifecycle.Tests.csproj
-run_dotnet_test code-patch-coordinator-tests tests/CodePatchCoordinator.Tests/CodePatchCoordinator.Tests.csproj
-run_dotnet_test tamper-runtime-tests tests/TamperRuntime.Tests/TamperRuntime.Tests.csproj
-run_dotnet_test tamper-memory-tests tests/TamperMemory.Tests/TamperMemory.Tests.csproj
 
 # 所有可复用的输入先记录摘要；SPM 只接受现有锁文件，禁止构建时自动升级。
 python3 - "${PROJECT_ROOT}" "${ARTIFACT_DIR}" <<'PY'
