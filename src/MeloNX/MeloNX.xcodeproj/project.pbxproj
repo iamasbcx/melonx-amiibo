@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		4F0A6A5A0000000000000002 /* NanoHTTP in Frameworks */ = {isa = PBXBuildFile; productRef = 4F0A6A5A0000000000000003 /* NanoHTTP */; };
 		4E5FB8FA2F9612F7005969EC /* Melo-Controller in Frameworks */ = {isa = PBXBuildFile; productRef = 4E5FB8F92F9612F7005969EC /* Melo-Controller */; };
 		4E696875302702350024B484 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4E696874302702350024B484 /* IOKit.framework */; };
 		4EA6523B2FBD941E00D6FB52 /* NavigationStackBackport in Frameworks */ = {isa = PBXBuildFile; productRef = 4EA6523A2FBD941E00D6FB52 /* NavigationStackBackport */; };
@@ -142,6 +143,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4F0A6A5A0000000000000002 /* NanoHTTP in Frameworks */,
 				4E696875302702350024B484 /* IOKit.framework in Frameworks */,
 				4E5FB8FA2F9612F7005969EC /* Melo-Controller in Frameworks */,
 				4EC482D22F8D101B008C1955 /* Ryujinx.Library.dylib in Frameworks */,
@@ -232,6 +234,7 @@
 			packageProductDependencies = (
 				4E5FB8F92F9612F7005969EC /* Melo-Controller */,
 				4EA6523A2FBD941E00D6FB52 /* NavigationStackBackport */,
+				4F0A6A5A0000000000000003 /* NanoHTTP */,
 			);
 			productName = MeloNX;
 			productReference = 4ED5D50B2F80DD02007DB057 /* MeloNX.app */;
@@ -294,6 +297,7 @@
 			packageReferences = (
 				4E5FB8F82F9612F6005969EC /* XCRemoteSwiftPackageReference "Melo-Controller" */,
 				4EA652392FBD941E00D6FB52 /* XCRemoteSwiftPackageReference "navigation-stack-backport" */,
+				4F0A6A5A0000000000000001 /* XCLocalSwiftPackageReference "NanoHTTP" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4ED5D50C2F80DD02007DB057 /* Products */;
@@ -502,7 +506,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "MeloNX uses Bluetooth to connect to Steam Controllers and receive game input.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MeloNX needs local network access for LAN / Local Multiplaer";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "用于局域网联机和在同一 Wi-Fi 内通过网页管理 MeloNX 文件。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -556,7 +560,7 @@
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.games";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "MeloNX uses Bluetooth to connect to Steam Controllers and receive game input.";
-				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "MeloNX needs local network access for LAN / Local Multiplaer";
+				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "用于局域网联机和在同一 Wi-Fi 内通过网页管理 MeloNX 文件。";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
@@ -723,6 +727,10 @@
 				minimumVersion = 1.1.0;
 			};
 		};
+		4F0A6A5A0000000000000001 /* XCLocalSwiftPackageReference "NanoHTTP" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = Dependencies/NanoHTTP;
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -735,6 +743,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 4EA652392FBD941E00D6FB52 /* XCRemoteSwiftPackageReference "navigation-stack-backport" */;
 			productName = NavigationStackBackport;
+		};
+		4F0A6A5A0000000000000003 /* NanoHTTP */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 4F0A6A5A0000000000000001 /* XCLocalSwiftPackageReference "NanoHTTP" */;
+			productName = NanoHTTP;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,0 +1,81 @@
+//
+//  NanoHTTPResponseBodyWriter.swift
+//  NanoHTTP
+//
+//  Created by Matthias Zenger on 22/07/2024.
+//  Based on `HttpResponseBodyWriter` of framework `Swifter` by Damian Kołakowski.
+//
+//  Copyright © 2014-2016 Damian Kołakowski. All rights reserved.
+//  Copyright © 2024 Matthias Zenger. All rights reserved.
+//
+//  Redistribution and use in source and binary forms, with or without
+//  modification, are permitted provided that the following conditions are met:
+//
+//  * Redistributions of source code must retain the above copyright notice,
+//    this list of conditions and the following disclaimer.
+//
+//  * Redistributions in binary form must reproduce the above copyright notice,
+//    this list of conditions and the following disclaimer in the documentation
+//    and/or other materials provided with the distribution.
+//
+//  * Neither the name of the copyright holder nor the names of its contributors
+//    may be used to endorse or promote products derived from this software without
+//    specific prior written permission.
+//
+//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+//  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+//  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+//  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR
+//  ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+//  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+//  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+//  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+//  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+//  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+//
+
+import Foundation
+
+/// Receives the body of a response while a ``NanoHTTPResponse/Body/custom(_:contentType:)``
+/// function produces it. The writer is the connection: whatever is written is sent to the
+/// client at once, so the function can stream content of any size.
+public protocol NanoHTTPResponseBodyWriter {
+  
+  /// Writes the content of a file.
+  func write(_ file: NanoFile) throws
+  
+  /// Writes `length` bytes of a file, from `offset` on: fewer if the file ends earlier.
+  /// This is how a part of a file is sent (a range); where the system allows, the bytes
+  /// do not pass through this process.
+  func write(_ file: NanoFile, offset: Int64, length: Int64) throws
+  
+  /// Writes bytes.
+  func write(_ data: ArraySlice<UInt8>) throws
+  
+  /// Writes bytes.
+  func write(_ data: Data) throws
+}
+
+extension NanoHTTPResponseBodyWriter {
+  /// Writes bytes.
+  public func write(_ data: [UInt8]) throws {
+    try self.write(ArraySlice(data))
+  }
+  
+  /// Reads the part of the file and writes it in blocks.
+  public func write(_ file: NanoFile, offset: Int64, length: Int64) throws {
+    guard offset >= 0, length >= 0, file.seek(Int(offset)) else {
+      throw NanoSocketError.writeFailed("seek failed")
+    }
+    var remaining = length
+    while remaining > 0 {
+      var block = [UInt8](repeating: 0, count: Int(min(64 * 1024, remaining)))
+      let count = try file.read(&block)
+      if count == 0 {
+        break
+      }
+      try self.write(block[0..<count])
+      remaining -= Int64(count)
+    }
+  }
+}

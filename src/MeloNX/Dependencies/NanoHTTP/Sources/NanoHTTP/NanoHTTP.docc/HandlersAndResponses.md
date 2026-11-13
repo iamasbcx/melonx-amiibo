@@ -1,0 +1,267 @@
+# Handlers and Responses
+
+Answer requests with text, JSON, bytes, redirects or streamed content.
+
+## Overview
+
+A handler is a function ``NanoHTTPRequestHandler``: it takes a ``NanoHTTPRequest`` and returns a
+``NanoHTTPResponse``, which consists of a status code, headers and a body. A handler can throw, see
+<doc:HandlersAndResponses#Errors>.
+
+### Creating responses
+
+The static functions of ``NanoHTTPResponse`` create the usual responses:
+
+```swift
+let server = NanoHTTPServer()
+server.get["/text"] = { _ in .ok(.text("plain text")) }
+server.get["/page"] = { _ in .ok(.html("<!DOCTYPE html><h1>A page</h1>")) }
+server.get["/data"] = { _ in .ok(.data(Data([0, 1, 2]), contentType: "application/octet-stream")) }
+server.get["/old"] = { _ in .movedPermanently("/new") }
+server.get["/login"] = { _ in .movedTemporarily("/signin") }
+server.get["/secret"] = { _ in .unauthorized(headers: ["WWW-Authenticate": "Basic realm=\"demo\""]) }
+server.get["/teapot"] = { _ in NanoHTTPResponse(statusCode: 418, body: "short and stout") }
+```
+
+`.ok`, `.badRequest`, `.notFound` and the other helpers take optional `headers` and a body; a string literal
+is a text body. ``NanoHTTPResponse/init(statusCode:headers:body:)`` creates a response with any status.
+
+### Errors
+
+A handler that cannot answer a request can throw instead of building an error response. A ``NanoHTTPError``
+becomes the response with its status code, its headers and, as a plain text body, its message:
+
+```swift
+let server = NanoHTTPServer()
+server.get["/items/:id"] = { request in
+  guard let id = Int(request.params["id"] ?? "") else {
+    throw NanoHTTPError.badRequest("The id is not a number")           // 400
+  }
+  guard id < 100 else {
+    throw NanoHTTPError.notFound("There is no item \(id)")            // 404
+  }
+  return .ok(.text("Item \(id)"))
+}
+server.get["/admin"] = { _ in
+  throw NanoHTTPError.unauthorized(wwwAuthenticate: "Basic realm=\"admin\"")
+}
+server.get["/limit"] = { _ in throw NanoHTTPError.tooManyRequests("Slow down", retryAfter: 30) }
+server.get["/other"] = { _ in throw NanoHTTPError(status: 418, message: "short and stout") }
+```
+
+Every other error that a handler throws is answered with `500 Internal Server Error` and the text
+`Internal Server Error`. The details of the error are logged (with the method and path of the request), not sent to
+the client: the description of a database error or of a missing file tells an attacker more than it should. To
+decide differently, set ``NanoHTTPServer/errorHandler``, for example to answer all errors as JSON:
+
+```swift
+let server = NanoHTTPServer()
+server.errorHandler = { error, request in
+  guard let error = error as? NanoHTTPError else {
+    return nil                                      // leave all other errors to the default
+  }
+  return NanoHTTPResponse(statusCode: error.status, body: .json(["error": error.message ?? ""]))
+}
+```
+
+Middleware can catch errors as well, see <doc:MiddlewareAndExtending>.
+
+### Showing errors
+
+All errors of NanoHTTP conform to `LocalizedError`, so that `localizedDescription` says what went wrong, for a log
+or for the output of a tool. ``NanoHTTPError`` describes itself with its status and message
+(`404 Not Found: There is no item 7`), ``NanoSocketError`` with what failed and the description of the system, and
+``NanoHTTPParserError`` with what is wrong with a request; ``NanoFileError``, ``NanoHTTPRouterError`` and the errors of
+responses and WebSockets do the same:
+
+```swift
+let server = NanoHTTPServer()
+do {
+  try server.start(8080)
+} catch {
+  print("The server did not start: \(error.localizedDescription)")
+  // The server did not start: Unable to bind the socket to the address: Address already in use
+}
+```
+
+The texts are in English (they are not translated), and `description` and the text of a string interpolation
+(`"\(error)"`) are what they were. The text of a description is for you, not for the client: do not put it into a
+response (the server answers all errors but a ``NanoHTTPError`` with a `500` that has no details). Where an error holds
+text that a client sent, as a ``NanoHTTPParserError`` does, the description has the text quoted and escaped, so that
+a control character cannot get into a log through it.
+
+### Bodies
+
+| Body | Content type | Notes |
+|---|---|---|
+| `.empty` | none | `Content-Length: 0` |
+| `.text(String)` | `text/plain; charset=utf-8` | |
+| `.html(String)` | `text/html; charset=utf-8` | the whole document; `.htmlBody(content)` wraps content |
+| `.json(Any)` | `application/json` | a dictionary or array of Foundation values, or any `Encodable` value, see *JSON* |
+| `.data(Data, contentType:)` | the given one, or `application/octet-stream` | |
+| `.custom(writer, contentType:)` | the given one | streamed, length unknown |
+| `.socket(session)` | none | switches the connection to another protocol |
+
+### JSON
+
+To answer with a model, use ``NanoHTTPResponse/json(_:status:headers:encoder:)``: it encodes any `Encodable` value
+(a struct, an array, a dictionary) with a `JSONEncoder` that you can configure, and sets the `Content-Type`. It throws if
+the value cannot be encoded, which the server answers with `500 Internal Server Error` and logs, like any error that a
+handler throws.
+
+```swift
+// file scope
+struct ExampleItem: Codable {
+  let id: Int
+  let name: String
+}
+```
+
+```swift
+let server = NanoHTTPServer()
+server.get["/items/:id"] = { request in
+  try .json(ExampleItem(id: Int(request.params["id"] ?? "") ?? 0, name: "Example"))
+}
+server.post["/items"] = { request in
+  let item = try request.json(ExampleItem.self)                   // 400 if the body does not fit
+  return try .json(item, status: 201, headers: ["Location": "/items/\(item.id)"])
+}
+```
+
+A `.json` body (`.ok(.json(["id": 7]))`) is the other way. It takes a dictionary or an array of Foundation values, which
+`JSONSerialization` writes, and any value that is `Encodable`, which a `JSONEncoder` writes: a model, an array or
+dictionary of models, a single string or number, or a recursive enum that stands for JSON values, like the `JSON` type of the
+package DynamicJSON. The encoder has its default settings (a `Date` is a number), so use
+``NanoHTTPResponse/json(_:status:headers:encoder:)`` when you need to choose how dates or keys are written. A dictionary or array that
+mixes types (`[String: Any]`) is not `Encodable` and can only hold Foundation values: a `Date` inside it cannot be written.
+A value that cannot be written gets `500 Internal Server Error`, and the reason is logged.
+
+### Redirects and other status responses
+
+The helpers for redirects take the target and optional headers: ``NanoHTTPResponse/seeOther(_:_:)`` (`303`: fetch the
+target with `GET`, the way to answer a posted form), ``NanoHTTPResponse/temporaryRedirect(_:_:)`` (`307`) and
+``NanoHTTPResponse/permanentRedirect(_:_:)`` (`308`) keep the method and the body of the request, and
+``NanoHTTPResponse/movedPermanently(_:_:)`` (`301`) and ``NanoHTTPResponse/movedTemporarily(_:_:)`` (`307`) are the older
+forms. A line break in the target is replaced by a space, so that a target taken from a request cannot add headers.
+
+The other statuses have their helpers too: ``NanoHTTPResponse/noContent(headers:)`` (`204`),
+``NanoHTTPResponse/notModified(headers:)`` (`304`), ``NanoHTTPResponse/payloadTooLarge(headers:_:)`` (`413`),
+``NanoHTTPResponse/unprocessableContent(headers:_:)`` (`422`) and ``NanoHTTPResponse/serviceUnavailable(headers:_:)``
+(`503`, with a `Retry-After` header if the client can try again later).
+
+### Cookies
+
+``NanoHTTPResponse/cookies`` holds the cookies that a response sets; the server writes one `Set-Cookie` header for each
+(a header dictionary cannot hold several). A ``NanoHTTPCookie`` is meant for the common case: it is sent for every path,
+hidden from scripts (`HttpOnly`) and not sent along with requests that other sites cause (`SameSite=Lax`).
+
+```swift
+let server = NanoHTTPServer()
+server.post["/login"] = { request in
+  var response = NanoHTTPResponse.seeOther("/home")
+  response.setCookie(NanoHTTPCookie(name: "session", value: "a1b2c3", maxAge: 3600))
+  response.setCookie(NanoHTTPCookie(name: "theme", value: "dark", maxAge: 86400 * 365, httpOnly: false))
+  return response
+}
+server.post["/logout"] = { request in
+  var response = NanoHTTPResponse.seeOther("/")
+  response.deleteCookie(named: "session")              // the path (and domain) have to match the ones it was set with
+  return response
+}
+```
+
+The value can be any text: what a cookie cannot hold is percent-encoded and decoded again by
+``NanoHTTPRequest/cookies``. A cookie that cannot be sent safely (a name that is not a token, a path or domain that
+contains `;` or a control character) is left out of the response, and a warning is logged. Read what the client sends
+back with ``NanoHTTPRequest/cookie(_:)``, see <doc:ReadingRequests>. A cookie is not a session: nothing makes the
+value hard to guess or tamper with, so keep what matters (who is logged in) on the server and put a random identifier
+in the cookie. Set ``NanoHTTPCookie/secure`` when the server is reached over TLS (behind a proxy that terminates it).
+
+### Streaming
+
+A `.custom` body is written by a function, so that content of any size can be sent without holding it in memory:
+
+```swift
+let server = NanoHTTPServer()
+server.get["/countdown"] = { _ in
+  .custom(200, contentType: "text/plain") { writer in
+    for number in (1...5).reversed() {
+      try writer.write(Array("\(number)\n".utf8))
+    }
+  }
+}
+```
+
+The writer is a ``NanoHTTPResponseBodyWriter``. Whatever it writes is sent at once, which makes this the way to send
+events and progress as they happen. The length of such a body is not known, so the server sends it in *chunks*
+(`Transfer-Encoding: chunked`): every write is a chunk, and the empty chunk at the end ends the body, so that the
+connection can be used for the next request. An HTTP/1.0 client does not know chunks; it gets the body up to the end
+of the connection, which is then closed. If writing fails because the client has gone, the function throws; there is
+no way to answer the client any more, and the body is not ended properly, so that the client sees that it is not
+complete.
+
+If you know the length, say so with a `Content-Length` header: the body is then sent as it is, without chunks. The
+server makes sure that it has that many bytes: a function that writes fewer or more leaves the connection unusable,
+which the server ends (and logs).
+
+```swift
+let server = NanoHTTPServer()
+server.get["/report"] = { _ in
+  .custom(200, headers: ["Content-Length": "6"], contentType: "text/plain") { writer in
+    try writer.write(Array("abc".utf8))
+    try writer.write(Array("def".utf8))
+  }
+}
+```
+
+### What the server adds
+
+The server writes the status line, `Content-Length` (or `Transfer-Encoding: chunked`) for the body, a `Date`
+header, the `Content-Type` of the body, `Connection` where the connection is closed, and your headers. It does not add
+`Server`. A `Content-Length`, `Transfer-Encoding`, `Connection` or `Date` header of yours is replaced by what the
+server knows better (a handler that sets `Date` itself is the exception: the server adds none then). Responses that
+have no body (`1xx`, `204`, `304`) have no `Content-Length` and no body, whatever the handler returned. Header names
+must be valid tokens (a name with a space or a colon is dropped, and logged), and carriage return, line feed and NUL
+in a header value are replaced by spaces, so that a value taken from a request cannot inject headers.
+
+A body that is in memory is sent together with the head of the response, in one piece.
+
+### HEAD, OPTIONS and methods that a path does not have
+
+- A `HEAD` request is answered by the handler of the `GET` route (or by a handler that is registered for `HEAD`; one for
+  all methods comes last). The response is the one that `GET` would get, `Content-Length` included, without
+  the body: the handler sees the method `HEAD` and need not do anything special, and a function that writes a body
+  is not called.
+- If a path has routes, but not for the method of the request, the answer is `405 Method Not Allowed` with an `Allow` header
+  that lists the methods that the path has (`Allow: GET, HEAD, POST, OPTIONS`). Without a route for the path it is `404`.
+  The ``NanoHTTPServer/notFoundHandler`` is for paths without routes.
+- An `OPTIONS` request is answered with `204 No Content` and the same `Allow` header, unless there is a handler for
+  `OPTIONS` (`server.options["/items"] = ...`, which is also where cross-origin preflight requests can be answered).
+  `OPTIONS *` lists the methods of all routes.
+
+### Connections
+
+HTTP/1.1 connections are **persistent**: the server keeps a connection open after a response and waits for the next
+request, until the client sends `Connection: close`, the connection is idle for longer than the
+``NanoHTTPServerIO/Configuration/idleTimeout``, or the server stops. An HTTP/1.0 client has its connection closed,
+unless it sends `Connection: keep-alive` (and the response has a length). The server says what it does: a response
+before the connection is closed has `Connection: close`, and one to a client that asked for `keep-alive` confirms it.
+
+A connection also ends after a response whose end is not known (HTTP/1.0 and no `Content-Length`), after one whose body
+could not be written completely, and after a request that cannot be answered (`400`, `413`, `414`, `431`, `408`, `417`, `501`,
+`505`, which all have `Connection: close`).
+
+Requests can have bodies of two kinds: with a `Content-Length`, or sent in chunks (`Transfer-Encoding: chunked`), which
+the server puts together before the handler is called. A client that sends `Expect: 100-continue` before a body is
+answered with `100 Continue` as soon as the server accepts the body (a body that is too large is refused instead). A
+request with both a `Content-Length` and chunks, or with another `Transfer-Encoding` than `chunked`, is refused (`400`,
+`501`), as is one that speaks another version than HTTP/1.0 and HTTP/1.1 (`505`).
+
+## Topics
+
+- ``NanoHTTPResponse``
+- ``NanoHTTPResponse/Body``
+- ``NanoHTTPCookie``
+- ``NanoHTTPRequestHandler``
+- ``NanoHTTPError``
+- ``NanoHTTPResponseBodyWriter``

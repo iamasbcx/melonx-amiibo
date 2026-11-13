@@ -114,6 +114,7 @@ class MainSceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidBecomeActive(_ scene: UIScene) {
+        LANFileManagerCoordinator.shared.handleSceneDidBecomeActive()
         ControllerManager.shared.setApplicationActive(true)
         let controller = RyujinxController.shared
         guard !controller.isStopping else { return }
@@ -130,6 +131,7 @@ class MainSceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     func sceneDidEnterBackground(_ scene: UIScene) {
+        LANFileManagerCoordinator.shared.handleSceneDidEnterBackground()
         ControllerManager.shared.setApplicationActive(false)
         RyujinxController.shared.flushPendingSettingsSaves()
         pauseEmulation()

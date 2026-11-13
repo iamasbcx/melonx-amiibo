@@ -93,25 +93,36 @@ extension GamesListView {
         }
     }
 
-    /// 局域网网页文件管理入口。服务端尚未接入前保留完整菜单层级，并明确禁用操作，避免点击后静默无响应。
+    /// 局域网网页文件管理入口。服务状态和地址由协调器维护，避免菜单点击后静默无响应。
     private var lanFileManagerSection: some View {
         Menu {
-            Section("Service Not Integrated") {
-                Button {} label: {
-                    Label("Start Service", systemImage: "play.circle")
+            Section(lanFileManager.isRunning ? "服务运行中" : "服务已停止") {
+                Button {
+                    lanFileManager.startService()
+                } label: {
+                    Label(lanFileManager.isRunning ? "服务运行中" : "启动服务", systemImage: "play.circle")
                 }
-                .disabled(true)
+                .disabled(lanFileManager.isRunning)
 
-                Button {} label: {
-                    Label("Show Address / QR Code", systemImage: "qrcode")
+                Button {
+                    lanFileManager.isAddressSheetPresented = true
+                } label: {
+                    Label("显示地址 / 二维码", systemImage: "qrcode")
                 }
-                .disabled(true)
+                .disabled(!lanFileManager.isRunning || lanFileManager.address == nil)
+
+                if lanFileManager.isRunning {
+                    Button(role: .destructive) {
+                        lanFileManager.stopService()
+                    } label: {
+                        Label("停止服务", systemImage: "stop.circle")
+                    }
+                }
             }
         } label: {
-            Label("LAN Web File Manager", systemImage: "network")
+            Label("局域网网页文件管理", systemImage: "network")
         }
     }
-
     private var firmwareSection: some View {
         Group {
             if ryujinxController.firmwareInstallState.isInstalling {
@@ -350,4 +361,3 @@ extension GamesListView {
         )
     }
 }
-

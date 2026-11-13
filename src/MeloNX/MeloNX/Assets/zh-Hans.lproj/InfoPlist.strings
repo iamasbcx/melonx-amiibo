@@ -1,3 +1,3 @@
 /* 仅翻译系统权限弹窗，键名与权限使用方式保持原样。 */
 "NSBluetoothAlwaysUsageDescription" = "MeloNX 使用蓝牙连接 Steam 手柄并接收游戏输入。";
-"NSLocalNetworkUsageDescription" = "MeloNX 需要访问本地网络，以使用局域网和本地多人游戏功能。";
+"NSLocalNetworkUsageDescription" = "用于局域网联机和在同一 Wi-Fi 内通过网页管理 MeloNX 文件。";

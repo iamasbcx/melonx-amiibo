@@ -77,6 +77,8 @@
 			</array>
 		</dict>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>用于局域网联机和在同一 Wi-Fi 内通过网页管理 MeloNX 文件。</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 	<key>UTExportedTypeDeclarations</key>

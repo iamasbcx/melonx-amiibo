@@ -61,6 +61,7 @@ extension UTType {
 struct GamesListView: View {
     @EnvironmentObject public var ryujinxController: RyujinxController
     @StateObject var nativeSettings = NativeSettingsManager.shared
+    @StateObject var lanFileManager = LANFileManagerCoordinator.shared
     @State var showingAccounts = false
     @State var activeSheet: ActiveSheet?
     @State var controllerEditor: GameInfo?
@@ -178,6 +179,17 @@ struct GamesListView: View {
         .fullScreenCover(isPresented: controllerEdit) {
             ControllerView(controller: VirtualControllerManager.shared, isEditing: true, gameId: controllerEditor?.titleId ?? "", gameName: controllerEditor?.titleName)
                 .interactiveDismissDisabled(true)
+        }
+        .sheet(isPresented: $lanFileManager.isAddressSheetPresented) {
+            LANFileManagerAddressView(coordinator: lanFileManager)
+        }
+        .alert("无法启动局域网服务", isPresented: Binding(
+            get: { lanFileManager.errorMessage != nil },
+            set: { if !$0 { lanFileManager.clearError() } }
+        )) {
+            Button("确定", role: .cancel) { lanFileManager.clearError() }
+        } message: {
+            Text(lanFileManager.errorMessage ?? "未知错误")
         }
         .sheet(item: $activeSheet) { sheet in
             switch sheet {
