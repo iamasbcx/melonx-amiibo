@@ -126,13 +126,15 @@ MeloNX 应借鉴 PPSSPP 的 HTTP 生命周期、multipart 解析、进度统计�
 
 ## 5. 服务和模块设计
 
-第一版使用系统 `Network.framework` 的 `NWListener` 和 `NWConnection`，不把 `URLSession` 当作服务端。`URLSession` 只能发起客户端请求，不能监听入站网页请求。当前工程没有现成 HTTP server 依赖，建议先实现项目内最小 HTTP/1.1 解析器；若后续引入 Swift Package，必须锁定版本并纳入 Xcode 工程和离线构建说明。
+第一版采用 [`objecthub/swift-nanohttp`](https://github.com/objecthub/swift-nanohttp) 作为 HTTP/1.1 底层，不再自写请求解析器。它是 BSD-3-Clause、纯 Swift、无第三方依赖并支持 iOS 15；使用其流式 response、`HEAD`、`ETag`、`Range` 和路径安全实现。上传分片会话、鉴权、覆盖语义和恢复元数据仍由 MeloNX 路由层实现，依赖版本必须锁定并纳入 Xcode 工程和 Codemagic 构建。
 
+
+开源复用结论：优先采用 [`objecthub/swift-nanohttp`](https://github.com/objecthub/swift-nanohttp) 作为 HTTP 和文件 Range 底层。该项目为 BSD-3-Clause、纯 Swift、iOS 15+、无第三方依赖，已有 `HEAD`、`ETag`、`Last-Modified`、`Range 206/416`、流式文件响应、路径越界和符号链接防护。它没有本项目需要的网页文件管理、鉴权和 `Upload-Id` 断点上传，因此只复用底层能力，分片会话、`.part` 临时后缀、覆盖确认和前后台恢复由 MeloNX 自己实现。网页 UI 和目录 CRUD 可参考 MIT 的 [`MeloDreek/GCDWebServer_Swift`](https://github.com/MeloDreek/GCDWebServer_Swift)，但该项目当前下载实现没有 `Range/ETag`，上传中断也不支持跨网页恢复，不能直接当作 10–40GB 传输实现。所有复制或引入的第三方代码必须保留原版权、许可证和第三方通知文件；无许可证、GPL 或 AGPL 项目不直接复制。
 模块边界：
 
 ```text
 LANFileManagerViewModel (@MainActor)
-  ├─ LANFileServer (NWListener/NWConnection、HTTP 路由、鉴权)
+  ├─ LANFileServer (NanoHTTP server、HTTP 路由、鉴权)
   ├─ FileSystemActor (路径校验、目录读写、冲突和原子替换)
   ├─ TransferManager (流式传输、进度、取消、临时文件)
   ├─ TransferActivityCoordinator (防熄屏引用计数)
@@ -451,7 +453,7 @@ activeTransferCount == 0
 ### 阶段一：契约和只读闭环
 
 1. 定义 `LANFileServer`、`FileSystemActor`、统一错误码和路径测试。
-2. 增加 `NWListener`、一次性 token、`NSLocalNetworkUsageDescription` 和服务设置页。
+2. 引入锁定版本的 `swift-nanohttp`、一次性 token、`NSLocalNetworkUsageDescription` 和服务设置页。
 3. 实现网页静态资源、状态、目录列表、文件 stat、打开和下载。
 4. 验证服务停止、token 失效、根目录不能越界。
 
