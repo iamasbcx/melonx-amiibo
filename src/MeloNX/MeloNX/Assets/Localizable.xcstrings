@@ -3811,6 +3811,17 @@
         }
       }
     },
+    "Actual speed depends on the game and device. Audio may be muted during fast forward.": {
+      "comment": "说明倍率是目标速度，以及快进期间的音频表现。",
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "这是目标倍率，实际速度取决于游戏和设备性能。快进期间可能静音。"
+          }
+        }
+      }
+    },
     "Enter a valid decimal number.": {
       "comment": "快进倍率输入不是有效数字时的提示。",
       "localizations": {

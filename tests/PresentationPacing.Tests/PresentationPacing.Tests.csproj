@@ -3,9 +3,15 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
+    <!-- 链接的生产图形/HLE 文件未启用空值流分析；保留测试的空值标注，不改变生产编译语义。 -->
+    <Nullable>annotations</Nullable>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../../src/Ryujinx.Graphics.Gpu/UnboundedPresentPacer.cs" Link="Production/UnboundedPresentPacer.cs" />
+    <Compile Include="../../src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/CompositorTiming.cs" Link="Production/CompositorTiming.cs" />
+    <Compile Include="../../src/Ryujinx.HLE/HOS/Services/SurfaceFlinger/SurfaceFlinger.cs" Link="Production/SurfaceFlinger.cs" />
+    <Compile Include="../../src/Ryujinx.Graphics.Gpu/Window.cs" Link="Production/Window.cs" />
+    <Compile Include="../../src/Ryujinx.Common/Configuration/VSyncMode.cs" Link="Production/VSyncMode.cs" />
+    <Compile Include="../../src/Ryujinx.Common/Configuration/AspectRatioExtensions.cs" Link="Production/AspectRatioExtensions.cs" />
   </ItemGroup>
 </Project>

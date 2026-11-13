@@ -82,7 +82,7 @@ namespace Ryujinx.Audio.Renderer.Server
         /// <param name="tickSource">Tick source used to measure elapsed time.</param>
         public AudioRendererManager(ITickSource tickSource)
         {
-            Processor = new AudioProcessor();
+            Processor = new AudioProcessor(tickSource);
             TickSource = tickSource;
             _sessionIds = new int[Constants.AudioRendererSessionCountMax];
             _sessions = new AudioRenderSystem[Constants.AudioRendererSessionCountMax];

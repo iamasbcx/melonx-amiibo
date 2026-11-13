@@ -5,8 +5,12 @@ using Ryujinx.Audio.Integration;
 using Ryujinx.Audio.Renderer.Dsp;
 using Ryujinx.Audio.Renderer.Dsp.Command;
 using Ryujinx.Audio.Renderer.Server.Sink;
+using Ryujinx.Common;
+using Ryujinx.Cpu;
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Buffer = Ryujinx.Audio.Common.AudioBuffer;
 
@@ -100,7 +104,7 @@ static class Program
         foreach (uint channels in new uint[] { 1, 2, 6 })
         {
             using AppleHardwareDeviceDriver driver = new();
-            using HardwareDeviceImpl device = new(driver, channels, 48000);
+            using HardwareDeviceImpl device = new(driver, channels, 48000, new TickSource(19_200_000));
             for (uint inputs = 0; inputs <= channels; inputs++)
             {
                 float[] mix = new float[240 * channels];
@@ -141,8 +145,25 @@ static class Program
         Check(AudioDeadlineWait.MillisecondsUntil(1, 5_000_000) == 5, "Deadline rounded down");
         Check(AudioDeadlineWait.MillisecondsUntil(5, 5) == 0, "Expired deadline waited");
         Check(AudioDeadlineWait.MillisecondsUntil(long.MinValue, long.MaxValue) == int.MaxValue, "Deadline overflow");
+        Check(AudioDeadlineWait.NanosecondsPerUpdate(100) == 5_000_000, "1X audio cadence changed");
+        Check(AudioDeadlineWait.NanosecondsPerUpdate(110) == 4_545_454, "1.1X audio cadence lost precision");
+        Check(AudioDeadlineWait.NanosecondsPerUpdate(200) == 2_500_000, "2X audio cadence mismatch");
+        Check(AudioDeadlineWait.NanosecondsPerUpdate(650) == 769_230, "6.5X audio cadence lost precision");
+        Check(AudioDeadlineWait.NanosecondsPerUpdate(2000) == 250_000, "20X audio cadence rounded to milliseconds");
+        Throws(() => AudioDeadlineWait.NanosecondsPerUpdate(0), "Zero audio clock scalar accepted");
+        using (ManualResetEvent stop = new(true))
+        using (ManualResetEvent pause = new(true))
+        {
+            Task stopped = Task.Run(() => AudioDeadlineWait.WaitUntil(stop, pause, PerformanceCounter.ElapsedNanoseconds + 10_000_000_000));
+            Check(stopped.Wait(TimeSpan.FromSeconds(1)), "Precise audio wait ignored stop");
+            stop.Reset();
+            pause.Reset();
+            Task paused = Task.Run(() => AudioDeadlineWait.WaitUntil(stop, pause, PerformanceCounter.ElapsedNanoseconds + 10_000_000_000));
+            Check(paused.Wait(TimeSpan.FromSeconds(1)), "Precise audio wait ignored pause");
+        }
+        CheckTurboAudio();
         using (AppleHardwareDeviceDriver driver = new())
-        using (AudioProcessor processor = new())
+        using (AudioProcessor processor = new(new TickSource(19_200_000) { TickScalar = 2000 }))
         {
             for (int restart = 0; restart < 3; restart++)
             {
@@ -157,5 +178,85 @@ static class Program
         }
         Check(AVFoundation.LiveObjects == 0, "Audio lifecycle leaked objects");
         Console.WriteLine($"AppleAudio.Tests: {_checks} checks passed (managed native shim; Apple device validation still required)");
+    }
+
+    private static void CheckTurboAudio()
+    {
+        TickSource clock = new(19_200_000);
+        using AppleHardwareDeviceDriver driver = new();
+        using AudioProcessor processor = new(clock);
+        processor.Start(driver);
+        processor.Wait();
+
+        try
+        {
+            // 所有 renderer session 共用倍率；快进不追加 PCM，已有尾音只能减少不能增长。
+            uint channels = processor.OutputDevices[0].GetChannelCount();
+            short[] pcm = new short[240 * channels];
+            foreach (IHardwareDevice output in processor.OutputDevices) output.AppendBuffer(pcm, channels);
+            int initialPending = AVFoundation.Pending.Count;
+            Check(initialPending == processor.OutputDevices.Length, "Normal renderer output did not queue each session");
+            int initialAllocations = AVFoundation.PcmAllocations;
+            foreach (long scalar in new long[] { 110, 200, 650, 2000 })
+            {
+                clock.TickScalar = scalar;
+                for (int i = 0; i < 1024; i++)
+                    foreach (IHardwareDevice output in processor.OutputDevices) output.AppendBuffer(pcm, channels);
+                Check(AVFoundation.Pending.Count == initialPending, "Turbo grew the native audio queue");
+                Check(AVFoundation.PcmAllocations == initialAllocations, "Turbo allocated native PCM buffers");
+            }
+            while (AVFoundation.Pending.Count != 0) AVFoundation.Complete();
+
+            // 使用真实 DSP 命令和生产 sink，验证静音没有跳过命令执行或拖住命令完成。
+            float[] mix = new float[240 * channels];
+            Array.Fill(mix, 1000f);
+            DeviceSink sink = new();
+            sink.Parameter.InputCount = channels;
+            for (int channel = 0; channel < channels; channel++) sink.Parameter.Input[channel] = (byte)channel;
+            CommandList commands = new(null, mix, 240, 48000, channels, 0);
+            commands.AddCommand((ICommand)new VolumeCommand().Initialize(0.5f, 0, 0));
+            commands.AddCommand((ICommand)new DeviceSinkCommand().Initialize(0, sink, 0, mix, 0));
+            processor.Send(0, commands, 0, 0);
+            processor.Signal();
+            processor.Wait();
+            Check(mix[0] == 500f, "Turbo skipped DSP processing");
+            Check(!processor.HasRemainingCommands(0), "Turbo retained completed DSP commands");
+            Check(AVFoundation.Pending.Count == 0, "Turbo DSP sink queued physical audio");
+
+            clock.TickScalar = 100;
+            foreach (IHardwareDevice output in processor.OutputDevices) output.AppendBuffer(pcm, channels);
+            Check(AVFoundation.Pending.Count == initialPending, "1X did not resume all renderer outputs");
+            while (AVFoundation.Pending.Count != 0) AVFoundation.Complete();
+
+            // 实际走工作线程/邮箱/等待路径；宽松比例门槛只用于发现固定 5 ms 或 1 ms 限流回归。
+            double normalMs = MeasureCadence(processor, clock, 100, 120);
+            double doubleMs = MeasureCadence(processor, clock, 200, 120);
+            double turboMs = MeasureCadence(processor, clock, 2000, 120);
+            double restoredMs = MeasureCadence(processor, clock, 100, 120);
+            Check(doubleMs < normalMs * 0.85, "2X renderer still used the normal cadence");
+            Check(turboMs < normalMs / 6, "20X renderer retained a millisecond cadence floor");
+            Check(restoredMs > normalMs * 0.65, "1X renderer did not restore normal cadence");
+            Console.WriteLine($"Audio cadence, 120 updates: 1X={normalMs:F2} ms, 2X={doubleMs:F2} ms, 20X={turboMs:F2} ms, restored 1X={restoredMs:F2} ms");
+        }
+        finally
+        {
+            processor.Stop();
+            while (AVFoundation.Pending.Count != 0) AVFoundation.Complete();
+        }
+        Check(AVFoundation.LiveObjects == 0, "Turbo audio lifecycle leaked native objects");
+    }
+
+    private static double MeasureCadence(AudioProcessor processor, TickSource clock, long tickScalar, int count)
+    {
+        clock.TickScalar = tickScalar;
+        processor.Signal();
+        processor.Wait();
+        Stopwatch timer = Stopwatch.StartNew();
+        for (int i = 0; i < count; i++)
+        {
+            processor.Signal();
+            processor.Wait();
+        }
+        return timer.Elapsed.TotalMilliseconds;
     }
 }

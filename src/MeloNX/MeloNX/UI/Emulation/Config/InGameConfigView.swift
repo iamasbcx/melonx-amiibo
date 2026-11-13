@@ -266,6 +266,9 @@ private struct FastForwardButtonSettingsView: View {
                         Text(LocalizedStringKey("Range: 1.0x to 20.0x"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
+                        Text(LocalizedStringKey("Actual speed depends on the game and device. Audio may be muted during fast forward."))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         if let multiplierError {
                             Text(multiplierError == .invalid
                                  ? LocalizedStringKey("Enter a valid decimal number.")

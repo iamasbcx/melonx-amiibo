@@ -184,6 +184,7 @@ run_dotnet_test native-motion-tests tests/NativeMotion.Tests/NativeMotion.Tests.
 run_dotnet_test amiibo-contract-tests tests/AmiiboContract.Tests/AmiiboContract.Tests.csproj
 run_dotnet_test amiibo-hle-tests tests/HleAmiibo.Tests/HleAmiibo.Tests.csproj
 run_dotnet_test presentation-pacing-tests tests/PresentationPacing.Tests/PresentationPacing.Tests.csproj
+run_dotnet_test kernel-timing-tests tests/KernelTiming.Tests/KernelTiming.Tests.csproj
 run_dotnet_test host-loop-tests tests/HostLoop.Tests/HostLoop.Tests.csproj
 run_dotnet_test core-optimization-tests tests/CoreOptimization.Tests/CoreOptimization.Tests.csproj
 run_dotnet_test graphics-optimization-tests tests/GraphicsOptimization.Tests/GraphicsOptimization.Tests.csproj

@@ -1,7 +1,6 @@
 using Ryujinx.Common;
 using Ryujinx.Common.PreciseSleep;
 using System;
-using System.Collections.Generic;
 using System.Threading;
 
 namespace Ryujinx.HLE.HOS.Kernel.Common
@@ -12,8 +11,9 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
 
         private readonly KernelContext _context;
         private readonly ScheduledObjectQueue<IKFutureSchedulerObject> _waitingObjects;
-        private IPreciseSleepEvent _waitEvent;
-        private bool _keepRunning;
+        private readonly IPreciseSleepEvent _waitEvent;
+        private readonly Thread _workerThread;
+        private volatile bool _keepRunning;
         private long _enforceWakeupFromSpinWait;
 
         private const long NanosecondsPerSecond = 1000000000L;
@@ -26,34 +26,29 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
             // 在工作线程启动前创建事件，首次注册不能依赖另一个线程已执行到 using。
             _waitEvent = PreciseSleepHelper.CreateEvent();
             _keepRunning = true;
+            _context.TickSource.ClockChanged += OnClockChanged;
 
-            Thread work = new(WaitAndCheckScheduledObjects)
+            _workerThread = new(WaitAndCheckScheduledObjects)
             {
                 Name = "HLE.TimeManager",
             };
 
             if (OperatingSystem.IsIOS())
             {
-                work.Priority = ThreadPriority.AboveNormal;
+                _workerThread.Priority = ThreadPriority.AboveNormal;
             }
 
-            work.Start();
+            _workerThread.Start();
         }
 
         public void ScheduleFutureInvocation(IKFutureSchedulerObject schedulerObj, long timeout)
         {
-            long startTime = PerformanceCounter.ElapsedTicks;
-            long timePoint = startTime + ConvertNanosecondsToHostTicks(timeout);
-
-            if (timePoint < startTime)
-            {
-                timePoint = long.MaxValue;
-            }
-
-            timePoint = _waitEvent.AdjustTimePoint(timePoint, timeout);
+            // 保存来宾期限，让按下/松开快进时已经注册的 SleepThread 和同步等待也随倍率调整。
+            long timePoint = GuestTimerDeadline.Create(_context.TickSource.Counter, _context.TickSource.Frequency, timeout);
 
             lock (_context.CriticalSection.Lock)
             {
+                if (!_keepRunning) return;
                 if (_waitingObjects.Add(schedulerObj, timePoint))
                 {
                     Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 1);
@@ -62,10 +57,22 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
             }
         }
 
+        /// <summary>与队列更新使用同一锁，避免读出旧倍率后丢失唤醒；停止后不再访问等待资源。</summary>
+        private void OnClockChanged()
+        {
+            lock (_context.CriticalSection.Lock)
+            {
+                if (!_keepRunning) return;
+                Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 1);
+                _waitEvent.Signal();
+            }
+        }
+
         public void UnscheduleFutureInvocation(IKFutureSchedulerObject schedulerObj)
         {
             lock (_context.CriticalSection.Lock)
             {
+                if (!_keepRunning) return;
                 if (_waitingObjects.Remove(schedulerObj))
                 {
                     Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 1);
@@ -82,35 +89,44 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
             {
                 while (_keepRunning)
                 {
+                    long hostDeadline = 0;
                     lock (_context.CriticalSection.Lock)
                     {
+                        if (!_keepRunning) break;
                         Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 0);
 
-                        next = _waitingObjects.Head;
+                        // 暂停时保留全部来宾期限，由恢复通知唤醒，不循环消耗暂停预算。
+                        next = _context.TickSource.IsRunning ? _waitingObjects.Head : null;
+                        if (next != null)
+                        {
+                            hostDeadline = GuestTimerDeadline.ToHost(next.TimePoint,
+                                _context.TickSource.Counter, _context.TickSource.Frequency,
+                                PerformanceCounter.ElapsedTicks, PerformanceCounter.TicksPerSecond,
+                                _context.TickSource.TickScalar);
+                        }
                     }
 
                     if (next != null)
                     {
                         long timePoint = PerformanceCounter.ElapsedTicks;
 
-                        if (next.TimePoint > timePoint)
+                        if (hostDeadline > timePoint)
                         {
-                            if (!_waitEvent.SleepUntil(next.TimePoint))
+                            // 快进的亚毫秒尾段不能走 iOS 的 1ms 低功耗回退，否则 20X 又被固定下限截断。
+                            bool turboTail = _context.TickSource.TickScalar > 100 &&
+                                hostDeadline - timePoint < PerformanceCounter.TicksPerMillisecond;
+                            if (turboTail || !_waitEvent.SleepUntil(hostDeadline))
                             {
-                                PreciseSleepHelper.SpinWaitUntilTimePoint(next.TimePoint, ref _enforceWakeupFromSpinWait);
+                                PreciseSleepHelper.SpinWaitUntilTimePoint(hostDeadline, ref _enforceWakeupFromSpinWait);
                             }
                         }
 
-                        bool timeUp = PerformanceCounter.ElapsedTicks >= next.TimePoint;
-
-                        if (timeUp)
+                        lock (_context.CriticalSection.Lock)
                         {
-                            lock (_context.CriticalSection.Lock)
+                            // 宿主等待可能因取消或换倍率提前返回，必须重新核对来宾时间和节点身份。
+                            if (_keepRunning && (Int128)_context.TickSource.Counter >= next.TimePoint && _waitingObjects.TryRemove(next))
                             {
-                                if (_waitingObjects.TryRemove(next))
-                                {
-                                    next.Object.TimeUp();
-                                }
+                                next.Object.TimeUp();
                             }
                         }
                     }
@@ -162,8 +178,22 @@ namespace Ryujinx.HLE.HOS.Kernel.Common
 
         public void Dispose()
         {
-            _keepRunning = false;
-            _waitEvent?.Signal();
+            lock (_context.CriticalSection.Lock)
+            {
+                if (_keepRunning)
+                {
+                    _keepRunning = false;
+                    _context.TickSource.ClockChanged -= OnClockChanged;
+                    Interlocked.Exchange(ref _enforceWakeupFromSpinWait, 1);
+                    _waitEvent.Signal();
+                }
+            }
+
+            // 等待线程离开 using 作用域后才释放事件；不能让 Dispose 返回后仍访问已释放句柄。
+            if (Thread.CurrentThread != _workerThread)
+            {
+                _workerThread.Join();
+            }
         }
     }
 }

@@ -296,9 +296,9 @@ namespace Ryujinx.Graphics.Gpu
         }
 
         /// <summary>
-        /// Sets whether the host present loop should cap and drop surplus ready frames.
+        /// 设置宿主呈现限速和多余就绪帧丢弃策略；不改变来宾 GPU 命令或 fence 的就绪约束。
         /// </summary>
-        /// <param name="enabled">True when the guest compositor is running with swap interval 0</param>
+        /// <param name="enabled">来宾交换间隔为零或时钟正在快进时启用；正常同步模式关闭。</param>
         public void SetUnboundedPresentMode(bool enabled)
         {
             if (_unboundedPresentMode != enabled)

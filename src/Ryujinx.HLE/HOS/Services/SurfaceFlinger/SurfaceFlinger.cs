@@ -19,7 +19,7 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
         private readonly Dictionary<long, Layer> _layers;
 
-        private bool _isRunning;
+        private volatile bool _isRunning;
 
         private readonly Thread _composerThread;
 
@@ -27,6 +27,8 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         private readonly AutoResetEvent _nextFrameEvent = new(true);
         private long _ticks;
         private long _ticksPerFrame;
+        private long _tickScalar;
+        private bool _timingChanged;
         private readonly long _spinTicks;
         private readonly long _1msTicks;
 
@@ -80,7 +82,10 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
         private void UpdateSwapInterval(int swapInterval)
         {
             _swapInterval = swapInterval;
-            _device.Gpu.Window.SetUnboundedPresentMode(_swapInterval == 0);
+            _tickScalar = _device.TickScalar;
+            _targetVSyncInterval = _device.TargetVSyncInterval;
+            _timingChanged = true;
+            _device.Gpu.Window.SetUnboundedPresentMode(_swapInterval == 0 || CompositorTiming.IsTurbo(_tickScalar));
 
             // If the swap interval is 0, Game VSync is disabled.
             if (_swapInterval == 0)
@@ -90,8 +95,84 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
             }
             else
             {
-                _ticksPerFrame = ((Stopwatch.Frequency / _device.TargetVSyncInterval) * 100) / _device.TickScalar;
-                _targetVSyncInterval = _device.TargetVSyncInterval;
+                _ticksPerFrame = CompositorTiming.CalculateTicksPerFrame(
+                    Stopwatch.Frequency,
+                    _targetVSyncInterval,
+                    _tickScalar);
+            }
+        }
+
+        /// <summary>
+        /// 在合成线程上同步动态计时配置。
+        /// 快进开关可能在没有新 buffer 时改变，因此不能只在 Compose 成功取到 buffer 后更新。
+        /// </summary>
+        private void RefreshTiming()
+        {
+            long tickScalar = _device.TickScalar;
+            long targetVSyncInterval = _device.TargetVSyncInterval;
+
+            if (tickScalar == _tickScalar && targetVSyncInterval == _targetVSyncInterval)
+            {
+                return;
+            }
+
+            _tickScalar = tickScalar;
+            _targetVSyncInterval = targetVSyncInterval;
+            _timingChanged = true;
+            _device.Gpu.Window.SetUnboundedPresentMode(_swapInterval == 0 || CompositorTiming.IsTurbo(tickScalar));
+
+            if (_swapInterval != 0)
+            {
+                _ticksPerFrame = CompositorTiming.CalculateTicksPerFrame(
+                    Stopwatch.Frequency,
+                    targetVSyncInterval,
+                    tickScalar);
+            }
+        }
+
+        /// <summary>
+        /// 等待无 VSync 模式的新 buffer 或刷新期限；仅由合成线程调用。
+        /// 整毫秒部分可被 buffer 事件中断，亚毫秒部分使用独立计时事件和短自旋，
+        /// 避免把 20 倍时的 0.833 ms 周期向上取整为 1 ms，也避免持续忙轮询。
+        /// </summary>
+        private void WaitForNextFrame(long timePoint)
+        {
+            while (_isRunning)
+            {
+                long remainingTicks = timePoint - PerformanceCounter.ElapsedTicks;
+
+                if (remainingTicks <= 0 || _nextFrameEvent.WaitOne(0))
+                {
+                    return;
+                }
+
+                long milliseconds = remainingTicks / _1msTicks;
+
+                if (milliseconds > 0)
+                {
+                    if (_nextFrameEvent.WaitOne((int)Math.Min(milliseconds, int.MaxValue)))
+                    {
+                        return;
+                    }
+
+                    continue;
+                }
+
+                // 计时 helper 的事件不能接收外部信号。这里最多睡眠不足 1 ms，
+                // 返回后立即检查 buffer 事件；较长等待始终使用上方可中断的事件。
+                PreciseSleepHelper.SleepUntilTimePoint(_event, timePoint);
+
+                while (_isRunning && PerformanceCounter.ElapsedTicks < timePoint)
+                {
+                    if (_nextFrameEvent.WaitOne(0))
+                    {
+                        return;
+                    }
+
+                    Thread.SpinWait(5);
+                }
+
+                return;
             }
         }
 
@@ -304,7 +385,19 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
             while (_isRunning)
             {
+                RefreshTiming();
+
                 long ticks = PerformanceCounter.ElapsedTicks;
+
+                if (_timingChanged)
+                {
+                    // 倍率/刷新率变化后重新建立墙钟基准，避免旧周期余量触发补帧突发。
+                    // 此状态只由合成线程写入，UI 只更新线程安全的 TickSource。
+                    _ticks = 0;
+                    _swapIntervalDelay = 0;
+                    lastTicks = ticks;
+                    _timingChanged = false;
+                }
 
                 if (_swapInterval == 0)
                 {
@@ -312,7 +405,9 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
 
                     _device.System?.SignalVsync();
 
-                    _nextFrameEvent.WaitOne(17);
+                    // 无 VSync 时没有 buffer 也必须按来宾倍率缩短轮询等待；事件仍可提前唤醒。
+                    WaitForNextFrame(
+                        PerformanceCounter.ElapsedTicks + CompositorTiming.CalculateUnboundedWaitTicks(Stopwatch.Frequency, _tickScalar));
                     lastTicks = ticks;
                 }
                 else
@@ -331,6 +426,12 @@ namespace Ryujinx.HLE.HOS.Services.SurfaceFlinger
                         }
 
                         _device.System?.SignalVsync();
+
+                        if (_timingChanged)
+                        {
+                            // Compose 可能切换了交换间隔，不能把旧周期余量用于新周期的等待。
+                            continue;
+                        }
 
                         // Apply a maximum bound of 3 frames to the tick remainder, in case some event causes Ryujinx to pause for a long time or messes with the timer.
                         _ticks = Math.Min(_ticks - _ticksPerFrame, _ticksPerFrame * 3);
