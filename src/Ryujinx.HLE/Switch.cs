@@ -168,11 +168,40 @@ namespace Ryujinx.HLE
             }
         }
 
-        public void ToggleTurbo()
+        /// <summary>
+        /// 设置模拟器快进状态。开启时使用配置中的 TickScalar，关闭时恢复真实时间倍率。
+        /// </summary>
+        /// <param name="enabled">是否启用快进。</param>
+        public void SetTurboMode(bool enabled)
         {
-            TurboMode = !TurboMode;
+            if (TurboMode == enabled)
+            {
+                return;
+            }
+
+            TurboMode = enabled;
             TickScalar = TurboMode ? Configuration.TickScalar : ITickSource.RealityTickScalar;
         }
+
+        /// <summary>
+        /// 设置快进倍率。倍率以百分比表示，100 为正常速度；核心侧限制为 100 到 2000。
+        /// 快进已开启时立即应用新倍率，否则仅更新下一次快进使用的配置。
+        /// </summary>
+        /// <param name="multiplier">来宾时钟倍率百分比。</param>
+        public void SetTurboMultiplier(long multiplier)
+        {
+            Configuration.TickScalar = Math.Clamp(multiplier, 100, 2000);
+
+            if (TurboMode)
+            {
+                TickScalar = Configuration.TickScalar;
+            }
+        }
+
+        /// <summary>
+        /// 在当前快进状态和正常状态之间切换。
+        /// </summary>
+        public void ToggleTurbo() => SetTurboMode(!TurboMode);
 
         public bool LoadCart(string exeFsDir, string romFsFile = null) => Processes.LoadUnpackedNca(exeFsDir, romFsFile);
         public bool LoadXci(string xciFile, ulong applicationId = 0) => Processes.LoadXci(xciFile, applicationId);

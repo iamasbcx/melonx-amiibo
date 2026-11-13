@@ -123,6 +123,10 @@ struct EmulationView: View {
                 }
                 .onChange(of: scenePhase) { phase in
                     AmiiboService.shared.setApplicationActive(phase == .active)
+                    if phase != .active {
+                        // 应用进入后台或暂态状态时立即恢复正常时钟，避免悬浮按钮保持加速。
+                        ryujinxController.releaseTurboMode()
+                    }
                     if phase == .active && editingInput && isCurrentGameRunning {
                         ryujinxController.isPaused = true
                     }

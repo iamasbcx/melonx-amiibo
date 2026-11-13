@@ -161,6 +161,9 @@ public final class RyujinxController: ObservableObject {
     }
     
     @Published var _isPaused: Bool = false
+
+    /// 当前游戏是否启用快进；该状态不写入配置，退出时会自动清零。
+    @Published private(set) var isTurboMode: Bool = false
     
     @Published var wasManuallyPaused: Bool = false
 
@@ -173,10 +176,37 @@ public final class RyujinxController: ObservableObject {
         } set {
             // 退出开始后核心可能正在释放；恢复前台或关闭设置不得再次向旧核心发送暂停命令。
             guard !isStopping else { return }
+            if newValue {
+                releaseTurboMode()
+            }
             _isPaused = newValue
             Ryujinx.togglePauseEmulation(_isPaused)
             controllerManager.refreshInputResources()
         }
+    }
+
+    /// 设置当前运行实例的快进状态；悬浮按钮按下和释放时传入目标状态。
+    func setTurboMode(_ enabled: Bool) {
+        guard !isStopping, emulationThreadActive else { return }
+
+        Ryujinx.setTurboMode(enabled)
+        isTurboMode = enabled && Ryujinx.isTurboMode
+    }
+
+    /// 设置当前运行实例的快进倍率；实际值由核心限制在有效范围内。
+    func setTurboMultiplier(_ multiplier: Int) {
+        guard !isStopping, emulationThreadActive else { return }
+
+        Ryujinx.setTurboMultiplier(multiplier)
+    }
+
+    /// 强制释放快进状态，用于暂停、切后台、退出和核心异常路径。
+    func releaseTurboMode() {
+        if emulationThreadActive {
+            Ryujinx.setTurboMode(false)
+        }
+
+        isTurboMode = false
     }
     
     private static var hasScript: Bool = false
@@ -266,6 +296,7 @@ public final class RyujinxController: ObservableObject {
         
         isRunning = .started(game: game)
         _isPaused = false
+        isTurboMode = false
         wasManuallyPaused = false
         emulationThreadActive = true
 
@@ -276,7 +307,6 @@ public final class RyujinxController: ObservableObject {
         controllerManager.attachAllControllers()
         
         let nativeSettingsManager = NativeSettingsManager.shared
-        
         if !(nativeSettingsManager.writeStdout.value as Bool) {
             redirectStdIOToFile()
         }
@@ -295,11 +325,14 @@ public final class RyujinxController: ObservableObject {
                 self.emulationThreadActive = false
                 
                 if self.isStopping {
+                    self.isTurboMode = false
                     self.finishStopping()
                 } else if response != 0 {
+                    self.isTurboMode = false
                     self.restoreGlobalInputProfile()
                     self.isRunning = .crashed(result: "Code: \(response)")
                 } else {
+                    self.isTurboMode = false
                     self.restoreGlobalInputProfile()
                     self.isRunning = .stopped
                 }
@@ -320,6 +353,7 @@ public final class RyujinxController: ObservableObject {
         }
 
         isStopping = true
+        releaseTurboMode()
         controllerManager.refreshInputResources()
         StatisticsHandler.shared.endSession()
         LoadingOverlayViewModel.shared.endSession()
@@ -341,6 +375,7 @@ public final class RyujinxController: ObservableObject {
         dispatchPrecondition(condition: .onQueue(.main))
         Ryujinx.emulationView = nil
         _isPaused = false
+        isTurboMode = false
         wasManuallyPaused = false
         isStopping = false
         isRunning = .stopped

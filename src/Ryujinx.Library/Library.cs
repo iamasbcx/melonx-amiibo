@@ -95,6 +95,8 @@ namespace Ryujinx.Library
         // UI 可以早于核心启动提交显示策略；新窗口/上下文必须继承最近一次设置。
         private static int _statisticsEnabled;
         private static int _unboundedPresentTargetFps = 60;
+        // iOS 快进默认使用 2 倍来宾时钟；100 表示正常速度，200 表示 2 倍。
+        private const long DefaultTurboTickScalar = 200;
 
         // 创建应用级输入管理器；其 NativeGamepadDriver 必须跨游戏重启保持有效。
         private static InputManager CreateInputManager()
@@ -236,6 +238,35 @@ namespace Ryujinx.Library
                 context.System.TogglePauseEmulation(shouldPause);
                 if (shouldPause) window?.SetPaused(true);
             }
+        }
+
+        /// <summary>
+        /// 设置当前 iOS 游戏的快进状态。上下文为空或正在退出时安全忽略请求。
+        /// </summary>
+        [UnmanagedCallersOnly(EntryPoint = "set_turbo_mode")]
+        public static void SetTurboMode(bool enabled)
+        {
+            Switch context = _emulationContext;
+            context?.SetTurboMode(enabled);
+        }
+
+        /// <summary>
+        /// 返回当前 iOS 游戏的快进状态；没有活动上下文时返回 false。
+        /// </summary>
+        [UnmanagedCallersOnly(EntryPoint = "get_turbo_mode")]
+        public static bool GetTurboMode()
+        {
+            return _emulationContext?.TurboMode ?? false;
+        }
+
+        /// <summary>
+        /// 设置当前 iOS 游戏的快进倍率；范围校验由 HLE 核心执行。
+        /// </summary>
+        [UnmanagedCallersOnly(EntryPoint = "set_turbo_multiplier")]
+        public static void SetTurboMultiplier(int multiplier)
+        {
+            Switch context = _emulationContext;
+            context?.SetTurboMultiplier(multiplier);
         }
 
         [UnmanagedCallersOnly(EntryPoint = "load_keyset")]
@@ -1072,7 +1103,7 @@ namespace Ryujinx.Library
                 options.DisableVSync ? Ryujinx.Common.Configuration.VSyncMode.Unbounded : options.VSyncMode,
                 !options.DisableDockedMode,
                 !options.DisablePTC,
-                ITickSource.RealityTickScalar,
+                OperatingSystem.IsIOS() ? DefaultTurboTickScalar : ITickSource.RealityTickScalar,
                 options.EnableInternetAccess,
                 !options.DisableFsIntegrityChecks ? IntegrityCheckLevel.ErrorOnInvalid : IntegrityCheckLevel.None,
                 options.FsGlobalAccessLogMode,

@@ -296,6 +296,21 @@ final class Ryujinx {
         toggle_pause_emulation(pause)
     }
 
+    /// 设置当前游戏的快进状态；实际倍率由模拟核心配置决定。
+    static func setTurboMode(_ enabled: Bool) {
+        set_turbo_mode(enabled)
+    }
+
+    /// 读取核心当前的快进状态，用于校准 SwiftUI 状态。
+    static var isTurboMode: Bool {
+        get_turbo_mode()
+    }
+
+    /// 设置当前游戏的快进倍率，核心会再次校验百分比范围。
+    static func setTurboMultiplier(_ multiplier: Int) {
+        set_turbo_multiplier(Int32(multiplier))
+    }
+
     /*
     static func initialize_dualmapped() -> Bool {
         MeloNX.initialize_dualmapped()
@@ -545,6 +560,15 @@ fileprivate func close_user(_ userid: UnsafePointer<CChar>!)
 
 @_silgen_name("toggle_pause_emulation")
 fileprivate func toggle_pause_emulation(_ shouldPause: Bool)
+
+@_silgen_name("set_turbo_mode")
+fileprivate func set_turbo_mode(_ enabled: Bool)
+
+@_silgen_name("get_turbo_mode")
+fileprivate func get_turbo_mode() -> Bool
+
+@_silgen_name("set_turbo_multiplier")
+fileprivate func set_turbo_multiplier(_ multiplier: Int32)
 
 
 // installed_firmware_version
