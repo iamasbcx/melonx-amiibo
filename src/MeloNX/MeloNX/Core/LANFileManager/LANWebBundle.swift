@@ -60,7 +60,7 @@ nonisolated enum LANWebBundle {
       </main>
       <dialog id="message-dialog"><form method="dialog"><h2 id="message-title">提示</h2><p id="message-body"></p><button>确定</button></form></dialog>
       <dialog id="choice-dialog"><h2 id="choice-title"></h2><p id="choice-body"></p><div id="choice-actions" class="top-actions"></div></dialog>
-      <dialog id="downloads-dialog"><h2>文件夹下载清单</h2><p class="muted">逐个下载原文件，无需 ZIP。请在保存时保留所示相对路径。浏览器可能询问是否允许多个下载。</p><div id="downloads-list"></div><p><button id="downloads-all">下载全部</button> <button id="downloads-close" class="secondary">关闭</button></p></dialog>
+      <dialog id="downloads-dialog"><h2>文件夹下载清单</h2><p class="muted">逐项串行发送原文件，无需 ZIP。请在保存时保留所示相对路径。浏览器可能询问是否允许多个下载。“服务端已发送”不代表浏览器已完成本地保存。</p><p id="downloads-status" role="status"></p><div id="downloads-list"></div><p><button id="downloads-all">下载全部</button> <button id="downloads-close" class="secondary">关闭</button></p></dialog>
       <input id="resume-import" type="file" accept="application/json,.json" hidden>
       <script src="/app.js" defer></script>
     </body>
@@ -134,6 +134,9 @@ nonisolated enum LANWebBundle {
             busy: false,
             pauseRequested: false,
             folderDownloadEntries: [],
+            folderDownloadCompleted: new Set(),
+            folderDownloadFailed: new Map(),
+            folderDownloadBusy: false,
             activeXHR: null,
             directoryRequest: 0,
         };
@@ -400,14 +403,68 @@ nonisolated enum LANWebBundle {
             );
         }
         function download(path) {
-            const query = `path=${encodeURIComponent(path)}`;
+            // 普通单文件交给浏览器下载，不创建无须轮询的服务端状态记录。
+            startDownload(path, null);
+            return null;
+        }
+        function newDownloadID() {
+            if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function")
+                return globalThis.crypto.randomUUID();
+            const bytes = new Uint8Array(16);
+            if (globalThis.crypto && typeof globalThis.crypto.getRandomValues === "function")
+                globalThis.crypto.getRandomValues(bytes);
+            else for (let index = 0; index < bytes.length; index++) bytes[index] = Math.floor(Math.random() * 256);
+            bytes[6] = (bytes[6] & 0x0f) | 0x40;
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+            const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+            return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+        }
+        function startDownload(path, downloadID) {
+            const query = `path=${encodeURIComponent(path)}${downloadID ? `&downloadID=${encodeURIComponent(downloadID)}` : ""}`;
             const link = document.createElement("a");
             link.href = `/api/v1/files/download?${query}`;
             link.download = path.split("/").pop() || "download";
             link.target = "_blank";
+            link.rel = "noopener";
             document.body.append(link);
             link.click();
             link.remove();
+        }
+        const wait = (milliseconds) =>
+            new Promise((resolve) => window.setTimeout(resolve, milliseconds));
+        async function waitForDownload(downloadID, path) {
+            const waitingDeadline = Date.now() + 30 * 1000;
+            while (true) {
+                // 状态查询有独立超时；实际大文件发送不设置总时限。
+                const controller = new AbortController();
+                const timeout = window.setTimeout(() => controller.abort(), 15000);
+                let status;
+                try {
+                    status = await json(
+                        `/api/v1/transfers/downloads/${encodeURIComponent(downloadID)}`,
+                        { signal: controller.signal },
+                    );
+                } catch (error) {
+                    if (error.name === "AbortError")
+                        throw new Error("下载状态查询超时，队列已暂停；请检查网络后继续查询。");
+                    throw error;
+                } finally {
+                    window.clearTimeout(timeout);
+                }
+                if (!status || !["waiting", "sending", "sent", "failed"].includes(status.state))
+                    throw new Error("服务端下载状态无效，队列已暂停。");
+                if ((status.state !== "waiting" || status.path) && status.path !== path)
+                    throw new Error("服务端下载路径不匹配，队列已暂停。");
+                if (status.state === "sent") return;
+                if (status.state === "failed")
+                    throw new Error(status.error || status.message || "服务器发送失败");
+                if (status.state === "waiting" && Date.now() >= waitingDeadline)
+                    throw new Error(
+                        `“${path}”下载未开始，可能被浏览器拦截；请允许此站点的多个下载后重试。`,
+                    );
+                // sending 不设置总超时；40 GiB 文件可能需要很久。
+                await wait(status.state === "waiting" ? 500 : 2000);
+            }
         }
         async function collectFiles(path, output = []) {
             const result = await json(
@@ -421,9 +478,14 @@ nonisolated enum LANWebBundle {
             return output;
         }
         async function prepareFolderDownload(entry) {
+            if (state.folderDownloadBusy) {
+                showMessage("下载进行中", "当前目录下载仍在等待上一项完成，不能切换下载目录。");
+                return;
+            }
             const list = $("downloads-list");
             list.textContent = "正在读取目录清单…";
             state.folderDownloadEntries = [];
+            $("downloads-status").textContent = "";
             $("downloads-all").disabled = true;
             openDialog($("downloads-dialog"));
             try {
@@ -440,20 +502,71 @@ nonisolated enum LANWebBundle {
                     item.textContent = `${file.path} · ${formatBytes(Number(file.size))}`;
                     list.append(item);
                 });
-                $("downloads-all").disabled = false;
+                updateDownloadAction();
             } catch (error) {
                 list.textContent = `读取失败：${error.message}`;
             }
         }
-        function downloadFolderItems() {
+        async function downloadFolderItems() {
+            if (state.folderDownloadBusy) {
+                showMessage("下载进行中", "当前目录下载仍在等待上一项完成。");
+                return;
+            }
             const files = state.folderDownloadEntries.slice();
-            let index = 0;
-            const next = () => {
-                if (index >= files.length) return;
-                download(files[index++].path);
-                window.setTimeout(next, 700);
-            };
-            next();
+            state.folderDownloadBusy = true;
+            $("downloads-all").disabled = true;
+            try {
+                for (const file of files) {
+                    const entryKey = `${file.path}|${file.size}|${file.modifiedAt}`;
+                    if (state.folderDownloadCompleted.has(entryKey)) continue;
+                    let downloadID = state.folderDownloadFailed.get(entryKey) || null;
+                    if (downloadID) {
+                        const action = await choose(
+                            "下载未完成",
+                            `“${file.path}”已有一次未完成的服务端下载。继续查询不会重新发送；重新开始可能在浏览器下载目录留下重复文件。`,
+                            [
+                                ["resume", "继续查询"],
+                                ["restart", "重新开始", "danger"],
+                                [null, "取消", "secondary"],
+                            ],
+                        );
+                        if (!action) break;
+                        if (action === "restart") downloadID = null;
+                    }
+                    if (!downloadID) {
+                        downloadID = newDownloadID();
+                        startDownload(file.path, downloadID);
+                        state.folderDownloadFailed.set(entryKey, downloadID);
+                    }
+                    $("downloads-status").textContent = `正在等待服务端发送：${file.path}`;
+                    try {
+                        await waitForDownload(downloadID, file.path);
+                        state.folderDownloadCompleted.add(entryKey);
+                        state.folderDownloadFailed.delete(entryKey);
+                    } catch (error) {
+                        // 发送失败或 waiting 超时都停止队列，不隐式重放已发请求。
+                        $("downloads-status").textContent = `已暂停：${file.path} · ${error.message}`;
+                        showMessage(
+                            "目录下载暂停",
+                            `${file.path}\n${error.message}\n请处理浏览器下载权限或网络后继续查询。`,
+                        );
+                        break;
+                    }
+                }
+            } finally {
+                state.folderDownloadBusy = false;
+                updateDownloadAction();
+            }
+        }
+        function updateDownloadAction() {
+            const entries = state.folderDownloadEntries;
+            const sent = entries.filter((file) =>
+                state.folderDownloadCompleted.has(`${file.path}|${file.size}|${file.modifiedAt}`),
+            ).length;
+            $("downloads-all").disabled = state.folderDownloadBusy || sent === entries.length;
+            $("downloads-all").textContent = sent === entries.length ? "服务端已发送全部" : "串行下载剩余项";
+            if (entries.length && sent === entries.length)
+                $("downloads-status").textContent = `服务端已发送 ${sent} 项。请在浏览器下载列表确认本地保存结果。`;
         }
         async function mkdir() {
             const name = window.prompt("新文件夹名称（只填写当前目录下的名称）");

@@ -152,6 +152,12 @@ final class LengthLimitedBodyWriter: NanoHTTPResponseBodyWriter {
     guard min(length, room) > 0 else {
       return
     }
-    self.written += Int(try self.socket.writeFile(file, offset: offset, length: min(length, room)))
+    let expected = min(length, room)
+    let count = try self.socket.writeFile(file, offset: offset, length: expected)
+    self.written += Int(count)
+    // 源文件在发送期间截短时必须使调用方收到失败，不能把不完整响应标记为已发送。
+    guard count == expected else {
+      throw NanoSocketError.writeFailed("the file is shorter than it was")
+    }
   }
 }

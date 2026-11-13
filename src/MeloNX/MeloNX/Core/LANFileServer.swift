@@ -6,6 +6,7 @@ import NanoHTTP
 nonisolated final class LANFileServer: @unchecked Sendable {
     private let fileStore: LANFileSystemStore
     private let uploadStore: LANUploadStore
+    private let downloadTracker = LANDownloadTracker()
     private let incomingBodyDirectory: URL
     private let token = LANFileServer.makeToken()
     private let stateLock = NSLock()
@@ -106,6 +107,7 @@ nonisolated final class LANFileServer: @unchecked Sendable {
 
     /// 关闭 listener 和现有连接；上传临时文件保留，下次启动仍可查询已确认偏移。
     func stop() {
+        downloadTracker.stop()
         stateLock.lock()
         let previous = server
         server = nil
@@ -127,6 +129,12 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         http.get["/api/v1/status"] = { [weak self] _ in
             guard let self else { throw NanoHTTPError.serviceUnavailable() }
             return .ok(.json(["running": self.isRunning, "root": "Documents", "resumableUploads": true, "chunkSize": LANUploadStore.maximumChunkSize]))
+        }
+        http.get["/api/v1/transfers/downloads/:downloadID"] = { [weak self] request in
+            guard let self else { throw NanoHTTPError.serviceUnavailable() }
+            let downloadID = request.params["downloadID"] ?? ""
+            guard UUID(uuidString: downloadID) != nil else { throw NanoHTTPError.badRequest("downloadID is invalid") }
+            return Self.jsonResponse(self.downloadTracker.snapshot(downloadID: downloadID))
         }
         http.get["/api/v1/files/list"] = { [weak self] request in
             guard let self else { throw NanoHTTPError.serviceUnavailable() }
@@ -218,6 +226,21 @@ nonisolated final class LANFileServer: @unchecked Sendable {
 
     private func fileResponse(_ request: NanoHTTPRequest, preview: Bool) throws -> NanoHTTPResponse {
         let path = request.query("path") ?? ""
+        let lease: LANDownloadTracker.WriteLease?
+        if request.method == "GET", let downloadID = request.query("downloadID") {
+            guard UUID(uuidString: downloadID) != nil else { throw NanoHTTPError.badRequest("downloadID is invalid") }
+            do {
+                // 状态表容量满且全部条目都在发送时，不阻断实际下载；该 ID 查询会保持 waiting。
+                lease = try downloadTracker.begin(downloadID: downloadID, path: path)
+            } catch LANDownloadTracker.BeginError.pathMismatch {
+                throw NanoHTTPError.conflict("downloadID is bound to another path")
+            } catch LANDownloadTracker.BeginError.alreadySending {
+                throw NanoHTTPError.conflict("downloadID is already sending")
+            }
+        } else {
+            // HEAD 只查询元数据；不得将它当作下载开始或完成。
+            lease = nil
+        }
         let url = try Self.waitForActor { [fileStore] in try await fileStore.fileURL(relativePath: path) }
         // NanoFiles 打开后持有文件描述符，原路径被替换时不会把新旧内容拼接到同一响应。
         var response = try NanoFiles.share(file: url.path)(request)
@@ -228,7 +251,32 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         response.headers["Content-Disposition"] = "\(disposition); filename*=UTF-8''\(name)"
         if case .custom(let writer, let type) = response.body {
             let contentType = preview && safeInline ? (["txt", "log", "json", "csv"].contains(url.pathExtension.lowercased()) ? "text/plain; charset=utf-8" : type) : "application/octet-stream"
-            response.body = .custom(writer, contentType: contentType)
+            if let lease, let header = response.headers["Content-Length"], let expectedLength = Int64(header), expectedLength >= 0 {
+                let fullRange = response.headers["Content-Range"].flatMap(Self.parseRange)
+                let isFullResponse = response.statusCode == 200 || (response.statusCode == 206 && fullRange.map { $0.start == 0 && $0.end == $0.total - 1 } == true)
+                // 持有 lease 的响应若在写头失败时被丢弃，lease.deinit 会把任务标记为失败。
+                response.body = .custom({ output in
+                    do {
+                        // 保留 NanoHTTP 的原生文件发送；其短写会抛错，避免重复缓冲大文件。
+                        try writer(output)
+                        if isFullResponse {
+                            lease.markSent()
+                        } else {
+                            // 部分 Range 正文发送成功不代表整个文件已发送，目录队列必须暂停。
+                            lease.markFailed("只发送了部分范围，请在浏览器确认下载")
+                        }
+                    } catch {
+                        lease.markFailed("文件读取或连接发送失败")
+                        throw error
+                    }
+                }, contentType: contentType)
+            } else {
+                lease?.markFailed("下载响应缺少有效长度")
+                response.body = .custom(writer, contentType: contentType)
+            }
+        } else {
+            // 404/416/304 不发送完整文件正文，不能推进下载队列。
+            lease?.markFailed("服务器未返回可下载的文件正文")
         }
         return response
     }

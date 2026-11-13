@@ -5,6 +5,7 @@ workflows:
     max_build_duration: 120
     environment:
       xcode: "26.2"
+      node: "22"
     triggering:
       events:
         - push

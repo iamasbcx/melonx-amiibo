@@ -5,6 +5,12 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUTPUT="$ROOT/build/lan-tests"
 mkdir -p "$OUTPUT"
 CORE="$ROOT/src/MeloNX/MeloNX/Core/LANFileManager"
+node --test "$ROOT/tests/LANFileManager/LANWebBundleContract.test.js"
+xcrun swiftc -swift-version 5 -parse-as-library \
+  "$ROOT/src/MeloNX/MeloNX/Core/LANDownloadTracker.swift" \
+  "$ROOT/tests/LANFileManager/DownloadTrackerChecks.swift" \
+  -o "$OUTPUT/DownloadTrackerChecks"
+"$OUTPUT/DownloadTrackerChecks"
 xcrun swiftc -swift-version 5 -parse-as-library \
   "$CORE/LANFileMutationLock.swift" \
   "$CORE/LANUploadStore.swift" \
@@ -17,4 +23,5 @@ MODULES="$(swift build --package-path "$ROOT/src/MeloNX/Dependencies/NanoHTTP" -
 # 使用与 App 相同的默认 actor 隔离检查 HTTP 集成，避免仅测试独立 actor 时漏掉调用错误。
 xcrun swiftc -swift-version 5 -typecheck -default-isolation MainActor -I "$MODULES" \
   "$CORE/LANFileMutationLock.swift" "$CORE/LANUploadStore.swift" "$CORE/LANFileSystemStore.swift" \
-  "$CORE/LANWebBundle.swift" "$ROOT/src/MeloNX/MeloNX/Core/LANFileServer.swift"
+  "$CORE/LANWebBundle.swift" "$ROOT/src/MeloNX/MeloNX/Core/LANFileServer.swift" \
+  "$ROOT/src/MeloNX/MeloNX/Core/LANDownloadTracker.swift"

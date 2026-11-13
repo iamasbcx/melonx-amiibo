@@ -19,6 +19,7 @@
 | LANFileServer | HTTP 路由、鉴权、请求体策略、错误响应 |
 | LANFileSystemStore | actor 串行管理浏览、确认凭据、删除及移动 |
 | LANUploadStore | actor 管理断点、临时文件、提交与恢复收据 |
+| LANDownloadTracker | 线程安全地记录下载响应发送状态，为网页批量下载提供顺序控制 |
 | LANFileMutationLock | 上传和文件管理两个 actor 之间的同步文件操作互斥 |
 | LANWebBundle | 网页 UI、传输进度、本地恢复记录 |
 
@@ -60,6 +61,10 @@ NanoHTTP 来源为 [objecthub/swift-nanohttp](https://github.com/objecthub/swift
 
 文件夹上传按 webkitRelativePath 保留相对目录，每个文件独立提交。普通目录选择器不会返回空目录，空目录可以通过「新建文件夹」创建。文件夹下载提供递归清单及逐文件原始下载，不生成 ZIP。普通浏览器不能保证自动保留所有本地子目录和空目录，清单保留相对路径供用户整理。
 
+「下载全部」逐项启动原生浏览器下载，通过随机 downloadID 查询服务端状态，只有前一个响应发送结束才启动下一个文件，避免多个大文件同时占满连接。浏览器未启动下载、网络中断或服务端发送失败时暂停队列并提示；网页不能将服务端发送完毕等同于浏览器落盘成功。单独点击文件下载仍交给浏览器管理。
+
+带 downloadID 的部分 Range 响应正常发送，但发送完后暂停网页批量队列，提示到浏览器确认下载；只有 200 或覆盖整个文件的 206 才自动推进下一项。这样不会将某个分段完成误认为整个文件完成。普通单文件 Range 下载不受此队列判断影响。
+
 ## HTTP API
 
 所有 /api/v1/*（auth 除外）必须具有 Authorization: Bearer 或服务 HttpOnly cookie。地址 fragment 携带初始凭据，网页 POST auth 后设置 SameSite=Strict cookie，以支持浏览器原生下载。
@@ -72,6 +77,7 @@ NanoHTTP 来源为 [objecthub/swift-nanohttp](https://github.com/objecthub/swift
 | GET | /api/v1/files/stat?path= | 文件/目录元数据 |
 | GET/HEAD | /api/v1/files/open?path= | 白名单类型预览，其他类型下载 |
 | GET/HEAD | /api/v1/files/download?path= | 原文件下载及 Range |
+| GET | /api/v1/transfers/downloads/:downloadID | 查询批量下载的 waiting / sending / sent / failed 状态；仍需服务认证 |
 | POST | /api/v1/files/mkdir | path |
 | POST | /api/v1/files/delete/prepare | path，返回 confirmationToken 和递归统计 |
 | DELETE | /api/v1/files/item | JSON：path、confirmationToken |
@@ -95,8 +101,10 @@ Content-Range 示例：bytes 0-524287999/42949672960。服务在接收正文前�
 
 服务运行且 App 在前台时持有常亮 lease，覆盖整个请求体接收、分片合并和响应发送过程。停止或进入后台释放并恢复原状态；失效的旧 lease 不得释放新服务的常亮引用。用户手动切后台/锁屏仍会暂停，这是 iOS 生命周期边界。
 
+当前地址在启动和回前台恢复时刷新。保持前台期间切换 Wi-Fi 或 IP 改变后，需要停止再启动服务以刷新地址。停止服务恢复此前的常亮值；若模拟器其他模块原本已开启常亮，不会强制关闭它。
+
 ## 构建与验证
 
-Codemagic 使用 Xcode 26.2。scripts/test-lan-file-manager.sh 在构建 IPA 前编译并运行存储契约测试、构建本地 NanoHTTP；JavaScript 测试位于 tests/LANFileManager。Windows 本地无法执行 Xcode/iOS 真机编译，不将静态检查或模拟浏览器测试写成真机通过。
+Codemagic 使用 Xcode 26.2 和 Node 22。scripts/test-lan-file-manager.sh 在构建 IPA 前运行网页 Mock 测试，编译并运行存储与下载状态契约测试，构建本地 NanoHTTP 磁盘正文测试，并按 MainActor 默认隔离检查 HTTP 集成；JavaScript 测试位于 tests/LANFileManager。Windows 本地无法执行 Xcode/iOS 真机编译，不将静态检查或模拟浏览器测试写成真机通过。
 
 必须在真机验证：初次局域网授权、二维码地址、500 MiB + 1 字节分片边界、10/40 GiB 上传下载、关闭网页后续传、后台恢复、磁盘不足、覆盖目标变化、下载器 Range、目录操作、传输常亮和停止后的状态恢复。
