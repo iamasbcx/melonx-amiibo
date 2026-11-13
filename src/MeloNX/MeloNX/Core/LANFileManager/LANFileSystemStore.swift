@@ -396,8 +396,9 @@ public actor LANFileSystemStore {
 
     /// 使用 lstat 读取链接本身，悬空符号链接也能被识别；仅 ENOENT/ENOTDIR 视为不存在。
     private func nodeInfo(_ url: URL) throws -> NodeInfo? {
-        var info = stat()
-        guard lstat(url.path, &info) == 0 else {
+        // 当前 actor 同时提供 stat(relativePath:) 方法；显式限定 Darwin，避免方法名遮住 C 结构体。
+        var info = Darwin.stat()
+        guard Darwin.lstat(url.path, &info) == 0 else {
             let code = errno
             if code == ENOENT || code == ENOTDIR { return nil }
             throw NSError(domain: NSPOSIXErrorDomain, code: Int(code))
