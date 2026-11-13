@@ -214,6 +214,20 @@ PPSSPP 的实现也不是先打包游戏：Remote ISO 直接以文件句柄流�
 #### 空间和设备状态
 
 开始上传前通过 `volumeAvailableCapacityForImportantUsage` 预检可用空间：至少覆盖临时分片、校验和覆盖提交所需余量；目标替换需要同时考虑旧目标仍占用的空间。空间不足在写入前返回 `insufficientStorage`，不能写出不可清理的半成品。传输期间持有防熄屏 lease，MeloNX 必须保持前台；进入后台、服务停止或用户取消时停止新分片，保留可过期的 `.melo-upload.part` 会话供服务重新启动后继续，并清理过期孤儿。
+
+### 5.5 中断、网页关闭和 App 后台恢复
+
+传输状态统一使用 `uploading`、`paused`、`disconnected`、`verifying`、`completed`、`failed`、`cancelled`、`expired`。只有进入 `completed` 并完成大小/哈希校验后，才允许出现正式文件名。
+
+每个上传分片必须按以下顺序提交：写入 `.melo-upload.part`、刷新文件数据、原子写入包含 `nextOffset` 的 `.melo-upload.json`，然后才向客户端返回该分片成功。这样即使 App 崩溃或设备断电，元数据也不会声称已经写入实际不存在的字节。服务端只从最后一个已确认的 `nextOffset` 继续。
+
+- **网络断线或网页关闭**：当前 HTTP 请求标记为 `disconnected`，保留 `.melo-upload.part` 和元数据，不创建正式目标文件。网页把 `uploadId` 和一次性 `resumeToken` 存入 `localStorage` 或 `IndexedDB`；用户重新打开地址并完成当前会话鉴权后，先查询状态，再从 `nextOffset` 继续。恢复凭据不放入 URL、日志或文件名。
+- **iOS 切到后台**：进入后台时停止发起新分片，允许当前分片尽快收尾，然后关闭连接并标记 `paused`。iOS 后台执行时间不受应用保证，不能承诺 10–40GB 传输会在后台继续；回到前台后重新连接并续传。防熄屏只在 App 位于前台且存在活动传输时生效。
+- **App 被系统终止、崩溃或设备重启**：下次启动服务时扫描 `.melo-transfer-temp`，校验临时文件长度和元数据一致性，恢复未过期会话。旧的 HTTP bearer token 必须失效；服务重新启动后用新的会话 token 加上本地保存的 `resumeToken` 继续，不能复用旧 token。
+- **用户主动停止服务或取消**：停止服务先关闭 listener 和连接，默认保留未完成会话到过期时间；用户点击“放弃并删除”或会话过期时，才删除 `.melo-upload.part`、`.melo-upload.json`。取消不会删除原有目标文件。
+- **临时会话过期**：默认保留 72 小时，启动服务和定时任务清理过期孤儿；过期前网页显示剩余时间，过期后返回 `expired`，只能重新上传。
+
+下载的恢复边界不同：服务端不会保存客户端已经收到的字节。服务端提供 `HEAD`、`ETag` 和 `Range`，桌面浏览器下载器或支持文件写入的客户端可以用本地 `游戏名.ext.melo-download.part` 继续；普通网页关闭后，Safari 等浏览器可能丢失页面控制的本地临时数据，此时页面必须显示“无法确认本地进度，需要重新开始或由浏览器下载器恢复”，不能把服务器连接结束当成下载成功。下载完成后仍要通过大小/哈希校验，再改名为正式文件。
 ## 6. HTTP API 契约
 
 所有 `/api/v1/*` 请求都要携带：
@@ -303,6 +317,8 @@ Content-Type: application/json
 {"path":"roms/game.nsp","size":42949672960,"sha256":"...","conflict":"replace"}
 ```
 
+响应至少包含 `uploadId`、`nextOffset`、`resumeToken` 和 `expiresAt`。`resumeToken` 只保存在网页的 `localStorage`/`IndexedDB`，恢复请求通过请求头发送，不放入 URL。
+
 ```http
 PUT /api/v1/transfers/uploads/{uploadId}
 Content-Range: bytes 0-33554431/42949672960
@@ -345,7 +361,7 @@ If-Range: "<etag>"
 
 - 每次启动生成至少 32 字节的系统随机 token。
 - 只允许局域网客户端访问；连接层拒绝非本地接口或非局域网地址，并在请求层再次检查 token。
-- 停止服务、App 进入后台和 token 轮换时立即使旧 token 失效。
+- 停止服务、App 被终止、服务重启和 token 轮换时立即使旧 token 失效；仅进入后台不提交新请求，回到前台后可在当前服务会话内恢复。
 - 不把 token 写入系统日志、崩溃日志、分析事件或持久化配置。
 - `Info.plist` 增加 `NSLocalNetworkUsageDescription`，说明用于同一局域网文件管理；第一版不启用 Bonjour，避免额外的 `NSBonjourServices` 配置，直接显示 IP 和端口。
 
@@ -353,7 +369,7 @@ If-Range: "<etag>"
 
 ## 8. 覆盖、原子性和恢复
 
-临时目录固定为 `Documents/.melo-transfer-temp/<session>/<operation>/`，列表和 API 都拒绝访问该目录。启动服务时清理超过保留时间的孤立临时目录，停止服务时清理当前会话目录。
+临时目录固定为 `Documents/.melo-transfer-temp/<session>/<operation>/`，列表和 API 都拒绝访问该目录。启动服务时清理超过保留时间的孤立临时目录；停止服务时关闭 listener 和当前连接，但默认保留未过期的可恢复会话，用户显式取消或会话过期后再清理。
 
 ### 文件上传和文件替换
 
@@ -391,7 +407,7 @@ activeTransferCount == 0
   └─ 恢复 acquire 前保存的原值
 ```
 
-每一个上传或下载任务必须拥有独立 lease，并在完成、取消、失败、断线、HTTP response 关闭和服务停止路径中释放。计数不能直接用网页连接数代替，因为一个连接可以有多个文件传输。
+每一个上传或下载任务必须拥有独立 lease，并在完成、取消、失败、断线、HTTP response 关闭和服务停止路径中释放。进入后台时先暂停新分片并释放网络连接，临时会话由恢复协议管理；计数不能直接用网页连接数代替，因为一个连接可以有多个文件传输。
 
 当前 Metal 视图直接修改 `UIApplication.shared.isIdleTimerDisabled`，实施时要先收拢到同一个 coordinator，或者至少让游戏显示和文件传输各自持有 lease，避免文件传输结束时错误地把游戏场景改回可熄屏。
 
@@ -407,7 +423,7 @@ activeTransferCount == 0
 
 ## 10. 错误、日志和资源限制
 
-统一错误码至少包括：`badRequest`、`unauthorized`、`forbiddenPath`、`notFound`、`conflict`、`invalidConfirmation`、`tooLarge`、`busy`、`cancelled`、`ioError`、`serverStopping`。
+统一错误码至少包括：`badRequest`、`unauthorized`、`forbiddenPath`、`notFound`、`conflict`、`invalidConfirmation`、`tooLarge`、`busy`、`cancelled`、`expired`、`incomplete`、`insufficientStorage`、`ioError`、`serverStopping`。
 
 日志只记录：请求方法、API 路由、相对路径哈希或脱敏路径、字节数、耗时和错误码。文件名可以包含隐私信息，默认不写完整文件名；异常消息返回用户可理解的短文本，详细系统路径只留在本地调试日志。
 
@@ -419,8 +435,8 @@ activeTransferCount == 0
 
 - 路径：中文、空格、特殊字符、URL 编码、双编码、`..`、反斜杠、绝对路径、符号链接和根目录保护。
 - 列表：空目录、大目录、权限异常、文件和目录同名冲突、修改时间和大小读取。
-- 下载：小文件、大文件、Range、HEAD、浏览器断开、文件在读取中被删除或替换、分片续传、临时后缀和目录打包清理。
-- 上传：单文件、多文件、文件夹、空文件夹、中文相对路径、断点取消、磁盘不足、重复上传和并发冲突。
+- 下载：小文件、大文件、Range、HEAD、浏览器断开、文件在读取中被删除或替换、分片续传、网页关闭、App 后台、临时后缀和目录打包清理。
+- 上传：单文件、多文件、文件夹、空文件夹、中文相对路径、断点取消、网页关闭后恢复、App 后台暂停后恢复、App 重启后恢复、分片偏移错位、磁盘不足和临时后缀清理。
 - 删除：文件确认、递归目录确认、确认 token 过期、目标版本变化、根目录拒绝。
 - 移动：同卷、跨卷回退、文件替换、目录合并、整目录替换、源等于目标、移动到自身子目录。
 - 鉴权：缺失 token、错误 token、停止服务后的旧 token、后台后的旧连接。
