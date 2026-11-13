@@ -75,6 +75,8 @@ extension GamesListView {
             } label: {
                 Label("Show MeloNX Folder", systemImage: "folder")
             }
+
+            lanFileManagerSection
             
             Divider()
             
@@ -88,6 +90,25 @@ extension GamesListView {
             Label("Options", systemImage: "ellipsis.circle")
                 .labelStyle(.iconOnly)
                 .foregroundColor(.blue)
+        }
+    }
+
+    /// 局域网网页文件管理入口。服务端尚未接入前保留完整菜单层级，并明确禁用操作，避免点击后静默无响应。
+    private var lanFileManagerSection: some View {
+        Menu {
+            Section("Service Not Integrated") {
+                Button {} label: {
+                    Label("Start Service", systemImage: "play.circle")
+                }
+                .disabled(true)
+
+                Button {} label: {
+                    Label("Show Address / QR Code", systemImage: "qrcode")
+                }
+                .disabled(true)
+            }
+        } label: {
+            Label("LAN Web File Manager", systemImage: "network")
         }
     }
 

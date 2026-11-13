@@ -6,7 +6,7 @@
 
 - 浏览根目录下的文件和文件夹。
 - 打开文件夹继续浏览；普通文件可预览或下载。
-- 下载单个文件；下载文件夹时打包为 ZIP 后下载。
+- 下载单个文件时直接流式传输；文件夹默认逐文件下载，只有用户明确选择“打包下载”时才生成 ZIP。
 - 删除文件和文件夹。删除前必须显示警告并二次确认，文件夹要说明递归删除范围。
 - 上传文件和文件夹，保留文件夹相对路径。
 - 上传遇到同名项时支持覆盖、跳过或取消，默认不静默覆盖。
@@ -87,7 +87,7 @@ MeloNX 应借鉴 PPSSPP 的 HTTP 生命周期、multipart 解析、进度统计�
 - 每一行提供下载、移动、删除；多选后可以批量下载、移动、删除。
 - 所有用户可见文件名都使用 HTML 转义，不能把文件名拼接为 HTML 或脚本。
 
-文件夹下载生成 ZIP。由于当前 `Zip.swift` 只有解压能力，实施时需要扩展现有 native ZIP 能力或加入经过审核的 ZIP writer；不能把目录路径直接当作文件流返回。
+文件夹下载不默认生成 ZIP。单个大型游戏文件直接流式下载；只有用户明确选择“打包下载”时才生成 ZIP。由于当前 `Zip.swift` 只有解压能力，实施时需要扩展现有 native ZIP 能力或加入经过审查的 ZIP writer；不能把目录路径直接当作文件流返回。
 
 ### 4.3 删除确认
 
@@ -176,11 +176,44 @@ LANFileManagerViewModel (@MainActor)
 
 上传和下载都采用流式读写，不能把整个文件加载到内存。每个任务记录：任务 ID、方向、相对路径、总字节数、已完成字节数、速度、开始时间、取消状态和错误。
 
-- 上传：multipart body 逐块写入临时文件。
+- 小文件可使用 `multipart/form-data` 兼容上传；10–40GB 游戏必须使用分片会话上传，不能把整个请求体一次性作为一个任务。
 - 下载：文件逐块写入 HTTP response；支持 `Range`、`HEAD` 和断开检测。
-- 文件夹下载：先在临时目录生成 ZIP，再以流式方式返回；完成或失败后删除 ZIP。
+- 单个大型游戏文件禁止先打包 ZIP，直接按原文件流式下载；文件夹默认逐文件下载，只有用户明确选择“打包下载”时才生成 ZIP。
 - 客户端断开、请求取消、服务停止和 App 离开前台都必须触发取消，并在 `defer` 中清理临时文件和活动计数。
 
+### 5.4 10–40GB 大型游戏传输策略
+
+ZIP 不是大型游戏传输格式。文件夹在 HTTP 中不是一个单独文件，ZIP 只解决“把多个文件作为一个下载项交给浏览器”的兼容问题；它不会让已经压缩过的 `.xci`、`.nsp`、`.nsz` 等游戏明显变小。对 10–40GB 单个游戏先打 ZIP 会额外占用接近一份完整文件的临时空间，增加打包时间、发热和失败重来成本，因此禁止作为默认路径。
+
+PPSSPP 的实现也不是先打包游戏：Remote ISO 直接以文件句柄流式读取，并使用 `HEAD` 和 `Range` 返回分段内容；上传则是 `multipart/form-data` 边接收边写入目标文件。它没有通用的上传断点续传协议，所以 MeloNX 不能只复制 PPSSPP 的一次性 multipart 上传。
+
+#### 单文件下载
+
+- 服务端使用 64 位整数记录文件大小和偏移，返回 `Content-Length`、`ETag`、`Last-Modified`、`Accept-Ranges: bytes`。
+- 客户端先发送 `HEAD`，再把数据写入本地 `游戏名.ext.melo-download.part`；文件未完整校验前不得显示为成功文件。
+- 断线后使用 `Range: bytes=<已写入偏移>-` 和 `If-Range: <ETag>` 继续；大小、ETag 或修改时间变化时删除旧 `.melo-download.part`，从零开始。
+- 收到完整大小并通过可选 SHA-256 校验后，客户端才把临时文件原子改名为原始文件名。浏览器无法控制下载目录时，网页至少要显示“未完成”状态，不得把 HTTP 连接结束当作成功。
+
+#### 单文件上传
+
+上传采用会话和分片，而不是一个持续数小时的 multipart 请求：
+
+1. `POST /api/v1/transfers/uploads` 预检目标相对路径、总大小、冲突策略和可选 SHA-256，服务端返回 `uploadId`、建议分片大小（默认 32MiB）、`nextOffset` 和过期时间。
+2. 客户端用 `File.slice()` 读取单片，通过 `PUT /api/v1/transfers/uploads/{uploadId}` 携带 `Content-Range: bytes start-end/total`。服务端只接受 `start == nextOffset` 的顺序片段，写入 `payload.melo-upload.part`，成功后返回新的 `nextOffset`。
+3. 网络中断后调用 `GET /api/v1/transfers/uploads/{uploadId}` 查询偏移，从该偏移继续；不得从不确定的位置覆盖写入。
+4. `POST /api/v1/transfers/uploads/{uploadId}/complete` 关闭临时文件，校验总大小和可选 SHA-256，随后在同一卷内原子替换目标。`DELETE .../{uploadId}` 或超时只清理临时文件。
+
+临时文件必须使用明显不同的后缀，例如 `payload.melo-upload.part`、`payload.melo-upload.json`，并放在隐藏的 `.melo-transfer-temp/<uploadId>/` 中；目录列表隐藏该目录，但状态接口必须能显示“未完成/可继续”。完成前绝不创建正式的 `.nsp`、`.xci` 等目标名，避免用户误以为上传成功。覆盖已有文件时保留旧目标，直到新文件校验完成；失败时只删除 `.melo-upload.part`，原文件不受影响。
+
+分片建议 8–64MiB，默认 32MiB；大型传输默认并发 1，避免同时占用多份缓冲区。所有数据都流式读写，不把 10–40GB 文件装入内存。
+
+#### 文件夹与 ZIP
+
+文件夹上传按文件逐个建立上述分片会话，保留 `relativePath`，不先压缩。文件夹下载默认显示清单并逐项下载；只有用户主动选择“打包下载”时才生成 ZIP。ZIP 任务必须先检查空间，采用 Zip64，失败或取消时删除临时包；10GB 以上目录默认提示需要接近一份额外空间，第一阶段可以直接禁用打包，不能宣称支持断点续传。
+
+#### 空间和设备状态
+
+开始上传前通过 `volumeAvailableCapacityForImportantUsage` 预检可用空间：至少覆盖临时分片、校验和覆盖提交所需余量；目标替换需要同时考虑旧目标仍占用的空间。空间不足在写入前返回 `insufficientStorage`，不能写出不可清理的半成品。传输期间持有防熄屏 lease，MeloNX 必须保持前台；进入后台、服务停止或用户取消时停止新分片，保留可过期的 `.melo-upload.part` 会话供服务重新启动后继续，并清理过期孤儿。
 ## 6. HTTP API 契约
 
 所有 `/api/v1/*` 请求都要携带：
@@ -209,7 +242,7 @@ HEAD /api/v1/files/download?path=roms/demo.nsp
 GET  /api/v1/files/download?path=roms/demo.nsp
 ```
 
-`open` 仅对允许预览的 MIME 类型使用 `Content-Disposition: inline`，未知类型统一下载。文件夹下载使用同一 download API 返回临时 ZIP，并设置 `Content-Disposition: attachment`。服务端要处理 Range、文件不存在、目标变更和客户端提前断开。
+`open` 仅对允许预览的 MIME 类型使用 `Content-Disposition: inline`，未知类型统一下载。单个文件下载直接返回原文件并支持 Range；文件夹默认逐项下载，用户明确选择“打包下载”时才返回临时 ZIP。服务端要处理 Range、文件不存在、目标变更和客户端提前断开。
 
 ### 6.3 创建目录和上传
 
@@ -261,6 +294,39 @@ Content-Type: application/json
 
 `conflict` 取值为 `ask`、`skip`、`replaceFile`、`mergeDirectory`、`replaceDirectory`。目标存在时先返回冲突预览和一次性确认 token，确认请求必须带回源、目标和双方版本摘要。源目录不能移动到自身子目录；目标为目录时要明确选择合并或整目录替换。
 
+### 6.6 大文件断点续传 API
+
+```http
+POST /api/v1/transfers/uploads
+Content-Type: application/json
+
+{"path":"roms/game.nsp","size":42949672960,"sha256":"...","conflict":"replace"}
+```
+
+```http
+PUT /api/v1/transfers/uploads/{uploadId}
+Content-Range: bytes 0-33554431/42949672960
+Content-Type: application/octet-stream
+```
+
+```http
+GET  /api/v1/transfers/uploads/{uploadId}
+POST /api/v1/transfers/uploads/{uploadId}/complete
+DELETE /api/v1/transfers/uploads/{uploadId}
+```
+
+`GET` 返回 `nextOffset`、总大小、临时文件状态和过期时间；`complete` 只允许在大小及校验通过后提交。任何分片序号错误、目标版本变化、空间不足或会话过期都返回明确错误，客户端保留 `.melo-download.part` 或服务端 `.melo-upload.part`，不能把错误响应重命名为正式文件。
+
+下载接口沿用：
+
+```http
+HEAD /api/v1/files/download?path=roms/game.nsp
+GET  /api/v1/files/download?path=roms/game.nsp
+Range: bytes=33554432-
+If-Range: "<etag>"
+```
+
+服务端对有效 Range 返回 `206 Partial Content` 和 `Content-Range`；不支持或失效的 Range 不得静默返回错误内容。
 ## 7. 路径和安全策略
 
 ### 7.1 规范化和越界防护
@@ -353,7 +419,7 @@ activeTransferCount == 0
 
 - 路径：中文、空格、特殊字符、URL 编码、双编码、`..`、反斜杠、绝对路径、符号链接和根目录保护。
 - 列表：空目录、大目录、权限异常、文件和目录同名冲突、修改时间和大小读取。
-- 下载：小文件、大文件、Range、HEAD、浏览器断开、文件在读取中被删除或替换、目录 ZIP 清理。
+- 下载：小文件、大文件、Range、HEAD、浏览器断开、文件在读取中被删除或替换、分片续传、临时后缀和目录打包清理。
 - 上传：单文件、多文件、文件夹、空文件夹、中文相对路径、断点取消、磁盘不足、重复上传和并发冲突。
 - 删除：文件确认、递归目录确认、确认 token 过期、目标版本变化、根目录拒绝。
 - 移动：同卷、跨卷回退、文件替换、目录合并、整目录替换、源等于目标、移动到自身子目录。
@@ -375,7 +441,7 @@ activeTransferCount == 0
 
 ### 阶段二：上传和进度
 
-1. 实现 multipart 流式上传、文件夹相对路径、临时文件和原子替换。
+1. 实现分片会话上传、`Content-Range`、文件夹相对路径、临时后缀和原子替换；`multipart/form-data` 仅作为小文件兼容路径。
 2. 加入冲突预检、覆盖/跳过/取消和网页进度。
 3. 实现 `TransferManager` 与取消、断线、磁盘错误清理。
 
