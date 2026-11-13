@@ -8,7 +8,6 @@ nonisolated final class LANFileServer: @unchecked Sendable {
     private let uploadStore: LANUploadStore
     private let downloadTracker = LANDownloadTracker()
     private let incomingBodyDirectory: URL
-    private let token = LANFileServer.makeToken()
     private let stateLock = NSLock()
     private var server: NanoHTTPServer?
     private var lastPort: UInt16 = 8080
@@ -46,7 +45,7 @@ nonisolated final class LANFileServer: @unchecked Sendable {
     }
 
     /// 同一对象重新启动时优先复用端口，使后台返回后浏览器仍能访问原始 origin。
-    /// token 放在 URL fragment 中，不会随 HTTP 请求或 Referer 发送。
+    /// 返回可直接访问的 IP 和端口地址；服务运行时不要求登录或访问凭据。
     @discardableResult
     func start() throws -> URL {
         stateLock.lock()
@@ -67,17 +66,10 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         http.configuration.writeTimeout = 60
         http.configuration.requestBodyPolicy = { [weak self] request in
             guard let self else { throw NanoHTTPError.serviceUnavailable("Service is unavailable") }
-            if request.rawPath.hasPrefix("/api/") && request.rawPath != "/api/v1/auth" && !self.authorized(request) {
-                throw NanoHTTPError.unauthorized("Missing or invalid session token")
-            }
             return try self.bodyStorage(for: request)
         }
         http.errorHandler = { error, _ in Self.errorResponse(error) }
-        http.middleware.append { [weak self] request, next in
-            guard let self else { throw NanoHTTPError.serviceUnavailable("Service is unavailable") }
-            if request.rawPath.hasPrefix("/api/"), request.rawPath != "/api/v1/auth", !self.authorized(request) {
-                throw NanoHTTPError.unauthorized("Missing or invalid session token")
-            }
+        http.middleware.append { request, next in
             var response = try next(request)
             response.headers["Cache-Control"] = "no-store"
             response.headers["X-Content-Type-Options"] = "nosniff"
@@ -93,7 +85,7 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         }
         let port = try http.port()
         guard let ip = NanoNetworkInterface.localIP,
-              let url = URL(string: "http://\(Self.urlHost(ip)):\(port)/#token=\(token)") else {
+              let url = URL(string: "http://\(Self.urlHost(ip)):\(port)") else {
             http.stop()
             throw LANFileServerError.noLocalAddress
         }
@@ -120,12 +112,6 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         http.get["/"] = { _ in .ok(.html(LANWebBundle.html)) }
         http.get["/app.js"] = { _ in .ok(.data(Data(LANWebBundle.javascript.utf8), contentType: "application/javascript; charset=utf-8")) }
         http.get["/app.css"] = { _ in .ok(.data(Data(LANWebBundle.css.utf8), contentType: "text/css; charset=utf-8")) }
-        http.post["/api/v1/auth"] = { [weak self] request in
-            guard let self else { throw NanoHTTPError.serviceUnavailable() }
-            let body = try request.json(AuthBody.self)
-            guard body.token == self.token else { throw NanoHTTPError.unauthorized("Invalid session token") }
-            return .ok(headers: ["Set-Cookie": "melo_session=\(self.token); Path=/; HttpOnly; SameSite=Strict"], .json(["authenticated": true]))
-        }
         http.get["/api/v1/status"] = { [weak self] _ in
             guard let self else { throw NanoHTTPError.serviceUnavailable() }
             return .ok(.json(["running": self.isRunning, "root": "Documents", "resumableUploads": true, "chunkSize": LANUploadStore.maximumChunkSize]))
@@ -332,14 +318,6 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         return .file(directory: incomingBodyDirectory, maxBytes: Int(LANUploadStore.maximumChunkSize))
     }
 
-    private func authorized(_ request: NanoHTTPRequest) -> Bool {
-        if request.header("authorization") == "Bearer " + token { return true }
-        return request.header("cookie")?.split(separator: ";").contains {
-            $0.trimmingCharacters(in: .whitespaces) == "melo_session=" + token
-        } == true
-    }
-
-    private nonisolated struct AuthBody: Decodable, Sendable { let token: String }
     private nonisolated struct PathBody: Decodable, Sendable { let path: String }
     private nonisolated struct DeleteBody: Decodable, Sendable { let path: String; let confirmationToken: String }
     private nonisolated struct MoveBody: Decodable, Sendable {
@@ -368,7 +346,6 @@ nonisolated final class LANFileServer: @unchecked Sendable {
         return ByteRange(start: start, end: end, total: total)
     }
 
-    private static func makeToken() -> String { (0..<32).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined() }
     private static func urlHost(_ value: String) -> String { value.contains(":") ? "[\(value.replacingOccurrences(of: "%", with: "%25"))]" : value }
 
     private static func jsonResponse<T: Encodable>(_ value: T) -> NanoHTTPResponse {

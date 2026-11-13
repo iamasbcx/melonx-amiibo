@@ -1,8 +1,6 @@
 import Foundation
 import Combine
 import SwiftUI
-import CoreImage
-import CoreImage.CIFilterBuiltins
 import UIKit
 
 /// 局域网网页文件管理器的界面状态和服务生命周期协调器。
@@ -35,7 +33,7 @@ final class LANFileManagerCoordinator: ObservableObject {
         do {
             let server: LANFileServer
             if let existing = self.server {
-                // 后台暂停只关闭 listener，复用对象可保留 token、上传会话和端口。
+                // 后台暂停只关闭 listener，复用对象可保留上传会话和端口。
                 server = existing
             } else {
                 server = try LANFileServer(rootURL: URL.documentsDirectory)
@@ -50,7 +48,7 @@ final class LANFileManagerCoordinator: ObservableObject {
             }
             if presentAddress { self.isAddressSheetPresented = true }
         } catch {
-            // 启动失败时保留已经创建的对象，便于下一次重试并保持其 token。
+            // 启动失败时保留已经创建的对象，便于下一次重试并复用原端口。
             self.address = nil
             self.isRunning = false
             self.errorMessage = error.localizedDescription
@@ -91,7 +89,7 @@ final class LANFileManagerCoordinator: ObservableObject {
     }
 }
 
-/// 局域网服务地址和二维码展示页。
+/// 局域网服务的 IP 与端口展示页，同时提供复制地址和停止服务入口。
 struct LANFileManagerAddressView: View {
     @ObservedObject var coordinator: LANFileManagerCoordinator
     @Environment(\.dismiss) private var dismiss
@@ -111,16 +109,6 @@ struct LANFileManagerAddressView: View {
                         .textSelection(.enabled)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal)
-
-                    if let image = QRCodeImage.make(from: address) {
-                        Image(uiImage: image)
-                            .interpolation(.none)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: 240, maxHeight: 240)
-                            .padding(16)
-                            .background(.white, in: RoundedRectangle(cornerRadius: 16))
-                    }
 
                     HStack(spacing: 12) {
                         Button {
@@ -163,17 +151,5 @@ struct LANFileManagerAddressView: View {
                 }
             }
         }
-    }
-}
-
-private enum QRCodeImage {
-    static func make(from string: String) -> UIImage? {
-        let filter = CIFilter.qrCodeGenerator()
-        filter.message = Data(string.utf8)
-        filter.correctionLevel = "M"
-        guard let output = filter.outputImage else { return nil }
-        let scale = max(1, floor(240 / output.extent.width))
-        let scaled = output.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        return UIImage(ciImage: scaled)
     }
 }

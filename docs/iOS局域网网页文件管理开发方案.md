@@ -4,9 +4,9 @@
 
 ## 入口与范围
 
-游戏库左上角三个点 →「打开 MeloNX 文件夹」下面的「局域网网页文件管理」→「启动服务」→显示地址和二维码。可以再次打开地址页、复制地址或停止服务。
+游戏库左上角三个点 →「打开 MeloNX 文件夹」下面的「局域网网页文件管理」→「启动服务」→显示 `http://IP:端口` 地址。可以再次打开地址页、复制地址或停止服务。
 
-共享根目录为 MeloNX 的 Documents（用户可管理的程序数据目录），不暴露 App 安装包、系统目录或其他应用沙盒。网页支持目录浏览、刷新、新建文件夹、文件预览/下载、文件及文件夹上传、删除确认、移动、文件覆盖、目录合并和整体替换。
+共享根目录为 MeloNX 的 Documents（用户可管理的程序数据目录），不暴露 App 安装包、系统目录或其他应用沙盒。服务启动后，同局域网设备打开该地址即可直接管理 Documents，无需登录。网页支持目录浏览、刷新、新建文件夹、文件预览/下载、文件及文件夹上传、删除确认、移动、文件覆盖、目录合并和整体替换。
 
 网页不使用 CDN，也不要求部署其他服务器。HTML/CSS/JavaScript 编入 App。所有用户文件名通过 textContent 显示，不能注入页面脚本。
 
@@ -14,9 +14,9 @@
 
 | 模块 | 职责 |
 | --- | --- |
-| LANFileManagerCoordinator | 主线程 UI、启停、地址二维码、前后台恢复 |
+| LANFileManagerCoordinator | 主线程 UI、启停、地址显示与复制、前后台恢复 |
 | TransferActivityCoordinator | 主线程常亮 lease、后台失效与原状态恢复 |
-| LANFileServer | HTTP 路由、鉴权、请求体策略、错误响应 |
+| LANFileServer | HTTP 路由、Origin 检查、请求体策略、错误响应 |
 | LANFileSystemStore | actor 串行管理浏览、确认凭据、删除及移动 |
 | LANUploadStore | actor 管理断点、临时文件、提交与恢复收据 |
 | LANDownloadTracker | 线程安全地记录下载响应发送状态，为网页批量下载提供顺序控制 |
@@ -29,7 +29,7 @@ NanoHTTP 来源为 [objecthub/swift-nanohttp](https://github.com/objecthub/swift
 
 - 上传每个 HTTP 分片为 **500 MiB = 524,288,000 字节**，最后一片按剩余大小发送；网页按文件、按分片串行发送，不打 ZIP。
 - 浏览器使用 Blob.slice 和 XMLHttpRequest；upload.onprogress 显示当前片已发送字节，只有服务器返回的 nextOffset 才代表已确认进度。
-- 原 NanoHTTP 将整个正文读入内存，不能直接扩大 maxBodyBytes。当前本地扩展先检查请求头、鉴权和分片偏移，再以 1 MiB 读取缓冲把正文写入 .melo-request.part。
+- 原 NanoHTTP 将整个正文读入内存，不能直接扩大 maxBodyBytes。当前本地扩展先检查请求头、Origin、上传会话恢复凭据和分片偏移，再以 1 MiB 读取缓冲把正文写入 .melo-request.part。
 - 完整请求到达后，LANUploadStore 以 1 MiB 缓冲合并到 payload.melo-upload.part，synchronize 后原子保存进度。不会把整个 500 MiB 分片或 40 GiB 文件读入内存。
 - 请求临时片和累计上传文件短暂共存，预检为完整文件加最多 500 MiB 工作空间，再保留少量元数据空间。覆盖旧文件时，旧文件在提交前仍占用空间。
 - 单文件协议上限为 256 GiB；64 位偏移支持 10–40 GiB 场景。上限是代码限制，不等于已通过相应容量或吞吐实测。
@@ -46,8 +46,8 @@ NanoHTTP 来源为 [objecthub/swift-nanohttp](https://github.com/objecthub/swift
 | rename 成功但完成收据未保存 | 根据提交前记录的文件身份恢复为 completed |
 | 完成响应丢失 | GET/complete 可读取完成收据，重复提交不重复覆盖 |
 | App 切后台或手动锁屏 | 关闭 listener 和连接，停止常亮；iOS 后台不保证继续接收 |
-| App 回到前台 | 自动恢复此前开启的服务，优先复用端口和当前服务凭据 |
-| 手动停止后再开、App 重启 | 新服务凭据；持久上传会话仍可用独立 resumeToken 恢复 |
+| App 回到前台 | 自动恢复此前开启的服务，优先复用端口；地址不变时浏览器可直接重试 |
+| 手动停止后再开、App 重启 | 服务启动后可直接访问；持久上传会话仍用独立 resumeToken 恢复 |
 
 临时目录为 Documents/.melo-transfer-temp。上传会话和完成收据按最后更新后 72 小时过期；清理不会删除已经提交的正式文件。临时目录及 .melo- 内部名称不允许普通文件 API 访问。
 
@@ -57,7 +57,7 @@ NanoHTTP 来源为 [objecthub/swift-nanohttp](https://github.com/objecthub/swift
 
 单文件直接使用流式 HTTP 下载，支持 HEAD、Range、If-Range、ETag、Last-Modified 和 206；不通过 fetch().blob() 缓存整个游戏。浏览器下载器负责落盘和断点管理，网页不能在普通局域网 HTTP 下保证所有浏览器关闭页面后的续传行为。
 
-下载未完成的本地后缀由浏览器控制，例如 .crdownload 或 .part；网页不能强制所有浏览器都使用 .melo-download.part。服务器不会因连接关闭就宣称客户端已下载完成。重新开启服务后，如浏览器丢失认证，可重新打开地址页完成认证，再恢复支持 Range 的下载。
+下载未完成的本地后缀由浏览器控制，例如 .crdownload 或 .part；网页不能强制所有浏览器都使用 .melo-download.part。服务器不会因连接关闭就宣称客户端已下载完成。重新开启服务后，可使用当前地址恢复支持 Range 的下载，具体续传操作由浏览器下载器决定。
 
 文件夹上传按 webkitRelativePath 保留相对目录，每个文件独立提交。普通目录选择器不会返回空目录，空目录可以通过「新建文件夹」创建。文件夹下载提供递归清单及逐文件原始下载，不生成 ZIP。普通浏览器不能保证自动保留所有本地子目录和空目录，清单保留相对路径供用户整理。
 
@@ -67,17 +67,16 @@ NanoHTTP 来源为 [objecthub/swift-nanohttp](https://github.com/objecthub/swift
 
 ## HTTP API
 
-所有 /api/v1/*（auth 除外）必须具有 Authorization: Bearer 或服务 HttpOnly cookie。地址 fragment 携带初始凭据，网页 POST auth 后设置 SameSite=Strict cookie，以支持浏览器原生下载。
+网页和 `/api/v1/*` 均通过 `http://IP:端口` 直接访问。上传会话仍使用独立的 `resumeToken` 校验恢复请求；删除及破坏性移动仍使用一次性的 `confirmationToken` 确认操作。这两类内部凭据不用于网页登录，也不写入访问地址。
 
 | 方法 | 路径 | 请求/含义 |
 | --- | --- | --- |
-| POST | /api/v1/auth | token，换取当前服务 cookie |
 | GET | /api/v1/status | 运行状态、根目录、chunkSize |
 | GET | /api/v1/files/list?path= | entries，日期按 Unix 秒 |
 | GET | /api/v1/files/stat?path= | 文件/目录元数据 |
 | GET/HEAD | /api/v1/files/open?path= | 白名单类型预览，其他类型下载 |
 | GET/HEAD | /api/v1/files/download?path= | 原文件下载及 Range |
-| GET | /api/v1/transfers/downloads/:downloadID | 查询批量下载的 waiting / sending / sent / failed 状态；仍需服务认证 |
+| GET | /api/v1/transfers/downloads/:downloadID | 查询批量下载的 waiting / sending / sent / failed 状态 |
 | POST | /api/v1/files/mkdir | path |
 | POST | /api/v1/files/delete/prepare | path，返回 confirmationToken 和递归统计 |
 | DELETE | /api/v1/files/item | JSON：path、confirmationToken |
@@ -97,7 +96,7 @@ Content-Range 示例：bytes 0-524287999/42949672960。服务在接收正文前�
 
 相对路径逐段校验，拒绝 ..、NUL、反斜杠、绝对路径、内部保留目录、符号链接和悬空链接；保护根目录，拒绝将目录移到自身子目录。文件管理操作与上传提交共享同步锁，持锁时禁止 await。
 
-服务使用局域网 HTTP，凭据不能用于互联网暴露。Origin 检查在读取大请求体之前执行，静态页面配置 CSP、nosniff 和 no-referrer。预览只允许安全类型，不将上传的 HTML/SVG 作为同源可执行页面提供。
+服务使用局域网 HTTP。POST、PUT、DELETE 等修改请求携带 Origin 时，在读取正文前校验同源；GET/HEAD 可直接访问。静态页面配置 CSP、nosniff 和 no-referrer。预览只允许安全类型，不将上传的 HTML/SVG 作为同源可执行页面提供。
 
 服务运行且 App 在前台时持有常亮 lease，覆盖整个请求体接收、分片合并和响应发送过程。停止或进入后台释放并恢复原状态；失效的旧 lease 不得释放新服务的常亮引用。用户手动切后台/锁屏仍会暂停，这是 iOS 生命周期边界。
 
@@ -105,6 +104,6 @@ Content-Range 示例：bytes 0-524287999/42949672960。服务在接收正文前�
 
 ## 构建与验证
 
-Codemagic 使用 Xcode 26.2 和 Node 22。scripts/test-lan-file-manager.sh 在构建 IPA 前运行网页 Mock 测试，编译并运行存储与下载状态契约测试，构建本地 NanoHTTP 磁盘正文测试，并按 MainActor 默认隔离检查 HTTP 集成；JavaScript 测试位于 tests/LANFileManager。Windows 本地无法执行 Xcode/iOS 真机编译，不将静态检查或模拟浏览器测试写成真机通过。
+Codemagic 使用 Xcode 26.2 和 Node 22。scripts/test-lan-file-manager.sh 在构建 IPA 前运行网页 Mock 测试，编译并运行存储与下载状态契约测试，构建本地 NanoHTTP 磁盘正文测试，并按 MainActor 默认隔离检查 HTTP 集成；JavaScript 测试位于 tests/LANFileManager。当前 Windows Node Mock 实际输出为 14/14 通过，数量和结果以命令实际输出为准。Windows 本地无法执行 Xcode/iOS 真机编译，不将静态检查或模拟浏览器测试写成真机通过。
 
-必须在真机验证：初次局域网授权、二维码地址、500 MiB + 1 字节分片边界、10/40 GiB 上传下载、关闭网页后续传、后台恢复、磁盘不足、覆盖目标变化、下载器 Range、目录操作、传输常亮和停止后的状态恢复。
+必须在真机验证：初次局域网授权、IP/端口地址直接访问、500 MiB + 1 字节分片边界、10/40 GiB 上传下载、关闭网页后续传、后台恢复、磁盘不足、覆盖目标变化、下载器 Range、目录操作、传输常亮和停止后的状态恢复。

@@ -107,7 +107,7 @@ extension GamesListView {
                 Button {
                     lanFileManager.isAddressSheetPresented = true
                 } label: {
-                    Label("显示地址 / 二维码", systemImage: "qrcode")
+                    Label("显示地址", systemImage: "network")
                 }
                 .disabled(!lanFileManager.isRunning || lanFileManager.address == nil)
 

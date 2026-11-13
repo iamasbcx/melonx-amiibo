@@ -115,18 +115,6 @@ nonisolated enum LANWebBundle {
         // 每个 HTTP 请求固定 500 MiB；请求串行发送，断线只重传当前分片。
         const CHUNK_SIZE = 500 * 1024 * 1024;
         const RESUME_KEY = "melonx.lan.uploads.v1";
-        const tokenFromURL = () => {
-            const params = new URLSearchParams(location.search);
-            const value =
-                params.get("token") ||
-                (location.hash.startsWith("#token=") ? location.hash.slice(7) : "");
-            if (value) {
-                sessionStorage.setItem("melonx.lan.token", value);
-                history.replaceState(null, "", location.pathname);
-            }
-            return value || sessionStorage.getItem("melonx.lan.token") || "";
-        };
-        const token = tokenFromURL();
         const state = {
             path: "",
             entries: [],
@@ -150,15 +138,8 @@ nonisolated enum LANWebBundle {
                 ? dialog.close()
                 : dialog.removeAttribute("open");
         const apiURL = (path) => path;
-        const headers = (extra = {}) =>
-            Object.assign({ Authorization: `Bearer ${token}` }, extra);
         const json = async (url, options = {}) => {
-            const response = await fetch(
-                apiURL(url),
-                Object.assign({}, options, {
-                    headers: headers(options.headers || {}),
-                }),
-            );
+            const response = await fetch(apiURL(url), options);
             let data = null;
             try {
                 data = await response.json();
@@ -391,7 +372,9 @@ nonisolated enum LANWebBundle {
                     : "服务未运行";
             } catch (error) {
                 $("service-state").textContent =
-                    `服务状态读取失败：${error.message}`;
+                    `无法连接服务：${error.message}`;
+                showMessage("无法连接服务", "请确认 MeloNX 已启动局域网服务并保持前台，再点击刷新重试。");
+                return;
             }
             await openPath(state.path);
         }
@@ -724,8 +707,6 @@ nonisolated enum LANWebBundle {
                     "PUT",
                     `/api/v1/transfers/uploads/${encodeURIComponent(snapshot.uploadID)}`,
                 );
-                xhr.withCredentials = true;
-                xhr.setRequestHeader("Authorization", `Bearer ${token}`);
                 xhr.setRequestHeader("X-Resume-Token", snapshot.resumeToken);
                 xhr.setRequestHeader("Content-Type", "application/octet-stream");
                 xhr.setRequestHeader(
@@ -1140,16 +1121,7 @@ nonisolated enum LANWebBundle {
             );
         }
         async function initialize() {
-            try {
-                await json("/api/v1/auth", bodyJSON({ token }));
-                await refresh();
-            } catch (error) {
-                $("service-state").textContent = `鉴权失败：${error.message}`;
-                showMessage(
-                    "无法连接服务",
-                    "请从 MeloNX 菜单重新复制地址并打开；服务停止后旧地址会失效。",
-                );
-            }
+            await refresh();
         }
         $("refresh").onclick = refresh;
         $("mkdir").onclick = mkdir;

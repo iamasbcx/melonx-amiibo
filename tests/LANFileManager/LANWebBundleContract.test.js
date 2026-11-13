@@ -11,7 +11,7 @@ const match = source.match(/static let javascript = #"""\r?\n([\s\S]*?)\r?\n    
 assert.ok(match, "找不到内置网页 JavaScript");
 const script = match[1].replace(
   /renderBreadcrumbs\(\);\s*renderResumeRecords\(\);\s*initialize\(\);/,
-  "globalThis.web = { state, uploadOne, uploadFiles, fingerprint, renderEntries, download, discardResume, validRecord, downloadFolderItems, waitForDownload, prepareFolderDownload, newDownloadID };"
+  "globalThis.web = { state, uploadOne, uploadFiles, fingerprint, renderEntries, download, discardResume, validRecord, downloadFolderItems, waitForDownload, prepareFolderDownload, newDownloadID, initialize };"
 );
 const MiB = 1024 * 1024;
 
@@ -45,12 +45,14 @@ function fakeFile(size, marker = 7) {
 }
 
 function backend() {
-  const api = { sessions: new Map(), creates: 0, completes: 0, ranges: [], failXHRAt: 0, failCompleteOnce: false };
+  const api = { sessions: new Map(), creates: 0, completes: 0, ranges: [], requests: [], xhrHeaders: [], failXHRAt: 0, failCompleteOnce: false };
   api.fetch = async (url, options = {}) => {
     const method = options.method || "GET";
+    api.requests.push({ url, method, headers: options.headers || {} });
+    assert.ok(!Object.keys(options.headers || {}).some(key => key.toLowerCase() === "authorization"), "网页请求不应携带访问鉴权头");
+    assert.notEqual(url, "/api/v1/auth", "网页不应调用旧访问鉴权接口");
     if (url === "/api/v1/status") return response({ running: true });
     if (url.startsWith("/api/v1/files/list")) return response({ entries: [] });
-    if (url === "/api/v1/auth") return response({ authenticated: true });
     if (url.startsWith("/api/v1/transfers/downloads/")) return api.downloadStatus(url, options);
     if (url === "/api/v1/transfers/uploads" && method === "POST") {
       const input = JSON.parse(options.body);
@@ -75,11 +77,12 @@ function backend() {
   api.XHR = class {
     constructor() { this.upload = {}; this.headers = {}; }
     open(method, url) { assert.equal(method, "PUT"); this.url = url; }
-    setRequestHeader(key, value) { this.headers[key] = value; }
+    setRequestHeader(key, value) { assert.notEqual(key.toLowerCase(), "authorization", "分片请求不应携带访问鉴权头"); this.headers[key] = value; api.xhrHeaders.push([key, value]); }
     send(blob) {
       const range = this.headers["Content-Range"].match(/^bytes (\d+)-(\d+)\/(\d+)$/);
       const id = this.url.split("/").pop();
       const snapshot = api.sessions.get(id);
+      assert.equal(this.headers["X-Resume-Token"], snapshot.resumeToken, "分片仍需绑定内部恢复凭据");
       const [start, end, total] = range.slice(1).map(Number);
       assert.equal(start, snapshot.nextOffset);
       assert.equal(total, snapshot.totalBytes);
@@ -106,7 +109,8 @@ function browser(api, local = storage(), options = {}) {
   const elements = new Map();
   const nodes = [];
   const document = { body: new Element("body"), getElementById(id) { if (!elements.has(id)) elements.set(id, new Element()); return elements.get(id); }, createElement(tag) { const node = new Element(tag); if (tag === "a") node.click = () => api.onDownload?.(node.href); nodes.push(node); return node; } };
-  const context = { document, localStorage: local, sessionStorage: storage(), location: { search: "", hash: "#token=service-secret", pathname: "/" }, history: { replaceState() {} }, URLSearchParams, URL, Blob, Uint8Array, console, setTimeout, fetch: api.fetch, XMLHttpRequest: api.XHR, AbortController, crypto: options.crypto || webcrypto, Date: options.Date || Date };
+  // 不提供 sessionStorage，模拟直接打开 http://IP:端口；任何旧凭据访问都会导致测试失败。
+  const context = { document, localStorage: local, location: { search: "", hash: "", pathname: "/" }, history: { replaceState() {} }, URLSearchParams, URL, Blob, Uint8Array, console, setTimeout, fetch: api.fetch, XMLHttpRequest: api.XHR, AbortController, crypto: options.crypto || webcrypto, Date: options.Date || Date };
   context.window = { confirm: () => true, prompt: () => null, setTimeout: options.setTimeout || setTimeout, clearTimeout: options.clearTimeout || clearTimeout, open() {} };
   vm.runInNewContext(script, context);
   return { web: context.web, elements, nodes, local };
@@ -119,6 +123,35 @@ test("1007 MiB 文件按 500+500+7 MiB 串行请求上传，完成后清除恢�
   assert.equal(api.creates, 1); assert.equal(api.completes, 1);
   assert.deepEqual(JSON.parse(page.local.getItem("melonx.lan.uploads.v1")), {});
   assert.equal([...page.web.state.transfers.values()][0].status, "已完成");
+});
+
+test("无 URL token 和 sessionStorage 时直接初始化并读取根目录", async () => {
+  const api = backend(), page = browser(api);
+  await page.web.initialize();
+  assert.deepEqual(api.requests.map(request => request.url), ["/api/v1/status", "/api/v1/files/list?path="]);
+  assert.ok(api.requests.every(request => !Object.keys(request.headers).some(key => key.toLowerCase() === "authorization")));
+  assert.match(page.elements.get("service-state").textContent, /服务运行中/);
+});
+
+test("免访问鉴权后查询、分片和完成仍保留内部恢复凭据", async () => {
+  const api = backend(), local = storage();
+  api.failXHRAt = 1;
+  await assert.rejects(browser(api, local).web.uploadOne(fakeFile(500 * MiB + 17), "roms/large-game.nsp"));
+  api.failXHRAt = 0;
+  await browser(api, local).web.uploadOne(fakeFile(500 * MiB + 17), "roms/large-game.nsp");
+  const sessionRequests = api.requests.filter(request => /^\/api\/v1\/transfers\/uploads\//.test(request.url));
+  assert.ok(sessionRequests.some(request => request.method === "GET"));
+  assert.ok(sessionRequests.some(request => request.url.endsWith("/complete")));
+  assert.ok(sessionRequests.every(request => request.headers["X-Resume-Token"] === "resume-secret"));
+  assert.equal(api.xhrHeaders.filter(([key, value]) => key === "X-Resume-Token" && value === "resume-secret").length, 2);
+});
+
+test("服务连接失败提示检查前台服务并刷新，不展示鉴权流程", async () => {
+  const api = backend(); api.fetch = async () => { throw new TypeError("offline"); };
+  const page = browser(api);
+  await page.web.initialize();
+  assert.match(page.elements.get("service-state").textContent, /无法连接服务/);
+  assert.match(page.elements.get("message-body").textContent, /刷新重试/);
 });
 
 // 虚拟计时器只推进轮询等待；请求超时回调由单独测试控制，避免测试真实等待数十秒。
